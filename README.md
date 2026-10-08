@@ -124,6 +124,7 @@ Enforcement
 
 - [Governance Model Schema](22-governance-operations/model/governance-model.schema.json)
 - [Example Governance Pack](22-governance-operations/model/example-governance-pack.json)
+- [Rule & Control Engine](22-governance-operations/engine/)
 
 The schema defines the canonical model for:
 
@@ -142,7 +143,7 @@ The example pack demonstrates a real change flowing through controls and evidenc
 ### Planned execution layers
 
 1. **Governance Model** — machine-readable policy objects
-2. **Rule Engine** — determine which controls apply to a change
+2. **Rule Engine** — determine which controls apply to a change and derive deterministic decisions
 3. **Repository Analyzer** — collect implementation evidence
 4. **Governance CLI** — expose evaluation locally
 5. **CI Enforcement** — block unsafe changes automatically
@@ -230,5 +231,6 @@ engineering-governance/
 The standards layer is intentionally frozen at GOV-023 while the framework moves into executable governance.
 
 **Current baseline:** GOV-023 + machine-readable governance model  
-**Current phase:** Executable Governance — Model  
-**Next:** Rule engine and control evaluation
+**Current phase:** Executable Governance — Rule & Control Engine  
+**Implemented:** deterministic control applicability, evidence evaluation, risk blocking, and language-neutral analyzer contracts  
+**Next:** Repository analyzers and governance CLI
