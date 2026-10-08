@@ -47,8 +47,8 @@ Maintenance
 | FE-004 | Frontend Engineering Standard | ✅ Published |
 | DB-005 | Database Engineering Standard | ✅ Published |
 | API-006 | API Governance Standard | ✅ Published |
-| SEC-007 | Security Engineering Standard | 🔜 Next |
-| QA-008 | Testing & Quality Engineering Standard | Planned |
+| SEC-007 | Security Engineering Standard | ✅ Published |
+| QA-008 | Testing & Quality Engineering Standard | 🔜 Next |
 | REV-009 | Code Review Standard | Planned |
 | AI-010 | AI-Assisted Development Standard | Planned |
 | GIT-011 | Git & Version Control Standard | Planned |
@@ -116,10 +116,11 @@ engineering-governance/
 - [FE-004 — Frontend Engineering Standard](04-frontend/04-frontend-engineering-standard.md)
 - [DB-005 — Database Engineering Standard](05-database/05-database-engineering-standard.md)
 - [API-006 — API Governance Standard](06-api/06-api-governance-standard.md)
+- [SEC-007 — Security Engineering Standard](07-security/07-security-engineering-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** API-006  
-**Next:** SEC-007 — Security Engineering Standard
+**Current baseline:** SEC-007  
+**Next:** QA-008 — Testing & Quality Engineering Standard
