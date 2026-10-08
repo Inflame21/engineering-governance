@@ -2,6 +2,24 @@
 
 A production-grade engineering governance framework defining standards, rules, quality gates, review processes, and production-readiness requirements for building, reviewing, deploying, and maintaining reliable software systems.
 
+## AI Agent Entry Point
+
+`AGENTS.md` is the root AI-agent entrypoint for this framework. When this repository is provided to an AI coding agent, `AGENTS.md` tells the agent how to discover and apply the relevant governance standards without loading the entire framework into context by default.
+
+The agent is expected to:
+
+- identify the standards relevant to the requested task
+- treat GOV-000 as the governing authority
+- load detailed standards only when applicable
+- preserve project requirements and approved architecture decisions
+- produce engineering evidence rather than unsupported claims
+- record technical debt when appropriate
+- use EXC-021 for explicit governance exceptions
+- use PRD-018 for production-readiness assessment
+- never silently bypass mandatory governance requirements
+
+**Important:** `AGENTS.md` provides agent guidance; it does not replace engineering enforcement. CI/CD, automated tests, security controls, code review, production gates, and human approval remain enforcement mechanisms.
+
 ## Purpose
 
 This repository defines the engineering standards used to govern software work from project inception through production operation.
@@ -82,6 +100,7 @@ The SGE acts as the engineering quality gate, protecting the system from unaccep
 
 ```
 engineering-governance/
+├── AGENTS.md
 ├── 00-governance/
 ├── 01-requirements/
 ├── 02-architecture/
@@ -107,6 +126,10 @@ engineering-governance/
 ```
 
 ## Published Documents
+
+### AI Agent Entry Point
+
+- [AGENTS.md — AI Agent Governance Instructions](AGENTS.md)
 
 - [GOV-000 — Engineering Governance Constitution](00-governance/00-engineering-governance-constitution.md)
 - [REQ-001 — Requirements Engineering Standard](01-requirements/01-requirements-engineering-standard.md)
