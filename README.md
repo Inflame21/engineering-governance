@@ -81,6 +81,7 @@ Maintenance
 | DEBT-020 | Technical Debt Standard | ✅ Published |
 | EXC-021 | Engineering Exception Standard | ✅ Published |
 | GOV-022 | Governance Lifecycle & Operating Standard | ✅ Published |
+| GOV-023 | Engineering Evidence & Traceability Standard | ✅ Published |
 
 ## Severity Model
 
@@ -156,10 +157,11 @@ engineering-governance/
 - [DEBT-020 — Technical Debt Standard](20-technical-debt/20-technical-debt-standard.md)
 - [EXC-021 — Engineering Exception Standard](21-exceptions/21-engineering-exception-standard.md)
 - [GOV-022 — Governance Lifecycle & Operating Standard](22-governance-operations/22-governance-lifecycle-standard.md)
+- [GOV-023 — Engineering Evidence & Traceability Standard](22-governance-operations/23-engineering-evidence-traceability-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** GOV-022  
+**Current baseline:** GOV-023  
 **Next:** Continue governance operating standards and enforcement artifacts
