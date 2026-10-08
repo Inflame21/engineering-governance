@@ -54,8 +54,8 @@ Maintenance
 | GIT-011 | Git & Version Control Standard | ✅ Published |
 | CICD-012 | CI/CD Standard | ✅ Published |
 | INFRA-013 | Infrastructure & Environment Standard | ✅ Published |
-| OBS-014 | Observability Standard | 🔜 Next |
-| PERF-015 | Performance Engineering Standard | Planned |
+| OBS-014 | Observability Standard | ✅ Published |
+| PERF-015 | Performance Engineering Standard | 🔜 Next |
 | DOC-016 | Documentation Standard | Planned |
 | REL-017 | Release Management Standard | Planned |
 | PRD-018 | Production Readiness Standard | Planned |
@@ -123,10 +123,11 @@ engineering-governance/
 - [GIT-011 — Git & Version Control Standard](11-git/11-git-version-control-standard.md)
 - [CICD-012 — CI/CD Standard](12-cicd/12-ci-cd-standard.md)
 - [INFRA-013 — Infrastructure & Environment Standard](13-infrastructure/13-infrastructure-environment-standard.md)
+- [OBS-014 — Observability Standard](14-observability/14-observability-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** INFRA-013  
-**Next:** OBS-014 — Observability Standard
+**Current baseline:** OBS-014  
+**Next:** PERF-015 — Performance Engineering Standard
