@@ -8,13 +8,15 @@
 
 This standard defines how backend software SHALL be designed, implemented, tested, reviewed, operated, and changed.
 
-It establishes engineering rules for correctness, maintainability, security, reliability, performance, and operational safety. It is technology-aware without making the application architecture dependent on a specific framework.
+It establishes technology-independent engineering rules for correctness, maintainability, security, reliability, performance, and operational safety.
 
-FastAPI-specific requirements are included where they materially affect implementation quality. Detailed API contract governance belongs to API-006; detailed security requirements belong to SEC-007; detailed testing requirements belong to QA-008.
+**BE-003 defines WHAT must be true. Technology profiles define HOW those requirements are implemented in a particular stack.**
+
+Detailed API contract governance belongs to API-006; detailed security requirements belong to SEC-007; detailed testing requirements belong to QA-008.
 
 ## 2. Core Principle
 
-> **Routes orchestrate. Application services coordinate. Domain logic decides. Infrastructure persists or integrates.**
+> **Routes or handlers orchestrate. Application services coordinate. Domain logic decides. Infrastructure persists or integrates.**
 
 Backend code SHALL keep business decisions independent from transport, persistence, framework, and external-system concerns wherever practical.
 
@@ -22,7 +24,7 @@ Backend code SHALL keep business decisions independent from transport, persisten
 
 This standard covers:
 
-- HTTP/API entry points
+- API/transport entry points
 - request and response validation
 - application services and use cases
 - domain logic and invariants
@@ -39,8 +41,9 @@ This standard covers:
 - backend performance and reliability
 - backend testing
 - dependency management
-- FastAPI implementation rules
 - backend review and implementation readiness
+
+Framework-specific implementation guidance MUST live in technology profiles.
 
 ## 4. Backend Preconditions
 
@@ -61,11 +64,11 @@ An implementation MAY begin earlier for explicitly approved spikes or prototypes
 
 ## 5. Layer Responsibilities
 
-### 5.1 Route / Controller Layer
+### 5.1 Transport / Handler Layer
 
-The route layer is an adapter between transport protocols and application use cases.
+The transport layer is an adapter between the protocol/framework and application use cases.
 
-Routes SHOULD:
+Handlers SHOULD:
 
 - parse transport input
 - invoke the appropriate application operation
@@ -74,7 +77,7 @@ Routes SHOULD:
 - enforce transport-level concerns
 - remain small and readable
 
-Routes MUST NOT:
+Handlers MUST NOT:
 
 - contain substantial business rules
 - perform complex database queries directly
@@ -105,8 +108,7 @@ Domain logic represents business rules, invariants, policies, and state transiti
 
 Domain logic SHOULD NOT depend directly on:
 
-- FastAPI
-- HTTP request objects
+- HTTP/request objects
 - ORM sessions
 - database-specific APIs
 - infrastructure clients
@@ -119,7 +121,7 @@ Business invariants MUST be enforced server-side. Client-side validation is not 
 
 Infrastructure owns technical implementations such as:
 
-- ORM/database adapters
+- database adapters
 - external API clients
 - message brokers
 - object storage
@@ -134,7 +136,7 @@ Infrastructure details MUST NOT leak unnecessarily into domain code.
 
 Dependencies SHOULD point toward stable business abstractions rather than inward toward volatile infrastructure details.
 
-Preferred direction:
+Preferred conceptual direction:
 
 ```text
 Transport / Framework
@@ -154,7 +156,7 @@ Abstractions MUST have a purpose. The project SHOULD NOT introduce interfaces, r
 
 External input MUST be validated at the application boundary.
 
-Request schemas SHOULD:
+Request schemas or equivalent boundary contracts SHOULD:
 
 - explicitly define accepted fields
 - reject malformed or unexpected input where appropriate
@@ -162,7 +164,7 @@ Request schemas SHOULD:
 - normalize input deliberately
 - avoid silently accepting ambiguous values
 
-Response schemas SHOULD:
+Response contracts SHOULD:
 
 - expose only intended fields
 - avoid leaking internal persistence structures
@@ -188,7 +190,7 @@ Business logic MUST have one authoritative implementation.
 
 Do not duplicate the same rule across:
 
-- routes
+- handlers
 - schemas
 - frontend code
 - repository methods
@@ -202,22 +204,22 @@ State transitions SHOULD be explicit. Invalid transitions MUST be rejected rathe
 
 ## 10. Repository and Persistence Rules
 
-Repositories, when used, SHOULD represent meaningful persistence operations rather than exposing the entire ORM as a generic abstraction.
+Repositories, when used, SHOULD represent meaningful persistence operations rather than exposing the entire data-access technology as a generic abstraction.
 
 Database access MUST:
 
-- use parameterized queries or safe ORM mechanisms
+- use parameterized queries or safe data-access mechanisms
 - avoid unbounded reads
 - avoid accidental N+1 query patterns
 - select only required data where practical
 - define transaction behavior explicitly
 - handle connection/session lifecycle centrally
-- use migrations for schema changes
+- use migrations or an equivalent controlled schema-evolution mechanism
 - avoid hidden database writes inside read-oriented methods
 
 Repositories MUST NOT contain unrelated business workflows.
 
-Direct database access from routes is prohibited for production application code unless explicitly justified and approved.
+Direct database access from transport handlers is prohibited for production application code unless explicitly justified and approved.
 
 ## 11. Transaction Boundaries
 
@@ -339,7 +341,7 @@ Event consumers MUST assume that:
 
 Consumers MUST be designed accordingly.
 
-Event payloads SHOULD be versionable and should avoid exposing unstable internal database representations.
+Event payloads SHOULD be versionable and SHOULD avoid exposing unstable internal database representations.
 
 ## 18. Caching
 
@@ -423,24 +425,37 @@ Backend implementations MUST avoid:
 
 Performance optimization MUST be evidence-driven. Do not introduce complexity solely because an optimization is theoretically possible.
 
-## 23. FastAPI-Specific Rules
+## 23. Technology Profiles
 
-When FastAPI is used:
+BE-003 is intentionally technology-agnostic.
 
-- routers MUST remain thin
-- Pydantic models SHOULD define transport contracts explicitly
-- dependency injection SHOULD be used for request-scoped dependencies
-- database session lifecycle MUST be managed centrally and safely
-- authentication dependencies MUST NOT be bypassable through alternate routes
-- async endpoints MUST use async-compatible dependencies and I/O
-- synchronous blocking operations MUST NOT be placed casually inside async execution paths
-- application startup/shutdown behavior MUST be explicit
-- global mutable request state is prohibited
-- exception handlers SHOULD provide consistent API error semantics
-- OpenAPI metadata SHOULD reflect the actual API contract
-- response models SHOULD prevent accidental data exposure
+Technology profiles MAY define framework-specific implementation rules for:
 
-FastAPI framework conventions MUST serve the architecture rather than replace it.
+- project structure
+- dependency injection
+- request/response schemas
+- ORM/session lifecycle
+- async/sync execution
+- framework middleware
+- exception handling
+- startup/shutdown
+- routing conventions
+- framework-specific security mechanisms
+- framework-native testing
+- deployment/runtime conventions
+
+A technology profile MUST NOT weaken a BE-003 requirement unless an approved engineering exception exists under EXC-021.
+
+Recommended profiles include:
+
+- FastAPI
+- Django
+- Node.js
+- NestJS
+- Spring Boot
+- ASP.NET Core
+- Go
+- Rust
 
 ## 24. Dependency Management
 
@@ -484,9 +499,9 @@ Use for domain rules, pure logic, and deterministic application behavior.
 
 Use for database repositories, transactions, external adapters, queues, and infrastructure interactions.
 
-### API Tests
+### API/Transport Tests
 
-Use for request validation, authentication/authorization behavior, response contracts, and route integration.
+Use for request validation, authentication/authorization behavior, response contracts, and handler integration.
 
 Tests MUST verify meaningful behavior. A test suite that mocks every dependency and never exercises real boundaries does not constitute adequate backend verification.
 
@@ -496,8 +511,8 @@ Critical business rules MUST have automated tests.
 
 The following are production governance violations unless explicitly justified:
 
-- business logic inside route handlers
-- direct database access from controllers
+- business logic inside transport handlers
+- direct database access from controllers/handlers
 - global mutable state
 - hard-coded secrets
 - unbounded queries
@@ -507,8 +522,8 @@ The following are production governance violations unless explicitly justified:
 - retrying non-idempotent operations blindly
 - background jobs without failure visibility
 - database transactions held across slow external calls
-- returning ORM entities blindly as public API responses
-- using async syntax around blocking operations
+- returning persistence entities blindly as public API responses
+- using asynchronous syntax around blocking operations
 - creating abstractions solely to satisfy a pattern
 - service classes containing unrelated operations
 - repositories that become generic query dumps
@@ -599,7 +614,7 @@ Before backend work is considered implementation-ready, the reviewer MUST verify
 
 - [ ] Critical business rules are tested
 - [ ] Persistence boundaries are tested
-- [ ] API behavior is tested
+- [ ] API/transport behavior is tested
 - [ ] Authorization paths are tested
 - [ ] Failure paths are tested
 
@@ -615,7 +630,7 @@ The following SHOULD result in a **NO-GO** decision until corrected:
 - silent failure of critical background processing
 - non-idempotent retry behavior that can duplicate business effects
 - critical business rules missing server-side enforcement
-- production routes containing substantial unreviewed business logic
+- production handlers containing substantial unreviewed business logic
 - missing transaction boundaries for operations that require atomicity
 - known critical dependency failure with no defined handling
 - inability to diagnose critical production failures
