@@ -60,8 +60,8 @@ Maintenance
 | REL-017 | Release Management Standard | ✅ Published |
 | PRD-018 | Production Readiness Standard | ✅ Published |
 | INC-019 | Incident Management Standard | ✅ Published |
-| DEBT-020 | Technical Debt Standard | 🔜 Next |
-| EXC-021 | Engineering Exception Standard | Planned |
+| DEBT-020 | Technical Debt Standard | ✅ Published |
+| EXC-021 | Engineering Exception Standard | 🔜 Next |
 
 ## Severity Model
 
@@ -129,10 +129,11 @@ engineering-governance/
 - [REL-017 — Release Management Standard](17-release/17-release-management-standard.md)
 - [PRD-018 — Production Readiness Standard](18-production-readiness/18-production-readiness-standard.md)
 - [INC-019 — Incident Management Standard](19-incidents/19-incident-management-standard.md)
+- [DEBT-020 — Technical Debt Standard](20-technical-debt/20-technical-debt-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** INC-019  
-**Next:** DEBT-020 — Technical Debt Standard
+**Current baseline:** DEBT-020  
+**Next:** EXC-021 — Engineering Exception Standard
