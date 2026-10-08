@@ -53,8 +53,8 @@ Maintenance
 | AI-010 | AI-Assisted Development Standard | ✅ Published |
 | GIT-011 | Git & Version Control Standard | ✅ Published |
 | CICD-012 | CI/CD Standard | ✅ Published |
-| INFRA-013 | Infrastructure & Environment Standard | 🔜 Next |
-| OBS-014 | Observability Standard | Planned |
+| INFRA-013 | Infrastructure & Environment Standard | ✅ Published |
+| OBS-014 | Observability Standard | 🔜 Next |
 | PERF-015 | Performance Engineering Standard | Planned |
 | DOC-016 | Documentation Standard | Planned |
 | REL-017 | Release Management Standard | Planned |
@@ -122,10 +122,11 @@ engineering-governance/
 - [AI-010 — AI-Assisted Development Standard](10-ai-development/10-ai-assisted-development-standard.md)
 - [GIT-011 — Git & Version Control Standard](11-git/11-git-version-control-standard.md)
 - [CICD-012 — CI/CD Standard](12-cicd/12-ci-cd-standard.md)
+- [INFRA-013 — Infrastructure & Environment Standard](13-infrastructure/13-infrastructure-environment-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** CICD-012  
-**Next:** INFRA-013 — Infrastructure & Environment Standard
+**Current baseline:** INFRA-013  
+**Next:** OBS-014 — Observability Standard
