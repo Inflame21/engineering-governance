@@ -55,8 +55,8 @@ Maintenance
 | CICD-012 | CI/CD Standard | ✅ Published |
 | INFRA-013 | Infrastructure & Environment Standard | ✅ Published |
 | OBS-014 | Observability Standard | ✅ Published |
-| PERF-015 | Performance Engineering Standard | 🔜 Next |
-| DOC-016 | Documentation Standard | Planned |
+| PERF-015 | Performance Engineering Standard | ✅ Published |
+| DOC-016 | Documentation Standard | 🔜 Next |
 | REL-017 | Release Management Standard | Planned |
 | PRD-018 | Production Readiness Standard | Planned |
 | INC-019 | Incident Management Standard | Planned |
@@ -124,10 +124,11 @@ engineering-governance/
 - [CICD-012 — CI/CD Standard](12-cicd/12-ci-cd-standard.md)
 - [INFRA-013 — Infrastructure & Environment Standard](13-infrastructure/13-infrastructure-environment-standard.md)
 - [OBS-014 — Observability Standard](14-observability/14-observability-standard.md)
+- [PERF-015 — Performance Engineering Standard](15-performance/15-performance-engineering-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** OBS-014  
-**Next:** PERF-015 — Performance Engineering Standard
+**Current baseline:** PERF-015  
+**Next:** DOC-016 — Documentation Standard
