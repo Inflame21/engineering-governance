@@ -1,0 +1,451 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Inflame21/engineering-governance/blob/main/22-governance-operations/model/governance-model.schema.json",
+  "title": "Engineering Governance Model",
+  "description": "Canonical machine-readable model for evaluating engineering changes against governance standards.",
+  "type": "object",
+  "required": [
+    "version",
+    "project",
+    "change",
+    "standards",
+    "controls",
+    "evidence",
+    "risks",
+    "decisions"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    },
+    "change": {
+      "$ref": "#/$defs/change"
+    },
+    "standards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/standard"
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/control"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/risk"
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/exception"
+      },
+      "default": []
+    },
+    "debt": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/debt"
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "project": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CHG-[0-9A-Z-]+$"
+        },
+        "type": {
+          "enum": [
+            "feature",
+            "bugfix",
+            "refactor",
+            "security",
+            "database",
+            "infrastructure",
+            "configuration",
+            "release",
+            "emergency"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "risk_class": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "standard": {
+      "type": "object",
+      "required": [
+        "id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]{2,6}-\\d{3}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "control": {
+      "type": "object",
+      "required": [
+        "id",
+        "standard",
+        "title",
+        "severity",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "standard": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "WARN",
+            "NOT_APPLICABLE",
+            "UNVERIFIED"
+          ]
+        },
+        "applies_when": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failure_decision": {
+          "enum": [
+            "NO-GO",
+            "GO_WITH_CONDITIONS",
+            "REVIEW_REQUIRED",
+            "NONE"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "status",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EVD-[0-9A-Z-]+$"
+        },
+        "type": {
+          "enum": [
+            "E1_DIRECT_VERIFICATION",
+            "E2_INSPECTION",
+            "E3_AUTOMATED_ANALYSIS",
+            "E4_OPERATIONAL",
+            "E5_DOCUMENTARY",
+            "E6_ASSERTION"
+          ]
+        },
+        "status": {
+          "enum": [
+            "VERIFIED",
+            "PARTIALLY_VERIFIED",
+            "UNVERIFIED",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "freshness": {
+          "type": "string"
+        },
+        "supports_controls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk": {
+      "type": "object",
+      "required": [
+        "id",
+        "severity",
+        "title",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RSK-[0-9A-Z-]+$"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "OPEN",
+            "MITIGATED",
+            "ACCEPTED",
+            "CLOSED"
+          ]
+        },
+        "mitigation": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DEC-[0-9A-Z-]+$"
+        },
+        "type": {
+          "enum": [
+            "READINESS",
+            "REVIEW",
+            "RELEASE",
+            "PRODUCTION"
+          ]
+        },
+        "status": {
+          "enum": [
+            "READY",
+            "READY_WITH_CONDITIONS",
+            "NOT_READY",
+            "APPROVE",
+            "APPROVE_WITH_CONDITIONS",
+            "REQUEST_CHANGES",
+            "REJECT",
+            "GO",
+            "GO_WITH_CONDITIONS",
+            "NO-GO"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "owner": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "exception": {
+      "type": "object",
+      "required": [
+        "id",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EXC-[0-9A-Z-]+$"
+        },
+        "status": {
+          "enum": [
+            "REQUESTED",
+            "APPROVED",
+            "REJECTED",
+            "EXPIRED",
+            "CLOSED"
+          ]
+        },
+        "control": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "debt": {
+      "type": "object",
+      "required": [
+        "id",
+        "severity",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DEBT-[0-9A-Z-]+$"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "status": {
+          "enum": [
+            "OPEN",
+            "PLANNED",
+            "IN_PROGRESS",
+            "ACCEPTED",
+            "RESOLVED"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
