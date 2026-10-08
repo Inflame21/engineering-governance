@@ -1,6 +1,7 @@
 import { mergeAnalyzerOutputs } from "../../engine/src/analyzer.js";
 import type { AnalyzerOutput } from "../../engine/src/types.js";
 import { detectRepositoryFacts } from "./detector.js";
+import { defaultAnalyzerAdapters, selectAnalyzerAdapters } from "./adapters/registry.js";
 import { toGovernanceContext } from "./normalize.js";
 import type {
   RepositoryAnalysis,
@@ -10,7 +11,7 @@ import type {
 
 export async function analyzeRepository(
   snapshot: RepositorySnapshot,
-  adapters: readonly RepositoryAnalyzerAdapter[] = [],
+  adapters: readonly RepositoryAnalyzerAdapter[] = defaultAnalyzerAdapters,
 ): Promise<RepositoryAnalysis> {
   const baseFacts = detectRepositoryFacts(snapshot);
   const supportedAdapters = adapters.filter((adapter) =>
