@@ -57,8 +57,8 @@ Maintenance
 | OBS-014 | Observability Standard | ✅ Published |
 | PERF-015 | Performance Engineering Standard | ✅ Published |
 | DOC-016 | Documentation Standard | ✅ Published |
-| REL-017 | Release Management Standard | 🔜 Next |
-| PRD-018 | Production Readiness Standard | Planned |
+| REL-017 | Release Management Standard | ✅ Published |
+| PRD-018 | Production Readiness Standard | 🔜 Next |
 | INC-019 | Incident Management Standard | Planned |
 | DEBT-020 | Technical Debt Standard | Planned |
 | EXC-021 | Engineering Exception Standard | Planned |
@@ -126,10 +126,11 @@ engineering-governance/
 - [OBS-014 — Observability Standard](14-observability/14-observability-standard.md)
 - [PERF-015 — Performance Engineering Standard](15-performance/15-performance-engineering-standard.md)
 - [DOC-016 — Documentation Standard](16-documentation/16-documentation-standard.md)
+- [REL-017 — Release Management Standard](17-release/17-release-management-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** DOC-016  
-**Next:** REL-017 — Release Management Standard
+**Current baseline:** REL-017  
+**Next:** PRD-018 — Production Readiness Standard
