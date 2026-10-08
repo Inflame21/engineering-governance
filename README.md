@@ -43,8 +43,8 @@ Maintenance
 | GOV-000 | Engineering Governance Constitution | ✅ Published |
 | REQ-001 | Requirements Engineering Standard | ✅ Published |
 | ARC-002 | Architecture & System Design Standard | ✅ Published |
-| BE-003 | Backend Engineering Standard | 🔜 Next |
-| FE-004 | Frontend Engineering Standard | Planned |
+| BE-003 | Backend Engineering Standard | ✅ Published |
+| FE-004 | Frontend Engineering Standard | 🔜 Next |
 | DB-005 | Database Engineering Standard | Planned |
 | API-006 | API Governance Standard | Planned |
 | SEC-007 | Security Engineering Standard | Planned |
@@ -111,10 +111,11 @@ engineering-governance/
 - [GOV-000 — Engineering Governance Constitution](00-governance/00-engineering-governance-constitution.md)
 - [REQ-001 — Requirements Engineering Standard](01-requirements/01-requirements-engineering-standard.md)
 - [ARC-002 — Architecture & System Design Standard](02-architecture/02-architecture-system-design-standard.md)
+- [BE-003 — Backend Engineering Standard](03-backend/03-backend-engineering-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** ARC-002  
-**Next:** BE-003 — Backend Engineering Standard
+**Current baseline:** BE-003  
+**Next:** FE-004 — Frontend Engineering Standard
