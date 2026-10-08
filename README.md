@@ -49,8 +49,8 @@ Maintenance
 | API-006 | API Governance Standard | ✅ Published |
 | SEC-007 | Security Engineering Standard | ✅ Published |
 | QA-008 | Testing & Quality Engineering Standard | ✅ Published |
-| REV-009 | Code Review Standard | 🔜 Next |
-| AI-010 | AI-Assisted Development Standard | Planned |
+| REV-009 | Code Review Standard | ✅ Published |
+| AI-010 | AI-Assisted Development Standard | 🔜 Next |
 | GIT-011 | Git & Version Control Standard | Planned |
 | CICD-012 | CI/CD Standard | Planned |
 | INFRA-013 | Infrastructure & Environment Standard | Planned |
@@ -118,10 +118,11 @@ engineering-governance/
 - [API-006 — API Governance Standard](06-api/06-api-governance-standard.md)
 - [SEC-007 — Security Engineering Standard](07-security/07-security-engineering-standard.md)
 - [QA-008 — Testing & Quality Engineering Standard](08-testing/08-testing-quality-engineering-standard.md)
+- [REV-009 — Code Review Standard](09-code-review/09-code-review-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** QA-008  
-**Next:** REV-009 — Code Review Standard
+**Current baseline:** REV-009  
+**Next:** AI-010 — AI-Assisted Development Standard
