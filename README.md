@@ -147,6 +147,7 @@ The example pack demonstrates a real change flowing through controls and evidenc
 1. **Governance Model** — machine-readable policy objects
 2. **Rule Engine** — determine which controls apply to a change and derive deterministic decisions
 3. **Repository Analyzer** — detect languages/frameworks and normalize implementation evidence
+4. **Governance CLI** — execute analysis and emit deterministic governance results
 4. **Governance CLI** — expose evaluation locally
 5. **CI Enforcement** — block unsafe changes automatically
 6. **AI Context Generator** — produce task-specific governance context
@@ -233,6 +234,6 @@ engineering-governance/
 The standards layer is intentionally frozen at GOV-023 while the framework moves into executable governance.
 
 **Current baseline:** GOV-023 + machine-readable governance model  
-**Current phase:** Executable Governance — Repository Analysis  
-**Implemented:** deterministic control evaluation, risk blocking, language-neutral analyzer contracts, repository fact detection, and normalized governance context  
-**Next:** language/framework evidence adapters and governance CLI
+**Current phase:** Executable Governance — Governance CLI  
+**Implemented:** deterministic control evaluation, repository analysis, language/framework detection, normalized evidence, and CLI evaluation/output contracts  
+**Next:** filesystem repository loading and CI enforcement
