@@ -2,6 +2,7 @@ export interface RepositorySnapshot {
   rootPath: string;
   files: readonly string[];
   changedFiles: readonly string[];
+  fileContents?: Readonly<Record<string, string>>;
 }
 
 export interface RepositoryFacts {
