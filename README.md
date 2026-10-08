@@ -50,8 +50,8 @@ Maintenance
 | SEC-007 | Security Engineering Standard | ✅ Published |
 | QA-008 | Testing & Quality Engineering Standard | ✅ Published |
 | REV-009 | Code Review Standard | ✅ Published |
-| AI-010 | AI-Assisted Development Standard | 🔜 Next |
-| GIT-011 | Git & Version Control Standard | Planned |
+| AI-010 | AI-Assisted Development Standard | ✅ Published |
+| GIT-011 | Git & Version Control Standard | 🔜 Next |
 | CICD-012 | CI/CD Standard | Planned |
 | INFRA-013 | Infrastructure & Environment Standard | Planned |
 | OBS-014 | Observability Standard | Planned |
@@ -119,10 +119,11 @@ engineering-governance/
 - [SEC-007 — Security Engineering Standard](07-security/07-security-engineering-standard.md)
 - [QA-008 — Testing & Quality Engineering Standard](08-testing/08-testing-quality-engineering-standard.md)
 - [REV-009 — Code Review Standard](09-code-review/09-code-review-standard.md)
+- [AI-010 — AI-Assisted Development Standard](10-ai-development/10-ai-assisted-development-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** REV-009  
-**Next:** AI-010 — AI-Assisted Development Standard
+**Current baseline:** AI-010  
+**Next:** GIT-011 — Git & Version Control Standard
