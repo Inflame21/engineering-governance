@@ -58,8 +58,8 @@ Maintenance
 | PERF-015 | Performance Engineering Standard | ✅ Published |
 | DOC-016 | Documentation Standard | ✅ Published |
 | REL-017 | Release Management Standard | ✅ Published |
-| PRD-018 | Production Readiness Standard | 🔜 Next |
-| INC-019 | Incident Management Standard | Planned |
+| PRD-018 | Production Readiness Standard | ✅ Published |
+| INC-019 | Incident Management Standard | 🔜 Next |
 | DEBT-020 | Technical Debt Standard | Planned |
 | EXC-021 | Engineering Exception Standard | Planned |
 
@@ -127,10 +127,11 @@ engineering-governance/
 - [PERF-015 — Performance Engineering Standard](15-performance/15-performance-engineering-standard.md)
 - [DOC-016 — Documentation Standard](16-documentation/16-documentation-standard.md)
 - [REL-017 — Release Management Standard](17-release/17-release-management-standard.md)
+- [PRD-018 — Production Readiness Standard](18-production-readiness/18-production-readiness-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** REL-017  
-**Next:** PRD-018 — Production Readiness Standard
+**Current baseline:** PRD-018  
+**Next:** INC-019 — Incident Management Standard
