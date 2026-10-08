@@ -80,6 +80,7 @@ Maintenance
 | INC-019 | Incident Management Standard | ✅ Published |
 | DEBT-020 | Technical Debt Standard | ✅ Published |
 | EXC-021 | Engineering Exception Standard | ✅ Published |
+| GOV-022 | Governance Lifecycle & Operating Standard | ✅ Published |
 
 ## Severity Model
 
@@ -154,10 +155,11 @@ engineering-governance/
 - [INC-019 — Incident Management Standard](19-incidents/19-incident-management-standard.md)
 - [DEBT-020 — Technical Debt Standard](20-technical-debt/20-technical-debt-standard.md)
 - [EXC-021 — Engineering Exception Standard](21-exceptions/21-engineering-exception-standard.md)
+- [GOV-022 — Governance Lifecycle & Operating Standard](22-governance-operations/22-governance-lifecycle-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** EXC-021  
-**Next:** Governance framework baseline complete
+**Current baseline:** GOV-022  
+**Next:** Continue governance operating standards and enforcement artifacts
