@@ -46,8 +46,8 @@ Maintenance
 | BE-003 | Backend Engineering Standard | ✅ Published |
 | FE-004 | Frontend Engineering Standard | ✅ Published |
 | DB-005 | Database Engineering Standard | ✅ Published |
-| API-006 | API Governance Standard | 🔜 Next |
-| SEC-007 | Security Engineering Standard | Planned |
+| API-006 | API Governance Standard | ✅ Published |
+| SEC-007 | Security Engineering Standard | 🔜 Next |
 | QA-008 | Testing & Quality Engineering Standard | Planned |
 | REV-009 | Code Review Standard | Planned |
 | AI-010 | AI-Assisted Development Standard | Planned |
@@ -115,10 +115,11 @@ engineering-governance/
 - [BE-003 Profile — FastAPI](03-backend/profiles/fastapi.md)
 - [FE-004 — Frontend Engineering Standard](04-frontend/04-frontend-engineering-standard.md)
 - [DB-005 — Database Engineering Standard](05-database/05-database-engineering-standard.md)
+- [API-006 — API Governance Standard](06-api/06-api-governance-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** DB-005  
-**Next:** API-006 — API Governance Standard
+**Current baseline:** API-006  
+**Next:** SEC-007 — Security Engineering Standard
