@@ -61,7 +61,7 @@ Maintenance
 | PRD-018 | Production Readiness Standard | ✅ Published |
 | INC-019 | Incident Management Standard | ✅ Published |
 | DEBT-020 | Technical Debt Standard | ✅ Published |
-| EXC-021 | Engineering Exception Standard | 🔜 Next |
+| EXC-021 | Engineering Exception Standard | ✅ Published |
 
 ## Severity Model
 
@@ -130,10 +130,11 @@ engineering-governance/
 - [PRD-018 — Production Readiness Standard](18-production-readiness/18-production-readiness-standard.md)
 - [INC-019 — Incident Management Standard](19-incidents/19-incident-management-standard.md)
 - [DEBT-020 — Technical Debt Standard](20-technical-debt/20-technical-debt-standard.md)
+- [EXC-021 — Engineering Exception Standard](21-exceptions/21-engineering-exception-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** DEBT-020  
-**Next:** EXC-021 — Engineering Exception Standard
+**Current baseline:** EXC-021  
+**Next:** Governance framework baseline complete
