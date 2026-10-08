@@ -98,6 +98,59 @@ Maintenance
 
 The SGE acts as the engineering quality gate, protecting the system from unacceptable technical risk while allowing the team to move quickly within defined boundaries.
 
+## Executable Governance Layer
+
+The standards are now treated as **governance policy**, not as the product itself.
+
+The executable layer converts that policy into machine-readable objects that can later be evaluated by a governance engine, CLI, CI pipeline, repository scanner, and AI context generator.
+
+```
+Standards
+   ↓
+Machine-readable Governance Model
+   ↓
+Rules / Controls
+   ↓
+Evidence
+   ↓
+Evaluation
+   ↓
+Decision
+   ↓
+Enforcement
+```
+
+### Current executable artifacts
+
+- [Governance Model Schema](22-governance-operations/model/governance-model.schema.json)
+- [Example Governance Pack](22-governance-operations/model/example-governance-pack.json)
+
+The schema defines the canonical model for:
+
+- Projects
+- Changes
+- Standards
+- Controls
+- Evidence
+- Risks
+- Decisions
+- Exceptions
+- Technical debt
+
+The example pack demonstrates a real change flowing through controls and evidence to a **NO-GO** production decision because a P1 idempotency requirement remains unverified.
+
+### Planned execution layers
+
+1. **Governance Model** — machine-readable policy objects
+2. **Rule Engine** — determine which controls apply to a change
+3. **Repository Analyzer** — collect implementation evidence
+4. **Governance CLI** — expose evaluation locally
+5. **CI Enforcement** — block unsafe changes automatically
+6. **AI Context Generator** — produce task-specific governance context
+7. **Governance UI** — visualize risk, evidence, debt, exceptions, and readiness
+
+The goal is to prevent the framework from becoming documentation-only governance.
+
 ## Repository Structure
 
 ```
@@ -124,7 +177,13 @@ engineering-governance/
 ├── 18-production-readiness/
 ├── 19-incidents/
 ├── 20-technical-debt/
-└── 21-exceptions/
+├── 21-exceptions/
+└── 22-governance-operations/
+    ├── 22-governance-lifecycle-standard.md
+    ├── 23-engineering-evidence-traceability-standard.md
+    └── model/
+        ├── governance-model.schema.json
+        └── example-governance-pack.json
 ```
 
 ## Published Documents
@@ -132,6 +191,8 @@ engineering-governance/
 ### AI Agent Entry Point
 
 - [AGENTS.md — AI Agent Governance Instructions](AGENTS.md)
+
+### Standards
 
 - [GOV-000 — Engineering Governance Constitution](00-governance/00-engineering-governance-constitution.md)
 - [REQ-001 — Requirements Engineering Standard](01-requirements/01-requirements-engineering-standard.md)
@@ -159,9 +220,15 @@ engineering-governance/
 - [GOV-022 — Governance Lifecycle & Operating Standard](22-governance-operations/22-governance-lifecycle-standard.md)
 - [GOV-023 — Engineering Evidence & Traceability Standard](22-governance-operations/23-engineering-evidence-traceability-standard.md)
 
+### Executable Governance
+
+- [Governance Model Schema](22-governance-operations/model/governance-model.schema.json)
+- [Example Governance Pack](22-governance-operations/model/example-governance-pack.json)
+
 ## Status
 
-This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
+The standards layer is intentionally frozen at GOV-023 while the framework moves into executable governance.
 
-**Current baseline:** GOV-023  
-**Next:** Continue governance operating standards and enforcement artifacts
+**Current baseline:** GOV-023 + machine-readable governance model  
+**Current phase:** Executable Governance — Model  
+**Next:** Rule engine and control evaluation
