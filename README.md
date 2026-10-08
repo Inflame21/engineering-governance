@@ -112,6 +112,7 @@ engineering-governance/
 - [REQ-001 — Requirements Engineering Standard](01-requirements/01-requirements-engineering-standard.md)
 - [ARC-002 — Architecture & System Design Standard](02-architecture/02-architecture-system-design-standard.md)
 - [BE-003 — Backend Engineering Standard](03-backend/03-backend-engineering-standard.md)
+- [BE-003 Profile — FastAPI](03-backend/profiles/fastapi.md)
 
 ## Status
 
