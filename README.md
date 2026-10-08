@@ -44,8 +44,8 @@ Maintenance
 | REQ-001 | Requirements Engineering Standard | ✅ Published |
 | ARC-002 | Architecture & System Design Standard | ✅ Published |
 | BE-003 | Backend Engineering Standard | ✅ Published |
-| FE-004 | Frontend Engineering Standard | 🔜 Next |
-| DB-005 | Database Engineering Standard | Planned |
+| FE-004 | Frontend Engineering Standard | ✅ Published |
+| DB-005 | Database Engineering Standard | 🔜 Next |
 | API-006 | API Governance Standard | Planned |
 | SEC-007 | Security Engineering Standard | Planned |
 | QA-008 | Testing & Quality Engineering Standard | Planned |
@@ -113,10 +113,11 @@ engineering-governance/
 - [ARC-002 — Architecture & System Design Standard](02-architecture/02-architecture-system-design-standard.md)
 - [BE-003 — Backend Engineering Standard](03-backend/03-backend-engineering-standard.md)
 - [BE-003 Profile — FastAPI](03-backend/profiles/fastapi.md)
+- [FE-004 — Frontend Engineering Standard](04-frontend/04-frontend-engineering-standard.md)
 
 ## Status
 
 This repository is built incrementally. Each standard is reviewed and added as an independent governance artifact.
 
-**Current baseline:** BE-003  
-**Next:** FE-004 — Frontend Engineering Standard
+**Current baseline:** FE-004  
+**Next:** DB-005 — Database Engineering Standard
