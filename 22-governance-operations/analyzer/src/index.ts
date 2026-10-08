@@ -5,3 +5,6 @@ export type {
   RepositoryFacts,
   RepositorySnapshot,
 } from "./types.js";
+
+export { analyzeRepository } from "./pipeline.js";
+export { defaultAnalyzerAdapters, selectAnalyzerAdapters } from "./adapters/registry.js";
