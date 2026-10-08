@@ -1,0 +1,181 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "id": "example-saas",
+    "name": "Example SaaS",
+    "repository": "Inflame21/example-saas",
+    "environment": "production"
+  },
+  "change": {
+    "id": "CHG-EMPLOYEE-BULK-IMPORT",
+    "type": "feature",
+    "title": "Add employee bulk-import API",
+    "description": "Allow authorized administrators to import employees from a validated file.",
+    "author": "engineering",
+    "risk_class": "C",
+    "files": [
+      "backend/api/employees.py",
+      "backend/services/employee_import.py",
+      "backend/db/migrations/"
+    ]
+  },
+  "standards": [
+    {
+      "id": "API-006",
+      "title": "API Governance Standard",
+      "version": "1.0.0",
+      "source": "06-api/06-api-governance-standard.md"
+    },
+    {
+      "id": "SEC-007",
+      "title": "Security Engineering Standard",
+      "version": "1.0.0",
+      "source": "07-security/07-security-engineering-standard.md"
+    },
+    {
+      "id": "DB-005",
+      "title": "Database Engineering Standard",
+      "version": "1.0.0",
+      "source": "05-database/05-database-engineering-standard.md"
+    },
+    {
+      "id": "QA-008",
+      "title": "Testing Quality Engineering Standard",
+      "version": "1.0.0",
+      "source": "08-testing/08-testing-quality-engineering-standard.md"
+    }
+  ],
+  "controls": [
+    {
+      "id": "SEC-AUTH-001",
+      "standard": "SEC-007",
+      "title": "Protected endpoint requires authentication and authorization",
+      "severity": "P0",
+      "status": "PASS",
+      "applies_when": [
+        "api_endpoint",
+        "protected_resource"
+      ],
+      "required_evidence": [
+        "EVD-AUTH-001"
+      ],
+      "failure_decision": "NO-GO"
+    },
+    {
+      "id": "API-IDEMPOTENCY-001",
+      "standard": "API-006",
+      "title": "Import operation has an explicit idempotency strategy",
+      "severity": "P1",
+      "status": "UNVERIFIED",
+      "applies_when": [
+        "bulk_import",
+        "state_changing_api"
+      ],
+      "required_evidence": [
+        "EVD-IDEMP-001"
+      ],
+      "failure_decision": "NO-GO"
+    },
+    {
+      "id": "DB-TRANSACTION-001",
+      "standard": "DB-005",
+      "title": "Import transaction and partial-failure behavior are defined",
+      "severity": "P1",
+      "status": "PASS",
+      "applies_when": [
+        "bulk_import",
+        "database_write"
+      ],
+      "required_evidence": [
+        "EVD-DB-001"
+      ],
+      "failure_decision": "NO-GO"
+    },
+    {
+      "id": "QA-NEGATIVE-001",
+      "standard": "QA-008",
+      "title": "Invalid rows and partial-failure paths are tested",
+      "severity": "P1",
+      "status": "WARN",
+      "applies_when": [
+        "bulk_import"
+      ],
+      "required_evidence": [
+        "EVD-QA-001"
+      ],
+      "failure_decision": "REVIEW_REQUIRED"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVD-AUTH-001",
+      "type": "E3_AUTOMATED_ANALYSIS",
+      "status": "VERIFIED",
+      "description": "Authorization tests and route inspection confirm the endpoint is protected.",
+      "source": "CI security/test job",
+      "freshness": "current change",
+      "supports_controls": [
+        "SEC-AUTH-001"
+      ]
+    },
+    {
+      "id": "EVD-DB-001",
+      "type": "E2_INSPECTION",
+      "status": "VERIFIED",
+      "description": "Transaction boundary and partial-failure behavior reviewed against the import service.",
+      "source": "code review",
+      "freshness": "current change",
+      "supports_controls": [
+        "DB-TRANSACTION-001"
+      ]
+    },
+    {
+      "id": "EVD-IDEMP-001",
+      "type": "E5_DOCUMENTARY",
+      "status": "UNVERIFIED",
+      "description": "No verified evidence yet demonstrates import idempotency.",
+      "source": "change record",
+      "freshness": "current change",
+      "supports_controls": [
+        "API-IDEMPOTENCY-001"
+      ]
+    },
+    {
+      "id": "EVD-QA-001",
+      "type": "E3_AUTOMATED_ANALYSIS",
+      "status": "PARTIALLY_VERIFIED",
+      "description": "Happy-path tests exist; malformed rows and partial-failure scenarios remain incomplete.",
+      "source": "CI test job",
+      "freshness": "current change",
+      "supports_controls": [
+        "QA-NEGATIVE-001"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "RSK-IMPORT-DUPLICATE",
+      "severity": "P1",
+      "title": "Repeated import may create duplicate employees",
+      "status": "OPEN",
+      "mitigation": "Define and verify an idempotency key or deterministic deduplication strategy.",
+      "owner": "engineering"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DEC-PROD-001",
+      "type": "PRODUCTION",
+      "status": "NO-GO",
+      "reason": "A P1 idempotency control is unverified and has an open P1 duplicate-data risk.",
+      "evidence": [
+        "EVD-IDEMP-001",
+        "EVD-QA-001"
+      ],
+      "owner": "production-approver",
+      "timestamp": "2026-10-08T00:00:00Z"
+    }
+  ],
+  "exceptions": [],
+  "debt": []
+}
