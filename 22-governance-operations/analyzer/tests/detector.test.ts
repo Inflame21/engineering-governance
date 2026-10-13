@@ -40,11 +40,25 @@ describe("repository fact detection", () => {
         "services/api/manage.py",
         "infra/terraform/main.tf",
       ],
+      fileContents: {
+        "apps/web/package.json": JSON.stringify({
+          dependencies: { react: "^19.0.0" },
+        }),
+        "services/api/pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+      },
     });
 
-    expect(facts.frameworks).toEqual(["django", "vite"]);
+    expect(facts.frameworks).toEqual(["django", "fastapi", "vite"]);
     expect(facts.packageManagers).toEqual(["pnpm", "poetry"]);
     expect(facts.infrastructureSystems).toEqual(["terraform"]);
+    expect(facts.packages?.map(({ root, frameworks, packageManagers }) => ({
+      root,
+      frameworks,
+      packageManagers,
+    }))).toEqual([
+      { root: "apps/web", frameworks: ["react", "vite"], packageManagers: ["pnpm"] },
+      { root: "services/api", frameworks: ["django", "fastapi"], packageManagers: ["poetry"] },
+    ]);
   });
 
   it("does not infer a language from an unknown extension", () => {
