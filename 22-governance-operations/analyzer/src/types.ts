@@ -8,6 +8,7 @@ export interface RepositorySnapshot {
   files: readonly string[];
   changedFiles: readonly string[];
   fileContents?: Readonly<Record<string, string>>;
+  contentLimitations?: readonly string[];
 }
 
 export interface RepositoryFacts extends Record<string, unknown> {
