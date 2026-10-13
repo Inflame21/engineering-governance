@@ -5,10 +5,12 @@ import { loadArchitectureProfile, loadGovernancePack } from "./config.js";
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
+import { loadGitChangeScope } from "./git-scope.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
 export { loadArchitectureProfile, loadGovernancePack } from "./config.js";
 export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
+export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
 const VERSION = "0.1.0";
@@ -19,6 +21,7 @@ interface ParsedArguments {
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
+  baseRef?: string;
   runTools: boolean;
   json: boolean;
 }
@@ -28,8 +31,8 @@ function usage(): string {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--json]",
-    "  governance analyze <repository> [--profile <relative-path>] [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance --help",
     "  governance --version",
     "",
@@ -40,6 +43,7 @@ function usage(): string {
     "Options:",
     `  --pack    Governance pack JSON path relative to the repository root (default: ${DEFAULT_PACK_PATH})`,
     "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
+    "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
     "  --run-tools Execute installed local TypeScript/Python checks (never installs dependencies).",
     "  --json    Emit machine-readable JSON.",
     "  -h, --help",
@@ -69,6 +73,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let repositoryPath = ".";
   let packPath = DEFAULT_PACK_PATH;
   let profilePath: string | undefined;
+  let baseRef: string | undefined;
   let runTools = false;
   let json = false;
   let repositoryProvided = false;
@@ -83,11 +88,12 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       runTools = true;
       continue;
     }
-    if (argument === "--pack" || argument === "--profile") {
+    if (argument === "--pack" || argument === "--profile" || argument === "--base") {
       const value = rest[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a relative path.`);
       if (argument === "--pack") packPath = value;
-      else profilePath = value;
+      else if (argument === "--profile") profilePath = value;
+      else baseRef = value;
       index += 1;
       continue;
     }
@@ -102,6 +108,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     repositoryPath: path.resolve(repositoryPath),
     packPath,
     ...(profilePath ? { profilePath } : {}),
+    ...(baseRef ? { baseRef } : {}),
     runTools,
     json,
   };
@@ -126,7 +133,15 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   try {
-    const snapshot = await loadRepositorySnapshot(args.repositoryPath, nodeFileSystem);
+    const changeScope = args.baseRef
+      ? await loadGitChangeScope(args.repositoryPath, args.baseRef)
+      : undefined;
+    const snapshot = await loadRepositorySnapshot(
+      args.repositoryPath,
+      nodeFileSystem,
+      changeScope?.files ?? [],
+      changeScope,
+    );
 
     if (args.command === "analyze") {
       const architectureProfile = args.profilePath
