@@ -302,3 +302,55 @@ This confirms dependency-version drift between the base branch and audit branch.
 - **Ruleset administration:** Active ruleset and administrator bypass are API-verified. No ruleset settings were changed during this audit.
 
 Phase 0 remains `IN_PROGRESS`; this evidence does not grant runtime verification or production approval.
+
+
+## 9. Consolidated completion pass — 2026-10-13
+
+**Execution plan:** [Phase 0 Consolidated Completion Plan](./PHASE-0-CONSOLIDATED-COMPLETION-PLAN.md)  
+**Current state:** `IN_PROGRESS` — not production-approved.
+
+### Verified CI after workflow maintenance
+
+Workflow commit: [`5a63563ec4bb84ff5433ef9cd7ebc9af260188fc`](https://github.com/Inflame21/engineering-governance/commit/5a63563ec4bb84ff5433ef9cd7ebc9af260188fc)  
+CI run: [#38384895443](https://github.com/Inflame21/engineering-governance/actions/runs/38384895443)
+
+All three jobs completed successfully on that commit:
+- `Verify engine`: check, tests, and build passed.
+- `Verify analyzer`: check, tests, and build passed.
+- `Verify cli`: check, tests, build, and executable CLI smoke test passed.
+
+The workflow now pins `ubuntu-24.04`, uses `actions/checkout@v7` and `actions/setup-node@v7`, and still selects Node.js 22 for the project. This verifies the updated workflow on the recorded SHA. It does not establish a reproducible dependency install: the workflow still uses `npm install` and package lockfiles have not yet been committed.
+
+### Implemented regression protection
+
+- The public engine decision function invokes semantic validation and rejects duplicate evidence IDs before evaluation. Regression coverage asserts that a direct engine caller cannot bypass this invariant.
+- The CI CLI smoke test asserts that an unknown option returns exit code 3 and prints the expected diagnostic.
+- The CI CLI smoke test asserts that a missing governance pack returns exit code 3 and prints the expected CLI error prefix.
+
+The CLI failure-path tests passed in [run #38384766645](https://github.com/Inflame21/engineering-governance/actions/runs/38384766645). The duplicate-ID test also passed in that run. The subsequent workflow-only update passed all three package jobs in run #38384895443.
+
+### Branch scope finding
+
+GitHub's compare endpoint reports:
+- Audit branch: `audit/phase-0-baseline`
+- Base: `main`
+- Ahead: 357 commits
+- Behind: 0 commits
+- Merge base: `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`
+
+The 357 commits represent the branch's total divergence from `main`; they are not 357 commits created by this audit session. The comparison contains extensive implementation, tests, models, workflow, and documentation. Before considering history consolidation, review PR #1's intended scope and confirm that the feature branch is intentionally the complete proposed change set. No history rewrite or merge is authorized by this audit.
+
+### Remaining P0/P1 work
+
+- **AUD-01 — OPEN:** latest workflow SHA passes, but package installs are not yet reproducible until genuine lockfiles are committed and CI uses `npm ci`.
+- **AUD-02 — PARTIALLY VERIFIED:** duplicate evidence IDs are rejected at the direct engine boundary; full adversarial evidence/freshness/contradiction matrix remains to be verified.
+- **AUD-03 — OPEN:** schema and semantic validation still need a systematic valid/invalid fixture matrix through the actual CLI path.
+- **AUD-04 — OPEN:** nested-manifest and package-scoped fact merging need adversarial fixture verification.
+- **AUD-05 — OPEN:** malformed profiles and incomplete/ambiguous graph coverage need adversarial tests.
+- **AUD-06 — OPEN:** filesystem confinement and opt-in tool execution require adversarial verification.
+- **AUD-07 — PARTIALLY VERIFIED:** built CLI smoke tests and two execution-error exit-code cases pass; GO, GO_WITH_CONDITIONS, NO-GO, and additional failure paths need exact exit-code assertions.
+- **AUD-08 — PARTIALLY VERIFIED:** active workflow names align with required ruleset contexts and the latest workflow run passes. Enforcement under a deliberately failing required check remains unverified. The ruleset's administrator bypass and disabled strict-up-to-date policy remain documented policy risks. No ruleset settings were changed.
+
+### Closure rule
+
+Do not close Phase 0 or issue #2 until all P0 acceptance criteria are supported by reproducible evidence tied to the final audited SHA. CI success is necessary but does not by itself establish security assurance, runtime verification, or production approval.
