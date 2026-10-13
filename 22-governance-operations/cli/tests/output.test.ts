@@ -16,6 +16,16 @@ const analysis: RepositoryAnalysis = {
   evidence: [],
   findings: [],
   adapterResults: [],
+  snapshotFingerprint: {
+    algorithm: "sha256",
+    digest: `sha256:${"a".repeat(64)}`,
+    fileCount: 1,
+    ingestedContentFileCount: 1,
+    sourceFileCount: 1,
+    inspectedSourceFileCount: 1,
+    sourceContentStatus: "COMPLETE",
+    limitations: [],
+  },
 };
 
 const context = {
@@ -74,6 +84,21 @@ describe("CLI output", () => {
 
   it("renders machine-readable JSON", () => {
     const output = formatJsonResult(analysis, evaluation, context);
-    expect(JSON.parse(output).evaluation.decision.status).toBe("GO");
+    const parsed = JSON.parse(output) as {
+      report: {
+        schemaVersion: string;
+        assessmentId: string;
+        generatedAt: string;
+        repositoryFingerprint: string;
+        decision: string;
+      };
+      evaluation: GovernanceEvaluation;
+    };
+    expect(parsed.evaluation.decision.status).toBe("GO");
+    expect(parsed.report.schemaVersion).toBe("1.0.0");
+    expect(parsed.report.assessmentId).toMatch(/^ASM-\\d{17}-[A-F0-9]{12}$/);
+    expect(parsed.report.repositoryFingerprint).toBe(analysis.snapshotFingerprint?.digest);
+    expect(Number.isNaN(Date.parse(parsed.report.generatedAt))).toBe(false);
+    expect(parsed.report.decision).toBe("GO");
   });
 });
