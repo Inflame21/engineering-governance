@@ -352,6 +352,10 @@
         "acceptance_reason": {
           "type": "string",
           "minLength": 1
+        },
+        "acceptance_expires_at": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "additionalProperties": false,
@@ -371,6 +375,7 @@
             "required": [
               "accepted_by",
               "accepted_at",
+              "acceptance_expires_at",
               "acceptance_reason"
             ]
           }
