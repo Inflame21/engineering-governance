@@ -32,6 +32,35 @@ const pack: GovernancePack = {
 describe("analyze command", () => {
 
 
+
+  it("blocks approval when the declared change files differ from the verified Git diff", async () => {
+    const result = await runGovernanceCommand({
+      snapshot: {
+        rootPath: "/repo",
+        changedFiles: ["src/changed.py"],
+        changeScope: {
+          status: "VERIFIED",
+          baseRef: "origin/main",
+          headRef: "head-sha",
+          files: ["src/changed.py"],
+        },
+        files: ["main.py", "src/changed.py", "pyproject.toml"],
+        fileContents: {
+          "pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+          "main.py": "print('ok')",
+          "src/changed.py": "print('changed')",
+        },
+      },
+      governancePack: pack,
+    });
+
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.blockingViolations.some(
+      (item) => item.controlId === "CHANGE-SCOPE:DECLARATION-MISMATCH",
+    )).toBe(true);
+    expect(result.evaluation.decision.reason).toContain("does not match the verified diff");
+  });
+
   it("adds executed Python syntax evidence to the governance assessment when explicitly enabled", async () => {
     const result = await runGovernanceCommand({
       snapshot: {
