@@ -75,7 +75,9 @@
       "type": "object",
       "required": [
         "id",
-        "name"
+        "name",
+        "repository",
+        "environment"
       ],
       "properties": {
         "id": {
@@ -100,7 +102,9 @@
       "required": [
         "id",
         "type",
-        "title"
+        "title",
+        "risk_class",
+        "files"
       ],
       "properties": {
         "id": {
@@ -151,7 +155,9 @@
       "type": "object",
       "required": [
         "id",
-        "title"
+        "title",
+        "version",
+        "source"
       ],
       "properties": {
         "id": {
@@ -176,8 +182,7 @@
         "id",
         "standard",
         "title",
-        "severity",
-        "status"
+        "severity"
       ],
       "properties": {
         "id": {
@@ -208,10 +213,17 @@
           ]
         },
         "applies_when": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
         },
         "required_evidence": {
           "type": "array",
@@ -239,7 +251,10 @@
         "id",
         "type",
         "status",
-        "description"
+        "description",
+        "source",
+        "freshness",
+        "supports_controls"
       ],
       "properties": {
         "id": {
