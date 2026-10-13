@@ -175,16 +175,22 @@ function packageScopedFacts(snapshot: RepositorySnapshot): RepositoryPackageFact
       if (content === undefined) continue;
       const basename = path.posix.basename(manifestPath);
       if (basename === "package.json") {
-        const packageJson = parsePackageJson(content);
-        const packages: Array<[string, string]> = [
-          ["next", "nextjs"],
-          ["react", "react"],
-          ["express", "express"],
-          ["@nestjs/core", "nestjs"],
-          ["vite", "vite"],
-        ];
-        for (const [dependency, framework] of packages) {
-          if (hasPackageDependency(packageJson, dependency)) frameworks.add(framework);
+        // Invalid manifests are reported by the adapter pipeline; detection must
+        // remain available so one malformed package cannot abort all repository analysis.
+        try {
+          const packageJson = parsePackageJson(content);
+          const packages: Array<[string, string]> = [
+            ["next", "nextjs"],
+            ["react", "react"],
+            ["express", "express"],
+            ["@nestjs/core", "nestjs"],
+            ["vite", "vite"],
+          ];
+          for (const [dependency, framework] of packages) {
+            if (hasPackageDependency(packageJson, dependency)) frameworks.add(framework);
+          }
+        } catch {
+          // Leave framework identity unknown for this package; the adapter records the failure.
         }
       } else if (basename === "pyproject.toml" || basename === "requirements.txt") {
         if (hasPythonDependency(content, "fastapi")) frameworks.add("fastapi");
