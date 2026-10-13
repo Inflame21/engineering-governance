@@ -1,4 +1,4 @@
-import type { RepositoryAnalysis, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
+import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
 import { hasPackageDependency, hasPythonDependency, parsePackageJson } from "../manifest.js";
 
 export const frameworkAdapter: RepositoryAnalyzerAdapter = {
@@ -8,7 +8,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
     snapshot.files.includes("package.json") ||
     snapshot.files.includes("pyproject.toml") ||
     snapshot.files.includes("requirements.txt"),
-  async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAnalysis> {
+  async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
     const signals = new Set<string>();
     const frameworks = new Set<string>();
 
