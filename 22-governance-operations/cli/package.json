@@ -15,10 +15,7 @@
     "vitest": "^5.0.4",
     "@types/node": "^22.15.30"
   },
-  "dependencies": {
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
-  },
+  "dependencies": {},
   "bin": {
     "governance": "./dist/cli/src/index.js"
   }
