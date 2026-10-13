@@ -151,16 +151,6 @@ export async function analyzeRepository(
     : undefined;
   const systemGraph = buildRepositorySystemGraph(snapshot);
 
-  adapterResults.push({
-    adapterId: "system-graph",
-    version: "0.1.0",
-    executionStatus: systemGraph.status === "PARTIAL" ? "PARTIAL" : "SUCCESS",
-    supportedCapabilities: ["system-graph:package", "system-graph:api", "system-graph:database", "system-graph:event"],
-    unsupportedCapabilities: systemGraph.status === "PARTIAL" ? ["system-graph:source-coverage"] : [],
-    evidenceRefs: systemGraph.evidence.map((item) => item.id),
-    limitations: systemGraph.limitations,
-  });
-
   if (architecture) {
     findings.push(...architecture.findings);
     adapterResults.push({
