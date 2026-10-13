@@ -39,6 +39,13 @@ jobs:
           cache: npm
           cache-dependency-path: 22-governance-operations/${{ matrix.package }}/package-lock.json
 
+      - name: Record runtime toolchain versions
+        shell: bash
+        run: |
+          printf 'runner_os=%s\n' "$RUNNER_OS"
+          node --version
+          npm --version
+
       - name: Install package dependencies
         run: npm ci
 
