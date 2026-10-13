@@ -117,6 +117,35 @@ export interface GovernanceProject {
   environment: string;
 }
 
+export type GovernanceFindingStatus =
+  | "OPEN"
+  | "ACKNOWLEDGED"
+  | "IN_PROGRESS"
+  | "RESOLVED"
+  | "ACCEPTED"
+  | "SUPPRESSED"
+  | "UNVERIFIED";
+
+export interface GovernanceFinding {
+  id: string;
+  rule_id: string;
+  severity: Severity;
+  category: string;
+  message: string;
+  status: GovernanceFindingStatus;
+  evidence_refs: string[];
+  source_location?: {
+    file: string;
+    start_line?: number;
+    end_line?: number;
+    start_column?: number;
+    end_column?: number;
+  };
+  component_id?: string;
+  confidence?: number;
+  remediation?: string;
+}
+
 export interface GovernancePack {
   version: string;
   project: GovernanceProject;
@@ -126,6 +155,7 @@ export interface GovernancePack {
   evidence: GovernanceEvidence[];
   risks: GovernanceRisk[];
   decisions: GovernanceDecisionRecord[];
+  findings?: GovernanceFinding[];
   exceptions?: GovernanceException[];
   debt?: GovernanceDebt[];
 }
