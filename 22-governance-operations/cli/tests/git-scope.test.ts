@@ -26,8 +26,14 @@ function successfulGitRunner(root: string): GitCommandRunner {
       if (args[0] === "rev-parse" && args.includes("HEAD^{commit}")) {
         return { exitCode: 0, stdout: "head-sha\n", stderr: "" };
       }
+      if (args[0] === "diff" && args.includes("HEAD")) {
+        return { exitCode: 0, stdout: "src/working.py\0", stderr: "" };
+      }
       if (args[0] === "diff") {
         return { exitCode: 0, stdout: "src/a.ts\0src/b.py\0", stderr: "" };
+      }
+      if (args[0] === "ls-files") {
+        return { exitCode: 0, stdout: "src/new.py\0", stderr: "" };
       }
       return { exitCode: 1, stdout: "", stderr: "Unexpected Git command." };
     },
@@ -43,7 +49,7 @@ describe("Git change-scope adapter", () => {
       status: "VERIFIED",
       baseRef: "origin/main",
       headRef: "head-sha",
-      files: ["src/a.ts", "src/b.py"],
+      files: ["src/a.ts", "src/b.py", "src/new.py", "src/working.py"],
     });
   });
 
