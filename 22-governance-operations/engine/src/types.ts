@@ -180,6 +180,8 @@ export interface GovernanceContext {
   analysisStatus?: GovernanceAnalysisStatus;
   unsupportedCapabilities?: string[];
   analyzerLimitations?: string[];
+  /** Findings emitted by repository analyzers; unresolved high-severity findings affect the decision. */
+  findings?: GovernanceFinding[];
   /** ISO-8601 timestamp supplied by the caller so exception evaluation is reproducible. */
   evaluatedAt?: string;
 }
