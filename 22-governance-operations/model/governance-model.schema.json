@@ -377,7 +377,25 @@
               "accepted_at",
               "acceptance_expires_at",
               "acceptance_reason"
-            ]
+            ],
+            "properties": {
+              "accepted_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "accepted_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "acceptance_expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "acceptance_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         }
       ]
@@ -513,7 +531,33 @@
               "change_id",
               "requested_by",
               "requested_at"
-            ]
+            ],
+            "properties": {
+              "control": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "project_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "change_id": {
+                "type": "string",
+                "pattern": "^CHG-[0-9A-Z-]+$"
+              },
+              "requested_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requested_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
           }
         },
         {
@@ -538,7 +582,45 @@
               "approved_by",
               "approved_at",
               "expires_at"
-            ]
+            ],
+            "properties": {
+              "control": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "project_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "change_id": {
+                "type": "string",
+                "pattern": "^CHG-[0-9A-Z-]+$"
+              },
+              "requested_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requested_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "approved_by": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approved_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
           }
         }
       ]
