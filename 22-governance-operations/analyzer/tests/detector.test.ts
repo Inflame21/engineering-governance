@@ -21,7 +21,7 @@ describe("repository fact detection", () => {
     });
 
     expect(facts.languages).toEqual(["go", "python", "typescript"]);
-    expect(facts.frameworks).toEqual(["node", "vite"]);
+    expect(facts.frameworks).toEqual(["vite"]);
     expect(facts.packageManagers).toEqual(["go", "pnpm"]);
     expect(facts.buildSystems).toEqual(["docker", "make"]);
   });
