@@ -372,7 +372,7 @@ Do not close Phase 0 or issue #2 until all P0 acceptance criteria are supported 
 | `Verify engine` | `success` — [job](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321/job/115291663639) |
 | `Verify analyzer` | `success` — [job](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321/job/115291663675) |
 | `Verify cli` | `success` — [job](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321/job/115291663515); install, type-check, tests, build, CLI e2e, and smoke steps all `success` |
-| CI runner / Node | `ubuntu-24.04`; Node `22` (major selector; exact patch and npm version were **not** captured because the run logs require authentication) |
+| CI runner / Node | `ubuntu-24.04`; Node major selector `22`. Exact Node/npm values were not captured in the §10 baseline run; a later CI log was recorded in §12 as Node `v22.23.3`, npm `10.9.9` (reviewer authentication of those values remains unconfirmed) |
 | Local clean-room toolchain | Node v24.18.0, npm 12.0.1, Windows 11 |
 
 A documentation-only commit follows the tested SHA. It changes no code; its own CI run is separate evidence. Earlier runs on `f2ce620` (success) and `f839f0b` (**failure**, see 10.4) remain in the branch history.
@@ -488,7 +488,7 @@ This change records the versions but does not pin the Node patch version. Pinnin
 
 ## 13. Current branch-scope recheck — 2026-10-13
 
-After the schema-contract and CI-toolchain follow-ups, GitHub's compare endpoint currently reports:
+At the time of this snapshot, after the schema-contract and CI-toolchain follow-ups, GitHub's compare endpoint reported:
 
 - Base: `main`
 - Audit branch: `audit/phase-0-baseline`
@@ -497,9 +497,9 @@ After the schema-contract and CI-toolchain follow-ups, GitHub's compare endpoint
 - Merge base: `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`
 - Changed files: **77**
 
-This is a new current snapshot and supersedes earlier ahead/file counts for present-day scope review. The increase includes follow-up commits and a new schema contract test; it does not mean all 374 commits were authored during this audit. The branch still represents the full feature history rather than an audit-only diff. Human review must decide whether this entire scope is intended for PR #1 and inspect the previously recorded force-push/re-authorship event. No merge or history rewrite was performed as part of this recheck.
+This is a historical snapshot, not a current scope claim. Use PR #1's live compare view for current ahead/behind/file counts. The increase at that time included follow-up commits and a new schema contract test; it does not mean all 374 commits were authored during this audit. The branch still represents the full feature history rather than an audit-only diff. Human review must decide whether this entire scope is intended for PR #1 and inspect the previously recorded force-push/re-authorship event. No merge or history rewrite was performed as part of this recheck.
 
-Current PR head at the time of this recheck: [`f3c46990f302504cb36917d9ddc36381036ddb70`](https://github.com/Inflame21/engineering-governance/commit/f3c46990f302504cb36917d9ddc36381036ddb70). The current head's workflow run [#38397958132](https://github.com/Inflame21/engineering-governance/actions/runs/38397958132) passed all three package jobs.
+PR head at the time of this historical recheck: [`f3c46990f302504cb36917d9ddc36381036ddb70`](https://github.com/Inflame21/engineering-governance/commit/f3c46990f302504cb36917d9ddc36381036ddb70). The current head's workflow run [#38397958132](https://github.com/Inflame21/engineering-governance/actions/runs/38397958132) passed all three package jobs.
 
 
 ## 14. Real-repository CLI integration smoke — 2026-10-13
@@ -519,6 +519,6 @@ Observed repository integration result:
 
 ### Current scope snapshot after this follow-up
 
-GitHub compare currently reports **377 commits ahead, 0 behind, 77 changed files**, with merge base `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`. The current PR head is [`cbaade822b1341e534afde13a76d1aeaaad3c10a`](https://github.com/Inflame21/engineering-governance/commit/cbaade822b1341e534afde13a76d1aeaaad3c10a); CI run #38398216932 passed all three jobs. These are the current counts for scope review; older snapshots in Sections 10 and 13 remain historical.
+At the time of this historical snapshot, GitHub compare reported **377 commits ahead, 0 behind, 77 changed files**, with merge base `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`. The PR head then was [`cbaade822b1341e534afde13a76d1aeaaad3c10a`](https://github.com/Inflame21/engineering-governance/commit/cbaade822b1341e534afde13a76d1aeaaad3c10a); CI run #38398216932 passed all three jobs. For current scope review, use [PR #1's live compare view](https://github.com/Inflame21/engineering-governance/compare/main...audit/phase-0-baseline).
 
 Phase 0 remains `IN_PROGRESS`. The outstanding blockers include the complete schema constraint/conditional-rule matrix, safe required-check enforcement evidence, the unsupported framework-detection investigation, and human review of branch scope/history.
