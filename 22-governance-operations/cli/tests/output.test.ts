@@ -14,6 +14,8 @@ const analysis: RepositoryAnalysis = {
   },
   signals: ["framework:fastapi", "capability:http-api"],
   evidence: [],
+  findings: [],
+  adapterResults: [],
 };
 
 const evaluation: GovernanceEvaluation = {
