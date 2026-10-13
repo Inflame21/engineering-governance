@@ -141,7 +141,7 @@ export function formatJsonResult(
 ): string {
   const generatedAt = new Date().toISOString();
   const fingerprint = analysis.snapshotFingerprint?.digest ?? null;
-  const timestampKey = generatedAt.replace(/\\D/g, "").slice(0, 17);
+  const timestampKey = generatedAt.replace(/\D/g, "").slice(0, 17);
   const fingerprintKey = fingerprint?.replace(/^sha256:/, "").slice(0, 12).toUpperCase() ?? "NO-FINGERPRINT";
   const assessmentId = `ASM-${timestampKey}-${fingerprintKey}`;
 
