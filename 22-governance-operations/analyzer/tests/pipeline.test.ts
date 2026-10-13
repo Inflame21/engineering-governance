@@ -31,6 +31,9 @@ describe("repository analyzer pipeline", () => {
     expect(result.signals).toContain("build:vite");
     expect(result.signals).toContain("capability:http-api");
     expect(result.evidence.map((item) => item.id)).toContain("EVD-FRAMEWORK-MANIFEST");
+    expect(result.snapshotFingerprint?.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(result.evidence.every((item) => item.repository_fingerprint === result.snapshotFingerprint?.digest)).toBe(true);
+    expect(result.evidence.every((item) => Boolean(item.generated_at))).toBe(true);
     expect(result.adapterResults.every((item) => item.version.length > 0)).toBe(true);
   });
 
