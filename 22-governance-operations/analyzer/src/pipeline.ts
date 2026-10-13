@@ -4,6 +4,7 @@ import { detectRepositoryFacts } from "./detector.js";
 import { defaultAnalyzerAdapters } from "./adapters/registry.js";
 import { toGovernanceContext } from "./normalize.js";
 import { verifyArchitectureProfile } from "./architecture.js";
+import { fingerprintRepositorySnapshot } from "./fingerprint.js";
 import type { ArchitectureProfile } from "./architecture.js";
 import type {
   RepositoryAdapterResult,
@@ -167,6 +168,7 @@ export async function analyzeRepository(
     adapterResults,
     ...(architecture ? { architecture } : {}),
     ...(snapshot.changeScope ? { changeScope: snapshot.changeScope } : {}),
+    snapshotFingerprint: fingerprintRepositorySnapshot(snapshot),
   };
 
   // Validate that the normalization path is executable and deterministic.
