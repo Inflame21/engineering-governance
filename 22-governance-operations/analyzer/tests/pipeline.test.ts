@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeRepository } from "../src/pipeline.js";
+import { toGovernanceContext } from "../src/normalize.js";
+import type { RepositoryAnalyzerAdapter } from "../src/types.js";
 
 describe("repository analyzer pipeline", () => {
   it("flows repository manifests through framework detection", async () => {
@@ -29,5 +31,43 @@ describe("repository analyzer pipeline", () => {
     expect(result.signals).toContain("build:vite");
     expect(result.signals).toContain("capability:http-api");
     expect(result.evidence.map((item) => item.id)).toContain("EVD-FRAMEWORK-MANIFEST");
+    expect(result.adapterResults.every((item) => item.version.length > 0)).toBe(true);
+  });
+
+  it("reports languages without a registered analyzer as unsupported", async () => {
+    const result = await analyzeRepository({
+      rootPath: "/repo",
+      changedFiles: ["main.go"],
+      files: ["main.go", "go.mod"],
+    });
+    const context = toGovernanceContext(result);
+
+    expect(context.analysisStatus).toBe("PARTIAL");
+    expect(context.unsupportedCapabilities).toContain("language-specific-analysis:go");
+  });
+
+  it("captures adapter execution failures instead of silently dropping them", async () => {
+    const failingAdapter: RepositoryAnalyzerAdapter = {
+      id: "failing-python-test-adapter",
+      version: "1.0.0",
+      languages: ["python"],
+      capabilities: ["python-test-analysis"],
+      supports: () => true,
+      async analyze() {
+        throw new Error("synthetic analyzer failure");
+      },
+    };
+
+    const result = await analyzeRepository({
+      rootPath: "/repo",
+      changedFiles: ["main.py"],
+      files: ["main.py"],
+    }, [failingAdapter]);
+    const context = toGovernanceContext(result);
+
+    expect(result.adapterResults[0]?.executionStatus).toBe("FAILED");
+    expect(result.adapterResults[0]?.unsupportedCapabilities).toContain("python-test-analysis");
+    expect(result.adapterResults[0]?.limitations[0]).toContain("synthetic analyzer failure");
+    expect(context.analysisStatus).toBe("FAILED");
   });
 });
