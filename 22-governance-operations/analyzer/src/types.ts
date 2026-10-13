@@ -20,7 +20,6 @@ export interface RepositorySnapshot {
   fileContents?: Readonly<Record<string, string>>;
   contentLimitations?: readonly string[];
   changeScope?: RepositoryChangeScope;
-  snapshotFingerprint?: RepositorySnapshotFingerprint;
 }
 
 export interface RepositoryFacts extends Record<string, unknown> {
@@ -53,6 +52,7 @@ export interface RepositoryAnalysis {
   architecture?: ArchitectureVerificationResult;
   verification?: VerificationReport;
   changeScope?: RepositoryChangeScope;
+  snapshotFingerprint?: RepositorySnapshotFingerprint;
 }
 
 export interface RepositoryAdapterOutput {
