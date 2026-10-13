@@ -83,8 +83,17 @@ export const nodeFileSystem: FileSystemPort = {
       throw error;
     }
 
-    // Do not follow symlinks, devices, or other special filesystem entries.
+    // Do not follow symlinks, devices, or paths whose parent symlink resolves outside the root.
     if (!targetInfo.isFile() || targetInfo.isSymbolicLink()) return undefined;
+    const canonicalTarget = await realpath(target);
+    const relativeCanonicalTarget = path.relative(root, canonicalTarget);
+    if (
+      relativeCanonicalTarget === ".." ||
+      relativeCanonicalTarget.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeCanonicalTarget)
+    ) {
+      throw new Error(`Resolved file escapes repository root: ${relativePath}`);
+    }
     if (targetInfo.size > MAX_TEXT_FILE_BYTES) {
       throw new Error(`Refusing to read ${relativePath}: file exceeds ${MAX_TEXT_FILE_BYTES} bytes.`);
     }
