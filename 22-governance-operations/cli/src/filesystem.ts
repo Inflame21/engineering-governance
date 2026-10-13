@@ -21,6 +21,13 @@ const ignoredDirectories = new Set([
 
 const MAX_FILES = 50_000;
 const MAX_TEXT_FILE_BYTES = 1_000_000;
+const MAX_SOURCE_FILES_FOR_ANALYSIS = 5_000;
+const MAX_TOTAL_SOURCE_CONTENT_CHARS = 20_000_000;
+const sourceExtensions = new Set([
+  ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
+  ".py", ".go", ".java", ".rs", ".cs", ".rb", ".php", ".kt", ".swift",
+  ".c", ".h", ".cc", ".cpp", ".hpp",
+]);
 
 function normalizedRelativePath(filePath: string): string {
   return filePath.replaceAll("\\", "/").replace(/^\.\//, "");
@@ -117,14 +124,51 @@ export async function loadRepositorySnapshot(
     const basename = path.posix.basename(file);
     return manifestNames.has(basename);
   });
-
-  const entries = await Promise.all(
-    manifestPaths.map(async (manifestPath) =>
-      [manifestPath, await fs.readTextFile(rootPath, manifestPath)] as const),
-  );
+  const sourcePaths = files.filter((file) => sourceExtensions.has(path.posix.extname(file).toLowerCase()));
+  const sourcePathSet = new Set(sourcePaths);
+  const manifestPathSet = new Set(manifestPaths);
+  const contentPaths = [...new Set([...manifestPaths, ...sourcePaths])];
   const fileContents: Record<string, string> = {};
-  for (const [manifestPath, content] of entries) {
-    if (content !== undefined) fileContents[manifestPath] = content;
+  const contentLimitations: string[] = [];
+  let sourceFilesLoaded = 0;
+  let totalSourceContentChars = 0;
+
+  // Read manifests first, then bounded source content for dependency analysis.
+  for (const relativePath of contentPaths) {
+    const isSource = sourcePathSet.has(relativePath);
+    if (
+      isSource &&
+      (sourceFilesLoaded >= MAX_SOURCE_FILES_FOR_ANALYSIS ||
+        totalSourceContentChars >= MAX_TOTAL_SOURCE_CONTENT_CHARS)
+    ) {
+      contentLimitations.push(
+        `Source-content limits reached; ${relativePath} and later source files were not inspected.`,
+      );
+      continue;
+    }
+
+    const content = await fs.readTextFile(rootPath, relativePath);
+    if (content === undefined) {
+      if (isSource || manifestPathSet.has(relativePath)) {
+        contentLimitations.push(
+          `Content unavailable for ${relativePath}; dependent analysis may be incomplete.`,
+        );
+      }
+      continue;
+    }
+
+    if (isSource && totalSourceContentChars + content.length > MAX_TOTAL_SOURCE_CONTENT_CHARS) {
+      contentLimitations.push(
+        `Source-content character limit reached before ${relativePath}; this and later source files were not inspected.`,
+      );
+      continue;
+    }
+
+    fileContents[relativePath] = content;
+    if (isSource) {
+      sourceFilesLoaded += 1;
+      totalSourceContentChars += content.length;
+    }
   }
 
   return {
@@ -132,5 +176,6 @@ export async function loadRepositorySnapshot(
     files,
     changedFiles: changedFiles.map(normalizedRelativePath),
     fileContents,
+    ...(contentLimitations.length > 0 ? { contentLimitations } : {}),
   };
 }
