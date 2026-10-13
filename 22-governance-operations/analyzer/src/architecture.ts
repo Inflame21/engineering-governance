@@ -94,7 +94,7 @@ export function validateArchitectureProfile(value: unknown): ArchitectureProfile
   if (typeof profile.id !== "string" || !/^[a-z][a-z0-9-]*$/.test(profile.id)) {
     errors.push("/id must be a lowercase identifier.");
   }
-  if (typeof profile.version !== "string" || !/^\\d+\\.\\d+\\.\\d+$/.test(profile.version)) {
+  if (typeof profile.version !== "string" || !/^\d+\.\d+\.\d+$/.test(profile.version)) {
     errors.push("/version must use semantic version format X.Y.Z.");
   }
   if (typeof profile.name !== "string" || profile.name.trim().length === 0) {
