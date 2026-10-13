@@ -56,6 +56,35 @@ describe("repository analyzer pipeline", () => {
     expect(context.analyzerLimitations.some((item) => item.includes("package.json:"))).toBe(true);
   });
 
+  it("keeps valid framework facts when another monorepo manifest is malformed", async () => {
+    const result = await analyzeRepository({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: [
+        "apps/broken/package.json",
+        "apps/web/package.json",
+        "apps/web/src/App.tsx",
+      ],
+      fileContents: {
+        "apps/broken/package.json": "{not-json",
+        "apps/web/package.json": JSON.stringify({
+          dependencies: { react: "^19.0.0" },
+        }),
+        "apps/web/src/App.tsx": "export default function App() { return null; }",
+      },
+    });
+
+    expect(result.facts.frameworks).toContain("react");
+    expect(result.adapterResults.some((item) =>
+      item.adapterId === "framework-detection" &&
+      item.executionStatus === "PARTIAL" &&
+      item.unsupportedCapabilities.includes("framework-detection:manifest-parse"),
+    )).toBe(true);
+    expect(result.evidence.some((item) =>
+      item.id === "EVD-FRAMEWORK-MANIFEST" && item.status === "PARTIALLY_VERIFIED",
+    )).toBe(true);
+  });
+
   it("reports languages without a registered analyzer as unsupported", async () => {
     const result = await analyzeRepository({
       rootPath: "/repo",
