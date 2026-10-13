@@ -37,6 +37,25 @@ describe("repository analyzer pipeline", () => {
     expect(result.adapterResults.every((item) => item.version.length > 0)).toBe(true);
   });
 
+  it("surfaces malformed manifests as adapter failures instead of aborting repository analysis", async () => {
+    const result = await analyzeRepository({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["package.json", "src/index.ts"],
+      fileContents: {
+        "package.json": "{not-json",
+        "src/index.ts": "export const ready = true;",
+      },
+    });
+    const context = toGovernanceContext(result);
+
+    expect(result.adapterResults.some((item) =>
+      item.adapterId === "framework-detection" && item.executionStatus === "FAILED",
+    )).toBe(true);
+    expect(context.analysisStatus).toBe("PARTIAL");
+    expect(context.analyzerLimitations.some((item) => item.includes("Unexpected token"))).toBe(true);
+  });
+
   it("reports languages without a registered analyzer as unsupported", async () => {
     const result = await analyzeRepository({
       rootPath: "/repo",
