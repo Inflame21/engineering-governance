@@ -119,3 +119,10 @@ Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/co
 - [x] Run required CI on head [`d308148`](https://github.com/Inflame21/engineering-governance/commit/d30814884eda295a0ab297b029e5c550510a1dec): [run #38401267284](https://github.com/Inflame21/engineering-governance/actions/runs/38401267284), all three jobs succeeded.
 - [ ] Complete a recursive constraint-by-constraint valid/invalid fixture matrix and explicitly resolve/document the top-level governance-pack `additionalProperties` policy before closing AUD-03.
 
+
+
+### AUD-08 safe probe readiness note
+
+- Confirmed that `.github/workflows/governance-operations.yml` is absent from `main` (404) and introduced by PR #1; a branch created only from `main` will not inherit that workflow.
+- Do not create a duplicate giant-history probe branch or alter ruleset settings. Before creating a temporary probe PR, verify required-check app/source association and duplicate-context behavior. The probe must never be merged; only its temporary PR may be closed after evidence is captured.
+- AUD-08 remains open; no failing-check enforcement result is claimed. See repository audit §16.
