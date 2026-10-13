@@ -75,6 +75,9 @@ export interface GovernanceRisk {
   status: "OPEN" | "MITIGATED" | "ACCEPTED" | "CLOSED";
   mitigation?: string;
   owner?: string;
+  accepted_by?: string;
+  accepted_at?: string;
+  acceptance_reason?: string;
 }
 
 export interface GovernanceStandard {
@@ -99,6 +102,12 @@ export interface GovernanceException {
   status: "REQUESTED" | "APPROVED" | "REJECTED" | "EXPIRED" | "CLOSED";
   control?: string;
   reason?: string;
+  project_id?: string;
+  change_id?: string;
+  requested_by?: string;
+  requested_at?: string;
+  approved_by?: string;
+  approved_at?: string;
   expires_at?: string;
 }
 
@@ -170,6 +179,8 @@ export interface GovernanceContext {
   analysisStatus?: GovernanceAnalysisStatus;
   unsupportedCapabilities?: string[];
   analyzerLimitations?: string[];
+  /** ISO-8601 timestamp supplied by the caller so exception evaluation is reproducible. */
+  evaluatedAt?: string;
 }
 
 export type ApplicabilityStatus = "APPLICABLE" | "NOT_APPLICABLE" | "UNVERIFIED";
