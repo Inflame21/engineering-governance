@@ -18,11 +18,13 @@ describe("CLI argument parser", () => {
       "config/governance.json",
       "--profile",
       "config/architecture.json",
+      "--run-tools",
       "--json",
     ])).toMatchObject({
       command: "check",
       packPath: "config/governance.json",
       profilePath: "config/architecture.json",
+      runTools: true,
       json: true,
     });
   });
