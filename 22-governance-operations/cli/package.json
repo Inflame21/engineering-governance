@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run --exclude dist/**",
+    "test": "vitest run --exclude dist/** --exclude tests/end-to-end.test.ts",
     "test:e2e": "vitest run tests/end-to-end.test.ts",
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/cli/src/index.js",
