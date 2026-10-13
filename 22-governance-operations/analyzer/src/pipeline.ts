@@ -3,6 +3,8 @@ import type { AnalyzerOutput } from "../../engine/src/types.js";
 import { detectRepositoryFacts } from "./detector.js";
 import { defaultAnalyzerAdapters } from "./adapters/registry.js";
 import { toGovernanceContext } from "./normalize.js";
+import { verifyArchitectureProfile } from "./architecture.js";
+import type { ArchitectureProfile } from "./architecture.js";
 import type {
   RepositoryAdapterResult,
   RepositoryAnalysis,
@@ -46,6 +48,7 @@ function errorMessage(error: unknown): string {
 export async function analyzeRepository(
   snapshot: RepositorySnapshot,
   adapters: readonly RepositoryAnalyzerAdapter[] = defaultAnalyzerAdapters,
+  architectureProfile?: ArchitectureProfile,
 ): Promise<RepositoryAnalysis> {
   const baseFacts = detectRepositoryFacts(snapshot);
   const detectedLanguages = new Set(baseFacts.languages);
@@ -127,12 +130,30 @@ export async function analyzeRepository(
   }
 
   const merged = mergeAnalyzerOutputs(outputs);
+  const architecture = architectureProfile
+    ? verifyArchitectureProfile(snapshot, architectureProfile)
+    : undefined;
+
+  if (architecture) {
+    findings.push(...architecture.findings);
+    adapterResults.push({
+      adapterId: `architecture-profile:${architecture.profileId}`,
+      version: architectureProfile?.version ?? "unknown",
+      executionStatus: architecture.status === "FAILED" ? "FAILED" : architecture.status === "PARTIAL" ? "PARTIAL" : "SUCCESS",
+      supportedCapabilities: architecture.supportedCapabilities,
+      unsupportedCapabilities: architecture.unsupportedCapabilities,
+      evidenceRefs: architecture.evidence.map((item) => item.id),
+      limitations: architecture.limitations,
+    });
+  }
+
   const analysis: RepositoryAnalysis = {
     facts: mergeRepositoryFacts(baseFacts, outputs),
     signals: merged.signals,
-    evidence: merged.evidence ?? [],
+    evidence: [...(merged.evidence ?? []), ...(architecture?.evidence ?? [])],
     findings,
     adapterResults,
+    ...(architecture ? { architecture } : {}),
   };
 
   // Validate that the normalization path is executable and deterministic.
