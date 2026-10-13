@@ -376,7 +376,15 @@ export function buildArchitectureDependencyGraph(
         looksLocal = resolved.looksLocal;
       } else {
         target = resolveTypeScriptImport(sourceFile, item.specifier, fileSet);
-        looksLocal = item.specifier.startsWith(".");
+        // Common alias conventions are potentially local. Until tsconfig/jsconfig
+        // path mappings are resolved, do not silently treat them as external.
+        looksLocal =
+          item.specifier.startsWith(".") ||
+          item.specifier.startsWith("@/") ||
+          item.specifier.startsWith("~/") ||
+          item.specifier.startsWith("src/") ||
+          item.specifier.startsWith("app/") ||
+          item.specifier.startsWith("#");
       }
 
       if (!target) {
