@@ -88,6 +88,27 @@ describe("architecture profiles", () => {
     expect(graph.edges[0]?.evidenceRef).toMatch(/^EVD-ARCH-/);
   });
 
+
+  it("builds Python relative-import edges with source provenance", () => {
+    const graph = buildArchitectureDependencyGraph({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.py", "src/infrastructure/db.py"],
+      fileContents: {
+        "src/domain/user.py": "from ..infrastructure.db import get_db\\nuser = get_db()",
+        "src/infrastructure/db.py": "def get_db():\\n    return None",
+      },
+    }, cleanArchitectureExample as ArchitectureProfile);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      sourceId: "FILE:src/domain/user.py",
+      targetId: "FILE:src/infrastructure/db.py",
+      importSpecifier: "..infrastructure.db",
+      sourceLocation: { file: "src/domain/user.py", line: 1 },
+    });
+  });
+
   it("finds a real forbidden dependency across mapped Clean Architecture roles", () => {
     const snapshot = {
       rootPath: "/repo",
