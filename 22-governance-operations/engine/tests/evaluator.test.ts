@@ -45,10 +45,35 @@ describe("rule and control engine", () => {
     }
   });
 
-  it("does not apply controls when normalized conditions are absent", () => {
-    const result = evaluateGovernance(basePack, { signals: ["cli_command"] });
+  it("does not apply controls when normalized conditions are absent after complete analysis", () => {
+    const result = evaluateGovernance(basePack, {
+      signals: ["cli_command"],
+      analysisStatus: "COMPLETE",
+    });
     expect(result.controls[0]?.status).toBe("NOT_APPLICABLE");
     expect(result.decision.status).toBe("GO");
+  });
+
+
+  it("does not treat missing signals as non-applicability when analysis is partial", () => {
+    const result = evaluateGovernance(basePack, {
+      signals: ["api_endpoint"],
+      analysisStatus: "PARTIAL",
+      unsupportedCapabilities: ["python-api-path-detection"],
+    });
+
+    expect(result.controls[0]?.applicabilityStatus).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingSignals).toContain("protected_resource");
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("does not assume analysis is complete when no analysis status is provided", () => {
+    const result = evaluateGovernance(basePack, { signals: ["cli_command"] });
+
+    expect(result.controls[0]?.applicabilityStatus).toBe("UNVERIFIED");
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
   });
 
   it("does not allow a declared PASS to override missing required evidence", () => {
