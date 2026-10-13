@@ -600,3 +600,32 @@ describe("rule and control engine", () => {
     expect(result.decision.blockingViolations[0]?.controlId).toBe("RISK:RSK-1");
   });
 });
+
+describe("evidence linkage and determinism", () => {
+  it("does not let evidence that supports only a different control satisfy a required evidence ID", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [
+        { ...basePack.controls[0]!, status: "PASS" },
+        { ...basePack.controls[0]!, id: "SEC-OTHER-001", required_evidence: [] },
+      ],
+      evidence: [{ ...basePack.evidence[0]!, supports_controls: ["SEC-OTHER-001"] }],
+    };
+
+    const result = evaluateGovernance(pack, { ...applicableContext, analysisStatus: "COMPLETE" });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingEvidence).toEqual(["EVD-AUTH"]);
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("produces an identical evaluation for the same input regardless of evidence order", () => {
+    const extra = { ...basePack.evidence[0]!, id: "EVD-AUTH-2" };
+    const context = { ...applicableContext, analysisStatus: "COMPLETE" as const, evaluatedAt: "2026-10-13T00:00:00.000Z" };
+    const forward = evaluateGovernance({ ...basePack, evidence: [basePack.evidence[0]!, extra] }, context);
+    const reversed = evaluateGovernance({ ...basePack, evidence: [extra, basePack.evidence[0]!] }, context);
+
+    expect(reversed).toEqual(forward);
+    expect(evaluateGovernance({ ...basePack, evidence: [basePack.evidence[0]!, extra] }, context)).toEqual(forward);
+  });
+});

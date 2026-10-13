@@ -91,7 +91,8 @@ function evidenceForControl(
 
   for (const evidenceId of evidenceIds) {
     const item = byId.get(evidenceId);
-    if (!item || !evidenceIsUsable(control, item, evaluatedAt)) {
+    // Evidence that does not declare support for this control is a mislink, not proof.
+    if (!item || !item.supports_controls.includes(control.id) || !evidenceIsUsable(control, item, evaluatedAt)) {
       missing.add(evidenceId);
       continue;
     }
