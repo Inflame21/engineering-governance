@@ -29,6 +29,6 @@ Architecture profiles express project-specific architectural constraints without
 }
 ```
 
-Boundary rule `sourcePattern` and `targetPattern` values refer to these role names; a pipe separates alternatives (for example, `transport|ui|infrastructure`). A rule with `allowed: false` reports an edge when a source role imports a target role. Role mappings must match actual repository paths before a rule can be verified. A missing mapping, missing role, unresolved local import, source-content limit, or unsupported language produces a partial result rather than a clean pass.
+Boundary rule `sourcePattern` and `targetPattern` values refer to these role names; a pipe separates alternatives (for example, `transport|ui|infrastructure`). A rule with `allowed: false` reports an edge when a source role imports a target role. Values in `requiredControls` are governance control IDs, not boundary-rule IDs; every required control must exist in the selected governance pack or the CLI returns `NO-GO`. Role mappings must match actual repository paths before a rule can be verified. A missing mapping, missing role, unresolved local import, source-content limit, or unsupported language produces a partial result rather than a clean pass.
 
 The current dependency extractor resolves relative TypeScript/JavaScript imports and Python imports. It does not yet perform AST/type-aware analysis, resolve TypeScript path aliases, or build dependency graphs for other languages. Such cases are reported as unsupported/incomplete and must not be treated as proof of architectural conformance.
