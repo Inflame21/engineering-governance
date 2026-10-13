@@ -3,7 +3,7 @@
 **Repository:** `Inflame21/engineering-governance`  
 **Audit branch:** `audit/phase-0-baseline`  
 **Audit status:** `IN_PROGRESS`  
-**Scope:** Read-only source review and contract inspection; no production-readiness claim  
+**Scope:** The initial pass was a read-only source review and contract inspection. Follow-up sections record later CI runs, repository edits, and GitHub metadata updates; no production-readiness claim.  
 **Policy baseline:** GOV-000 through GOV-023 remain frozen unless a separately approved policy gap is found.
 
 ## 1. Executive summary
@@ -37,6 +37,8 @@ The audit inspected these areas on `audit/phase-0-baseline`:
 This is a targeted source review, not yet a complete inventory of every file, import edge, package, or workflow.
 
 ## 3. Findings and verification status
+
+> **Historical baseline:** The AUD-01/AUD-07/AUD-08 statuses and verification gaps in this section describe the initial pass. Later evidence and dispositions supersede them where explicitly recorded in §10.3 and §§11–14. Do not read this section's original `OPEN` labels as the current disposition without checking those later sections.
 
 ### AUD-01 — Build, type-check, and test status not independently verified
 
@@ -206,7 +208,7 @@ The current audit did not obtain authoritative evidence for all active workflows
 - [x] Filesystem/tool execution security tests completed. (evidence: Section 10, tested SHA `02beafc`)
 - [x] CLI end-to-end behavior and exit codes verified. (evidence: Section 10, tested SHA `02beafc`)
 - [ ] GitHub Actions checks and `main` ruleset alignment verified.
-- [ ] Findings dispositioned with evidence and an updated implementation sequence.
+- [x] Findings dispositioned with evidence and an updated implementation sequence. (evidence: §10.3 and follow-up sections; unresolved verification work remains tracked below.)
 
 **Current conclusion:** Phase 0 remains `IN_PROGRESS`. The repository has substantial foundations; runtime verification and evidence-backed acceptance are the gating items.
 
@@ -340,7 +342,7 @@ GitHub's compare endpoint reports:
 - Behind: 0 commits
 - Merge base: `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`
 
-The 357 commits represent the branch's total divergence from `main`; they are not 357 commits created by this audit session. The comparison contains extensive implementation, tests, models, workflow, and documentation. Before considering history consolidation, review PR #1's intended scope and confirm that the feature branch is intentionally the complete proposed change set. No history rewrite or merge is authorized by this audit.
+The count above is a historical snapshot of branch divergence, not a count of commits created by this audit session. For the current ahead/behind/file comparison, use PR #1's live compare view and latest PR description; historical counts in this audit are not authoritative for current scope. The comparison contains extensive implementation, tests, models, workflow, and documentation. Before considering history consolidation, review PR #1's intended scope and confirm that the feature branch is intentionally the complete proposed change set. No history rewrite or merge is authorized by this audit.
 
 ### Remaining P0/P1 work
 
@@ -418,7 +420,7 @@ Lockfile evidence:
 
 ### 10.5 Real-repository run
 
-`governance analyze <this repository root> --json` exits 1 with analysis status `PARTIAL` (`framework-detection` unsupported). `governance check` was **not** run against a real repository because this repository has no governance pack. The master-plan item "`governance check .` runs against a real repository" therefore stays open.
+> **Superseded by §14:** This is the state at the time of the initial §10 pass. §14 subsequently records a real-repository `analyze` and `check` run using the example governance pack. The example pack is an integration fixture, not a project-specific governance assessment; framework-detection support remains unresolved.
 
 ### 10.6 Branch scope (needs human review)
 
@@ -427,9 +429,9 @@ PR #1 reports 364 commits and 76 changed files against `main`; the compare endpo
 ### 10.7 Remaining blockers and accepted limitations
 
 1. AUD-08 failing-check enforcement is untested (needs an approved approach).
-2. AUD-03 schema-versus-runtime-type comparison was not performed.
-3. At the time of Section 10, exact CI Node/npm patch versions were not recorded; this was subsequently addressed in Section 12.
-4. PR #1's description and issue #2's checklist were **not updated** by this pass: no authenticated GitHub credential for the repository was available in the working session.
+2. AUD-03 schema-versus-runtime-type comparison had not been performed at the time of §10; §11 later added a partial field/requiredness/enum comparison. The full type/constraint/conditional matrix remains open.
+3. At the time of §10, exact CI Node/npm patch versions were not recorded; §12 later records values reported by the CI log. Independent reviewer authentication of those log values is not established here.
+4. PR #1's description and issue #2's checklist had not been updated at the time of §10. They were subsequently updated; use their current bodies for the latest reconciliation. This sentence records the historical limitation of that pass.
 5. Runtime verification beyond tests and the CI smoke test, and any production approval, were not performed.
 6. Unsupported analysis remains: languages other than TypeScript/JavaScript and Python; verification adapters are limited to TypeScript type-checking and Python syntax checks.
 
@@ -511,7 +513,9 @@ Observed repository integration result:
 - `governance check "$GITHUB_WORKSPACE" --pack 22-governance-operations/model/example-governance-pack.json --json`: decision `NO-GO`, analysis status `PARTIAL`.
 - The smoke test explicitly fails if analysis is not `PARTIAL`, if check loses that `PARTIAL` status, or if the decision is `GO`.
 
-**Evidence boundary:** the example pack is a structural integration fixture, not a project-specific governance pack and not a production assessment. This closes the gap that the CLI check command had never been executed against the real repository filesystem. It does not resolve why framework detection is unsupported, supply a tailored pack, or grant approval.
+**Evidence boundary:** the example pack is a structural integration fixture, not a project-specific governance pack and not a production assessment. This closes the gap that the CLI `check` command had never been executed against the real repository filesystem. The assertion that analysis must remain `PARTIAL` is a **temporary regression guard** tied to the open framework-detection investigation, not a permanent expected outcome; revise the assertion and its test when framework detection is implemented, while continuing to assert that uncertainty is preserved and the example-pack result cannot yield `GO`. This smoke test does not supply a tailored pack or grant approval.
+
+**Review limitation:** the Node/npm values recorded in §12 are reported from the CI log by the audit author. A separate reviewer who cannot authenticate or inspect that log should treat the exact values as author-recorded, not independently verified. The workflow selects Node major 22 rather than pinning the exact patch. Provenance for edits authored under the repository owner's identity should be evaluated from commit and Actions records; author identity alone does not establish who operated the session.
 
 ### Current scope snapshot after this follow-up
 
