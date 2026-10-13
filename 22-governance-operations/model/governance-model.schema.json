@@ -297,12 +297,8 @@
           "type": "string"
         },
         "freshness": {
-          "enum": [
-            "current",
-            "stale",
-            "expired",
-            "unknown"
-          ]
+          "type": "string",
+          "minLength": 1
         },
         "supports_controls": {
           "type": "array",
@@ -334,6 +330,14 @@
           "items": {
             "type": "string"
           }
+        },
+        "freshness_status": {
+          "enum": [
+            "current",
+            "stale",
+            "expired",
+            "unknown"
+          ]
         }
       },
       "additionalProperties": false
