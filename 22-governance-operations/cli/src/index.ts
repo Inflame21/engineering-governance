@@ -1,13 +1,9 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { analyzeRepository } from "../../analyzer/src/pipeline.js";
-import { toGovernanceContext } from "../../analyzer/src/normalize.js";
-import { evaluateGovernance } from "../../engine/src/decision.js";
 import { loadGovernancePack } from "./config.js";
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
-import { formatAnalysisResult } from "./output.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
 export { loadGovernancePack } from "./config.js";
@@ -52,7 +48,7 @@ function usage(): string {
   ].join("\n");
 }
 
-function parseArguments(argv: string[]): ParsedArguments {
+export function parseCliArguments(argv: string[]): ParsedArguments {
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
     return { command: "help", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, json: false };
   }
@@ -100,7 +96,7 @@ function parseArguments(argv: string[]): ParsedArguments {
 export async function runCli(argv: string[]): Promise<number> {
   let args: ParsedArguments;
   try {
-    args = parseArguments(argv);
+    args = parseCliArguments(argv);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     return 3;
