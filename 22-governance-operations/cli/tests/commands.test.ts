@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runAnalyzeCommand } from "../src/commands.js";
+import { runAnalyzeCommand, runGovernanceCommand } from "../src/commands.js";
 import type { GovernancePack } from "../../engine/src/types.js";
 
 const pack: GovernancePack = {
@@ -30,6 +30,32 @@ const pack: GovernancePack = {
 };
 
 describe("analyze command", () => {
+
+  it("blocks approval when a selected architecture profile requires missing governance controls", async () => {
+    const result = await runGovernanceCommand({
+      snapshot: {
+        rootPath: "/repo",
+        changedFiles: [],
+        files: ["src/domain/user.ts"],
+        fileContents: { "src/domain/user.ts": "export const user = true;" },
+      },
+      governancePack: pack,
+      architectureProfile: {
+        id: "clean-architecture",
+        version: "1.0.0",
+        name: "Clean Architecture",
+        styles: ["clean-architecture"],
+        boundaryRules: [],
+        requiredControls: ["ARCH-REQUIRED-001"],
+      },
+    });
+
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.blockingViolations.some(
+      (item) => item.controlId === "PROFILE:clean-architecture:REQUIRED-CONTROL:ARCH-REQUIRED-001",
+    )).toBe(true);
+  });
+
   it("connects repository analysis to governance evaluation", async () => {
     const result = await runAnalyzeCommand({
       snapshot: {
