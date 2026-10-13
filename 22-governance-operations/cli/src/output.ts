@@ -22,6 +22,28 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     );
   }
 
+  if (analysis.systemGraph) {
+    const countNodes = (type: string) => analysis.systemGraph!.nodes.filter((node) => node.type === type).length;
+    const countEdges = (type: string) => analysis.systemGraph!.edges.filter((edge) => edge.type === type).length;
+    lines.push(
+      "",
+      `System relationship graph: ${analysis.systemGraph.status}`,
+      `  Packages: ${countNodes("PACKAGE")}`,
+      `  Services: ${countNodes("SERVICE")}`,
+      `  API endpoints: ${countNodes("API_ENDPOINT")}`,
+      `  Databases: ${countNodes("DATABASE")}`,
+      `  Events: ${countNodes("EVENT")}`,
+      `  Relationships: ${analysis.systemGraph.edges.length}`,
+      `    Exposes API: ${countEdges("EXPOSES_API")}`,
+      `    Uses database: ${countEdges("USES_DATABASE")}`,
+      `    Publishes events: ${countEdges("PUBLISHES_EVENT")}`,
+      `    Subscribes to events: ${countEdges("SUBSCRIBES_EVENT")}`,
+    );
+    for (const limitation of analysis.systemGraph.limitations) {
+      lines.push(`  System-graph limitation: ${limitation}`);
+    }
+  }
+
   if (analysis.snapshotFingerprint) {
     lines.push(
       "",
