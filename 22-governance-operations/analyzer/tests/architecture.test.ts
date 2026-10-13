@@ -4,6 +4,8 @@ import {
   validateArchitectureProfile,
 } from "../src/architecture.js";
 import type { ArchitectureProfile } from "../src/architecture.js";
+import cleanArchitectureExample from "../../model/architecture-profile-clean-architecture.json" with { type: "json" };
+import microservicesExample from "../../model/architecture-profile-microservices.json" with { type: "json" };
 
 const cleanArchitecture: ArchitectureProfile = {
   id: "clean-architecture",
@@ -22,14 +24,43 @@ const cleanArchitecture: ArchitectureProfile = {
 };
 
 describe("architecture profiles", () => {
-  it("validates a well-formed profile", () => {
+  it("validates well-formed profiles", () => {
     expect(validateArchitectureProfile(cleanArchitecture).valid).toBe(true);
+    expect(validateArchitectureProfile(cleanArchitectureExample).valid).toBe(true);
+    expect(validateArchitectureProfile(microservicesExample).valid).toBe(true);
   });
 
   it("rejects profiles with missing mandatory fields", () => {
     const result = validateArchitectureProfile({ id: "bad", styles: [], boundaryRules: [] });
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects malformed boundary rules and unknown properties", () => {
+    const malformed = {
+      ...cleanArchitecture,
+      unexpected: true,
+      boundaryRules: [{
+        ...cleanArchitecture.boundaryRules[0]!,
+        allowed: "false",
+      }],
+    };
+    const result = validateArchitectureProfile(malformed);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects duplicate boundary rule IDs", () => {
+    const duplicate = {
+      ...cleanArchitecture,
+      boundaryRules: [
+        ...cleanArchitecture.boundaryRules,
+        { ...cleanArchitecture.boundaryRules[0]! },
+      ],
+    };
+    const result = validateArchitectureProfile(duplicate);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes("duplicate rule id"))).toBe(true);
   });
 
   it("converts multiple architecture styles into normalized signals", () => {
