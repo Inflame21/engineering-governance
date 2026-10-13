@@ -235,7 +235,11 @@ export async function runVerificationAdapters(
         const failures = processResults.filter((result) => result.exitCode !== 0);
         const output = processResults.map((result) => compactOutput(result.stdout, result.stderr)).filter(Boolean).join("\n");
         const toolFindings = failures.flatMap((result) => typescriptFindings(compactOutput(result.stdout, result.stderr), evidenceId));
-        const hasLimitations = unavailable.length > 0 || errors.length > 0;
+        const limitations = [
+          ...unavailable.map((configPath) => `TypeScript compiler unavailable for ${configPath}.`),
+          ...errors,
+        ];
+        const hasLimitations = limitations.length > 0;
         const status: VerificationToolStatus = failures.length > 0 ? "FAIL" : hasLimitations ? "UNVERIFIED" : "PASS";
         const toolEvidence: GovernanceEvidence = {
           id: evidenceId,
@@ -264,7 +268,7 @@ export async function runVerificationAdapters(
               : "TypeScript type checking passed.",
           evidenceId,
           findings: toolFindings,
-          limitations: errors,
+          limitations,
         });
         adapterResults.push({
           adapterId: "typescript-typecheck",
@@ -273,7 +277,7 @@ export async function runVerificationAdapters(
           supportedCapabilities: ["verification:typescript-typecheck"],
           unsupportedCapabilities: hasLimitations ? ["verification:typescript-project-execution"] : [],
           evidenceRefs: [evidenceId],
-          limitations: errors,
+          limitations,
         });
         if (output && failures.length > 0) {
           results[results.length - 1]!.summary += ` Diagnostics: ${output.slice(0, 1_000)}`;
