@@ -34,6 +34,11 @@ describe("repository system graph", () => {
     ]));
     expect(graph.nodes.find((node) => node.type === "API_ENDPOINT")?.name).toBe("GET /users");
     expect(graph.nodes.find((node) => node.type === "DATABASE")?.name).toBe("sqlalchemy");
+    const serviceNode = graph.nodes.find((node) => node.type === "SERVICE");
+    expect(serviceNode).toBeDefined();
+    expect(graph.evidence.find((item) => serviceNode?.evidenceRefs.includes(item.id))?.status)
+      .toBe("PARTIALLY_VERIFIED");
+
     expect(graph.nodes.find((node) => node.type === "EVENT" && node.name === "user.created")?.evidenceRefs)
       .toHaveLength(2);
     expect(graph.edges.some((edge) => edge.type === "CONTAINS" && edge.targetId.startsWith("SERVICE:"))).toBe(true);
