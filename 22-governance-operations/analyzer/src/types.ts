@@ -1,6 +1,7 @@
 import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
 import type { ArchitectureVerificationResult } from "./architecture.js";
 import type { VerificationReport } from "./verification.js";
+import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
 
 export type AnalyzerExecutionStatus = "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED";
 
@@ -19,6 +20,7 @@ export interface RepositorySnapshot {
   fileContents?: Readonly<Record<string, string>>;
   contentLimitations?: readonly string[];
   changeScope?: RepositoryChangeScope;
+  snapshotFingerprint?: RepositorySnapshotFingerprint;
 }
 
 export interface RepositoryFacts extends Record<string, unknown> {
