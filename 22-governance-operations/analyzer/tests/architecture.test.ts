@@ -105,6 +105,31 @@ describe("architecture profiles", () => {
   });
 
 
+
+  it("aggregates file dependencies into role-level component edges", () => {
+    const graph = buildArchitectureDependencyGraph({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, cleanArchitectureExample as ArchitectureProfile);
+
+    expect(graph.components).toContainEqual({
+      id: "COMP:domain",
+      role: "domain",
+      files: ["src/domain/user.ts"],
+    });
+    expect(graph.componentEdges).toContainEqual(expect.objectContaining({
+      sourceComponentId: "COMP:domain",
+      targetComponentId: "COMP:infrastructure",
+      sourceFile: "src/domain/user.ts",
+      targetFile: "src/infrastructure/db.ts",
+    }));
+  });
+
   it("builds Python relative-import edges with source provenance", () => {
     const graph = buildArchitectureDependencyGraph({
       rootPath: "/repo",
