@@ -60,6 +60,10 @@ export function detectRepositoryFacts(
     }
   }
 
+  // A Go module is authoritative enough to identify Go even when the module
+  // contains no tracked .go source in the current snapshot.
+  if (files.has("go.mod")) languages.add("go");
+
   for (const [marker, framework] of Object.entries(frameworkMarkers)) {
     if (files.has(marker)) frameworks.add(framework);
   }
