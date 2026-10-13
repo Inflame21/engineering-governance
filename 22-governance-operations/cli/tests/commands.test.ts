@@ -31,6 +31,75 @@ const pack: GovernancePack = {
 
 describe("analyze command", () => {
 
+
+  it("adds executed Python syntax evidence to the governance assessment when explicitly enabled", async () => {
+    const result = await runGovernanceCommand({
+      snapshot: {
+        rootPath: "/repo",
+        changedFiles: [],
+        files: ["main.py", "routers/users.py", "pyproject.toml"],
+        fileContents: {
+          "pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+          "main.py": "print('ok')",
+          "routers/users.py": "from fastapi import APIRouter",
+        },
+      },
+      governancePack: pack,
+      verificationRunner: {
+        async isAvailable(tool) {
+          return tool === "python3";
+        },
+        async run() {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({ errors: [] }),
+            stderr: "",
+          };
+        },
+      },
+    });
+
+    expect(result.analysis.verification?.results[0]?.status).toBe("PASS");
+    expect(result.analysis.evidence.some((item) => item.id === "EVD-PYTHON-SYNTAX")).toBe(true);
+    expect(result.evaluation.decision.status).toBe("GO");
+  });
+
+  it("blocks production when an opt-in verification tool finds a syntax error", async () => {
+    const result = await runGovernanceCommand({
+      snapshot: {
+        rootPath: "/repo",
+        changedFiles: [],
+        files: ["main.py", "routers/users.py", "pyproject.toml"],
+        fileContents: {
+          "pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+          "main.py": "if True print('broken')",
+          "routers/users.py": "from fastapi import APIRouter",
+        },
+      },
+      governancePack: pack,
+      verificationRunner: {
+        async isAvailable(tool) {
+          return tool === "python3";
+        },
+        async run() {
+          return {
+            exitCode: 1,
+            stdout: JSON.stringify({
+              errors: [{ file: "main.py", line: 1, message: "invalid syntax" }],
+            }),
+            stderr: "",
+          };
+        },
+      },
+    });
+
+    expect(result.analysis.verification?.results[0]?.status).toBe("FAIL");
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.blockingViolations.some(
+      (item) => item.controlId.startsWith("FINDING:FND-PY-SYNTAX-"),
+    )).toBe(true);
+  });
+
   it("blocks approval when a selected architecture profile requires missing governance controls", async () => {
     const result = await runGovernanceCommand({
       snapshot: {
