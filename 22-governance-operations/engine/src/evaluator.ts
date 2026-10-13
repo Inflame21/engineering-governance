@@ -1,4 +1,5 @@
 import type {
+  ApplicabilityStatus,
   ControlEvaluation,
   GovernanceContext,
   GovernanceControl,
@@ -11,15 +12,36 @@ function normalizeConditions(appliesWhen: GovernanceControl["applies_when"]): st
   return Array.isArray(appliesWhen) ? appliesWhen : [appliesWhen];
 }
 
-/** A control applies when every declared normalized signal is present. */
+export function resolveControlApplicability(
+  control: GovernanceControl,
+  context: GovernanceContext,
+): { status: ApplicabilityStatus; missingSignals: string[] } {
+  const conditions = normalizeConditions(control.applies_when);
+  if (conditions.length === 0) {
+    return { status: "APPLICABLE", missingSignals: [] };
+  }
+
+  const signals = new Set(context.signals);
+  const missingSignals = conditions.filter((condition) => !signals.has(condition));
+  if (missingSignals.length === 0) {
+    return { status: "APPLICABLE", missingSignals: [] };
+  }
+
+  // A missing signal proves non-applicability only after analysis is complete.
+  // Missing analysis status is treated conservatively as incomplete.
+  if (context.analysisStatus === "COMPLETE") {
+    return { status: "NOT_APPLICABLE", missingSignals };
+  }
+
+  return { status: "UNVERIFIED", missingSignals };
+}
+
+/** Boolean compatibility helper. Unknown applicability is not considered applicable proof. */
 export function isControlApplicable(
   control: GovernanceControl,
   context: GovernanceContext,
 ): boolean {
-  const conditions = normalizeConditions(control.applies_when);
-  if (conditions.length === 0) return true;
-  const signals = new Set(context.signals);
-  return conditions.every((condition) => signals.has(condition));
+  return resolveControlApplicability(control, context).status === "APPLICABLE";
 }
 
 function evidenceForControl(
@@ -60,22 +82,40 @@ export function evaluateControl(
   evidence: GovernanceEvidence[],
   context: GovernanceContext,
 ): ControlEvaluation {
-  const applicable = isControlApplicable(control, context);
+  const applicability = resolveControlApplicability(control, context);
+  const failureDecision = control.failure_decision ?? "NONE";
 
-  if (!applicable) {
+  if (applicability.status === "NOT_APPLICABLE") {
     return {
       controlId: control.id,
       applicable: false,
+      applicabilityStatus: "NOT_APPLICABLE",
       status: "NOT_APPLICABLE",
       severity: control.severity,
-      failureDecision: control.failure_decision ?? "NONE",
+      failureDecision,
       missingEvidence: [],
+      missingSignals: applicability.missingSignals,
       supportingEvidence: [],
-      reason: "Control conditions are not satisfied by the normalized governance context.",
+      reason: "Control conditions are absent and repository analysis completed successfully.",
     };
   }
 
   const { missing, supporting } = evidenceForControl(control, evidence);
+
+  if (applicability.status === "UNVERIFIED") {
+    return {
+      controlId: control.id,
+      applicable: true,
+      applicabilityStatus: "UNVERIFIED",
+      status: control.status === "FAIL" ? "FAIL" : "UNVERIFIED",
+      severity: control.severity,
+      failureDecision,
+      missingEvidence: missing,
+      missingSignals: applicability.missingSignals,
+      supportingEvidence: supporting,
+      reason: `Control applicability could not be established because repository analysis is ${context.analysisStatus ?? "not declared"}. Missing signals: ${applicability.missingSignals.join(", ")}.`,
+    };
+  }
 
   // Explicit failure/warning findings remain findings. For a claimed PASS (or
   // absent status), incomplete proof must produce UNVERIFIED, never PASS.
@@ -110,10 +150,12 @@ export function evaluateControl(
   return {
     controlId: control.id,
     applicable: true,
+    applicabilityStatus: "APPLICABLE",
     status,
     severity: control.severity,
-    failureDecision: control.failure_decision ?? "NONE",
+    failureDecision,
     missingEvidence: missing,
+    missingSignals: [],
     supportingEvidence: supporting,
     reason,
   };
