@@ -59,6 +59,7 @@ export function toGovernanceContext(
   return {
     signals: [...signals].sort(),
     facts: analysis.facts,
+    findings: analysis.findings,
     analysisStatus,
     unsupportedCapabilities: [...new Set(unsupportedCapabilities)].sort(),
     analyzerLimitations: [...new Set(analyzerLimitations)].sort(),
