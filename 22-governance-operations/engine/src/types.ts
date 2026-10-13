@@ -66,7 +66,8 @@ export interface GovernanceEvidence {
   status: EvidenceStatus;
   description: string;
   source: string;
-  freshness: EvidenceFreshness;
+  freshness: string;
+  freshness_status?: EvidenceFreshness;
   supports_controls: string[];
   tool_version?: string;
   generated_at?: string;
