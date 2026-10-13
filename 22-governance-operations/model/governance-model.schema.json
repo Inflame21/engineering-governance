@@ -340,9 +340,42 @@
         },
         "owner": {
           "type": "string"
+        },
+        "accepted_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accepted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "acceptance_reason": {
+          "type": "string",
+          "minLength": 1
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "ACCEPTED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "accepted_by",
+              "accepted_at",
+              "acceptance_reason"
+            ]
+          }
+        }
+      ]
     },
     "decision": {
       "type": "object",
@@ -418,17 +451,92 @@
           ]
         },
         "control": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "reason": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expires_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "change_id": {
+          "type": "string",
+          "pattern": "^CHG-[0-9A-Z-]+$"
+        },
+        "requested_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "REQUESTED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "control",
+              "reason",
+              "project_id",
+              "change_id",
+              "requested_by",
+              "requested_at"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "APPROVED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "control",
+              "reason",
+              "project_id",
+              "change_id",
+              "requested_by",
+              "requested_at",
+              "approved_by",
+              "approved_at",
+              "expires_at"
+            ]
+          }
+        }
+      ]
     },
     "debt": {
       "type": "object",
