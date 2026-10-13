@@ -72,6 +72,16 @@ export function formatHumanResult(
   ];
 
   if (evaluation.decision.reason) lines.push("", `Reason: ${evaluation.decision.reason}`);
+
+  const decisionItems = [...evaluation.decision.blockingViolations, ...evaluation.decision.warnings];
+  if (decisionItems.length > 0) lines.push("", "Decision findings:");
+  for (const item of decisionItems) {
+    lines.push(`  [${item.severity}] ${item.controlId}: ${item.message}`);
+    if (item.missingEvidence.length > 0) lines.push(`    Missing evidence: ${item.missingEvidence.join(", ")}`);
+    if (item.missingSignals.length > 0) lines.push(`    Missing signals/capabilities: ${item.missingSignals.join(", ")}`);
+    if (item.evidenceRefs?.length) lines.push(`    Evidence: ${item.evidenceRefs.join(", ")}`);
+  }
+
   for (const control of evaluation.controls) {
     if (control.status === "PASS" || control.status === "NOT_APPLICABLE") continue;
     lines.push("", `[${control.status}] ${control.controlId}: ${control.reason}`);
