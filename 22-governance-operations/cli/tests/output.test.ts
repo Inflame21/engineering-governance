@@ -47,6 +47,31 @@ describe("CLI output", () => {
     expect(output).toContain("Open risks: 0");
   });
 
+
+  it("explains decision blockers and links them to supporting evidence", () => {
+    const blocked: GovernanceEvaluation = {
+      ...evaluation,
+      decision: {
+        ...evaluation.decision,
+        status: "NO-GO",
+        blockingViolations: [{
+          controlId: "FINDING:FND-ARCH-001",
+          severity: "P1",
+          decision: "NO-GO",
+          message: "Domain depends on infrastructure.",
+          missingEvidence: [],
+          missingSignals: [],
+          evidenceRefs: ["EVD-ARCH-001"],
+        }],
+      },
+    };
+
+    const output = formatHumanResult(analysis, blocked, context);
+    expect(output).toContain("Decision findings:");
+    expect(output).toContain("FINDING:FND-ARCH-001");
+    expect(output).toContain("Evidence: EVD-ARCH-001");
+  });
+
   it("renders machine-readable JSON", () => {
     const output = formatJsonResult(analysis, evaluation, context);
     expect(JSON.parse(output).evaluation.decision.status).toBe("GO");
