@@ -70,18 +70,27 @@ export function validateGovernancePackSemantics(
         Boolean(risk.accepted_by?.trim()) &&
         Boolean(risk.acceptance_reason?.trim()) &&
         Boolean(risk.accepted_at) &&
-        !Number.isNaN(Date.parse(risk.accepted_at ?? ""));
+        Boolean(risk.acceptance_expires_at) &&
+        !Number.isNaN(Date.parse(risk.accepted_at ?? "")) &&
+        !Number.isNaN(Date.parse(risk.acceptance_expires_at ?? "")) &&
+        Date.parse(risk.accepted_at ?? "") < Date.parse(risk.acceptance_expires_at ?? "");
       if (!complete) {
         issues.push({
           code: "INVALID_RISK_ACCEPTANCE",
           path: `/risks/${index}`,
           message: `Accepted risk '${risk.id}' must include accepted_by, accepted_at, and acceptance_reason.`,
         });
-      } else if (evaluatedAt && Date.parse(risk.accepted_at!) > Date.parse(evaluatedAt)) {
+      } else if (
+        evaluatedAt &&
+        (
+          Date.parse(risk.accepted_at!) > Date.parse(evaluatedAt) ||
+          Date.parse(risk.acceptance_expires_at!) <= Date.parse(evaluatedAt)
+        )
+      ) {
         issues.push({
           code: "INVALID_RISK_ACCEPTANCE",
-          path: `/risks/${index}/accepted_at`,
-          message: `Risk '${risk.id}' cannot be accepted after the evaluation timestamp.`,
+          path: `/risks/${index}`,
+          message: `Risk '${risk.id}' acceptance is not valid at the evaluation timestamp.`,
         });
       }
     }
