@@ -412,9 +412,15 @@ export async function runVerificationAdapters(
             }
           }
 
-          const status: VerificationToolStatus = invalidToolOutput && processResult.exitCode === 0
+          // A verifier is trustworthy only when its structured result agrees with
+          // the process exit code. A crash/non-zero exit without syntax diagnostics
+          // is a tool failure, not proof that the source itself is invalid.
+          const contradictoryExit =
+            (processResult.exitCode === 0 && parsedErrors.length > 0) ||
+            (processResult.exitCode !== 0 && parsedErrors.length === 0);
+          const status: VerificationToolStatus = invalidToolOutput || contradictoryExit
             ? "ERROR"
-            : processResult.exitCode !== 0 || parsedErrors.length > 0
+            : processResult.exitCode !== 0
               ? "FAIL"
               : uninspectedPythonFiles.length > 0
                 ? "UNVERIFIED"
