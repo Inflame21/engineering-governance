@@ -53,7 +53,7 @@ describe("repository analyzer pipeline", () => {
       item.adapterId === "framework-detection" && item.executionStatus === "FAILED",
     )).toBe(true);
     expect(context.analysisStatus).toBe("PARTIAL");
-    expect(context.analyzerLimitations.some((item) => item.includes("Adapter execution failed"))).toBe(true);
+    expect(context.analyzerLimitations.some((item) => item.includes("package.json:"))).toBe(true);
   });
 
   it("reports languages without a registered analyzer as unsupported", async () => {
