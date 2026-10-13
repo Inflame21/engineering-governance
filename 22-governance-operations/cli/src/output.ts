@@ -28,7 +28,9 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     lines.push(
       "",
       `Architecture profile: ${analysis.architecture.profileId} (${analysis.architecture.status})`,
-      `  Dependency edges: ${analysis.architecture.graph.edges.length}`,
+      `  File dependency edges: ${analysis.architecture.graph.edges.length}`,
+      `  Mapped components: ${analysis.architecture.graph.components.length}`,
+      `  Component dependency edges: ${analysis.architecture.graph.componentEdges.length}`,
       `  Boundary findings: ${analysis.architecture.findings.length}`,
     );
     for (const finding of analysis.architecture.findings) {
