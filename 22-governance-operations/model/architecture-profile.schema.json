@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engineering-governance.dev/schemas/architecture-profile.schema.json",
+  "title": "Engineering Governance Architecture Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "name", "styles", "boundaryRules", "requiredControls"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "version": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "styles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "boundaryRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description", "severity"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+          "sourcePattern": { "type": "string" },
+          "targetPattern": { "type": "string" },
+          "allowed": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "requiredControls": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "metadata": { "type": "object" }
+  }
+}
