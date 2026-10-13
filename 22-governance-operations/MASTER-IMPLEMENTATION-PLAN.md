@@ -542,7 +542,7 @@ Do not implement each row as a separate application or introduce microservices p
 
 ## 10. Definition of Done for the First Usable Release
 
-- [ ] A developer can install/build the tool reproducibly.
+- [x] A developer can install/build the tool reproducibly. (committed lockfiles, `npm ci`; clean-clone and CI evidence at `02beafc` — see audits/PHASE-0-REPOSITORY-AUDIT.md §10)
 - [ ] `governance check .` runs against a real repository.
 - [ ] The CLI validates configuration, schemas, and profiles.
 - [ ] The analyzer identifies supported languages and frameworks.

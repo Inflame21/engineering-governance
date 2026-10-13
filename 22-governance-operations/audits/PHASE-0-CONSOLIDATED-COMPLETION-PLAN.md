@@ -31,9 +31,9 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 - [x] Active workflow job names match required ruleset contexts: `Verify engine`, `Verify analyzer`, `Verify cli`.
 - [x] CI passes all three package jobs on commit `5a63563ec4bb84ff5433ef9cd7ebc9af260188fc`.
 - [x] Update workflow action versions and pin runner image to Ubuntu 24.04; verify CI after the change.
-- [ ] Choose and document one dependency strategy for each independent package.
-- [ ] Generate authentic lockfiles using npm, commit them, and replace `npm install` with `npm ci`.
-- [ ] Ensure lockfile updates are deterministic and CI fails when manifests and locks disagree.
+- [x] Choose and document one dependency strategy for each independent package.
+- [x] Generate authentic lockfiles using npm, commit them, and replace `npm install` with `npm ci`.
+- [x] Ensure lockfile updates are deterministic and CI fails when manifests and locks disagree.
 - [ ] Record Node, npm, action, runner, and exact SHA in the evidence report.
 
 **Acceptance:** clean CI on the final SHA; no unlocked install path in required CI; exact check names match the ruleset.
@@ -41,28 +41,28 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 ### WP2 — Governance evidence integrity (AUD-02, AUD-03)
 - [x] Public engine decision path rejects duplicate evidence IDs before evaluation.
 - [x] Regression test covers duplicate evidence IDs at the direct engine API boundary.
-- [ ] Add/verify table-driven tests for missing, unverified, stale, expired, invalid-timestamp, contradictory, and control-unlinked evidence.
-- [ ] Prove unknown applicability and incomplete analysis cannot be converted into a PASS/GO by absence of evidence.
-- [ ] Verify duplicate IDs and invalid cross-references fail consistently in CLI pack loading and direct engine entry points.
-- [ ] Verify malformed JSON, schema-invalid pack, invalid exception/risk references, and invalid architecture profile fail with actionable diagnostics.
+- [x] Add/verify table-driven tests for missing, unverified, stale, expired, invalid-timestamp, contradictory, and control-unlinked evidence.
+- [x] Prove unknown applicability and incomplete analysis cannot be converted into a PASS/GO by absence of evidence.
+- [x] Verify duplicate IDs and invalid cross-references fail consistently in CLI pack loading and direct engine entry points.
+- [x] Verify malformed JSON, schema-invalid pack, invalid exception/risk references, and invalid architecture profile fail with actionable diagnostics.
 
 **Acceptance:** no unusable or ambiguous evidence can establish PASS; invalid governance input never reaches decision evaluation; results are deterministic for a fixed input and evaluation timestamp.
 
 ### WP3 — CLI contract and security boundaries (AUD-06, AUD-07)
 - [x] CI smoke test builds and invokes the CLI for help/version/analyze/check and a seeded architecture violation.
 - [x] CI asserts invalid-option and missing-pack failures return exit code 3 and expected diagnostics.
-- [ ] Expand exit-code matrix for GO (0), GO_WITH_CONDITIONS (1), NO-GO (2), and execution/configuration errors (3), using stable fixtures.
-- [ ] Assert JSON and human-readable output contracts for success and failure paths.
-- [ ] Adversarially test path traversal, symlinks, unreadable/oversized files, file-count limits, malformed roots, and repository-controlled execution.
-- [ ] Verify optional tool execution is opt-in, allowlisted, bounded by timeout/output limits, and never shell-interpolates repository-controlled strings.
+- [x] Expand exit-code matrix for GO (0), GO_WITH_CONDITIONS (1), NO-GO (2), and execution/configuration errors (3), using stable fixtures.
+- [x] Assert JSON and human-readable output contracts for success and failure paths.
+- [x] Adversarially test path traversal, symlinks, unreadable/oversized files, file-count limits, malformed roots, and repository-controlled execution.
+- [x] Verify optional tool execution is opt-in, allowlisted, bounded by timeout/output limits, and never shell-interpolates repository-controlled strings.
 
 **Acceptance:** exit codes match the documented contract; NO-GO cannot exit 0; analysis/tool failure cannot silently become GO; filesystem access remains confined to the intended repository.
 
 ### WP4 — Analyzer and architecture graph
-- [ ] Test nested/multiple manifests and package-scoped fact attribution.
-- [ ] Test malformed/unreadable manifests, mixed framework/language repositories, deterministic ordering, unresolved imports, unsupported languages, exclusions, ambiguous component mappings, and partial graph construction.
-- [ ] Validate malformed profiles (unknown fields, duplicate IDs, severity, pattern types, mappings, JSON types).
-- [ ] Ensure incomplete graph coverage is explicit and every architecture violation carries inspectable source evidence.
+- [x] Test nested/multiple manifests and package-scoped fact attribution.
+- [x] Test malformed/unreadable manifests, mixed framework/language repositories, deterministic ordering, unresolved imports, unsupported languages, exclusions, ambiguous component mappings, and partial graph construction.
+- [x] Validate malformed profiles (unknown fields, duplicate IDs, severity, pattern types, mappings, JSON types).
+- [x] Ensure incomplete graph coverage is explicit and every architecture violation carries inspectable source evidence.
 
 **Acceptance:** uncertainty is preserved rather than interpreted as absence or conformance; invalid profiles fail closed.
 
@@ -77,10 +77,14 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 **Acceptance:** documented enforcement matches intended policy; unverified settings remain explicit risks, not presumed safe.
 
 ### WP6 — Evidence and closure
-- [ ] Update the repository audit with links to CI runs, exact SHA, test matrix, remaining risks, and evidence boundaries.
-- [ ] Re-run all required checks after the final implementation changes and verify each job's conclusion.
+- [x] Update the repository audit with links to CI runs, exact SHA, test matrix, remaining risks, and evidence boundaries.
+- [x] Re-run all required checks after the final implementation changes and verify each job's conclusion.
 - [ ] Confirm the PR diff and issue checklist are complete.
 - [ ] Keep Phase 0 open if any P0 criterion is unmet or evidence is not tied to the final SHA.
+
+## Final pass status (supersedes the evidence list below)
+
+Tested SHA [`02beafc`](https://github.com/Inflame21/engineering-governance/commit/02beafc8ec6558f21c50cb343da54af6a8ed3fdf); CI run [#38396121321](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321) green. Items ticked above are supported by [Section 10 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#10-final-phase-0-closure-pass--2026-10-13). Still open: PR #1 scope review (WP0), recording exact CI Node/npm versions (WP1), failing-check enforcement and policy decisions (WP5), and PR/issue checklist updates (WP6). The "357 commits" figure below is historical.
 
 ## Current verified evidence
 

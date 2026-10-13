@@ -198,13 +198,13 @@ The current audit did not obtain authoritative evidence for all active workflows
 
 - [ ] Complete repository/package/file inventory.
 - [ ] Import and package dependency map.
-- [ ] Build, type-check, and test status tied to a commit SHA.
+- [x] Build, type-check, and test status tied to a commit SHA. (evidence: Section 10, tested SHA `02beafc`)
 - [ ] Schema/runtime/semantic contract comparison.
-- [ ] Decision/evidence matrix verified with regression tests.
-- [ ] Analyzer registry, fact merging, and monorepo detection verified.
-- [ ] Architecture-profile and graph coverage limitations verified.
-- [ ] Filesystem/tool execution security tests completed.
-- [ ] CLI end-to-end behavior and exit codes verified.
+- [x] Decision/evidence matrix verified with regression tests. (evidence: Section 10, tested SHA `02beafc`)
+- [x] Analyzer registry, fact merging, and monorepo detection verified. (evidence: Section 10, tested SHA `02beafc`)
+- [x] Architecture-profile and graph coverage limitations verified. (evidence: Section 10, tested SHA `02beafc`)
+- [x] Filesystem/tool execution security tests completed. (evidence: Section 10, tested SHA `02beafc`)
+- [x] CLI end-to-end behavior and exit codes verified. (evidence: Section 10, tested SHA `02beafc`)
 - [ ] GitHub Actions checks and `main` ruleset alignment verified.
 - [ ] Findings dispositioned with evidence and an updated implementation sequence.
 
@@ -306,6 +306,8 @@ Phase 0 remains `IN_PROGRESS`; this evidence does not grant runtime verification
 
 ## 9. Consolidated completion pass — 2026-10-13
 
+> **Superseded in part by Section 10.** Statements below about open lockfiles, `npm install`, and the 357-commit divergence describe the state at that time and are no longer current.
+
 **Execution plan:** [Phase 0 Consolidated Completion Plan](./PHASE-0-CONSOLIDATED-COMPLETION-PLAN.md)  
 **Current state:** `IN_PROGRESS` — not production-approved.
 
@@ -354,3 +356,83 @@ The 357 commits represent the branch's total divergence from `main`; they are no
 ### Closure rule
 
 Do not close Phase 0 or issue #2 until all P0 acceptance criteria are supported by reproducible evidence tied to the final audited SHA. CI success is necessary but does not by itself establish security assurance, runtime verification, or production approval.
+
+## 10. Final Phase 0 closure pass — 2026-10-13
+
+**Status:** `IN_PROGRESS` — **not** complete and **not** production-approved. See the recommendation at the end of this section.
+
+### 10.1 Tested commit and environment
+
+| Item | Value |
+|---|---|
+| Tested code SHA | [`02beafc8ec6558f21c50cb343da54af6a8ed3fdf`](https://github.com/Inflame21/engineering-governance/commit/02beafc8ec6558f21c50cb343da54af6a8ed3fdf) |
+| CI run (PR, `Governance Operations Verification`) | [#38396121321](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321) — all three jobs `success` |
+| `Verify engine` | `success` — [job](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321/job/115291663639) |
+| `Verify analyzer` | `success` — [job](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321/job/115291663675) |
+| `Verify cli` | `success` — [job](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321/job/115291663515); install, type-check, tests, build, CLI e2e, and smoke steps all `success` |
+| CI runner / Node | `ubuntu-24.04`; Node `22` (major selector; exact patch and npm version were **not** captured because the run logs require authentication) |
+| Local clean-room toolchain | Node v24.18.0, npm 12.0.1, Windows 11 |
+
+A documentation-only commit follows the tested SHA. It changes no code; its own CI run is separate evidence. Earlier runs on `f2ce620` (success) and `f839f0b` (**failure**, see 10.4) remain in the branch history.
+
+### 10.2 Commands executed
+
+Local clean-room (fresh `git clone` of the pushed branch at `f839f0b`, no pre-existing `node_modules` or `dist`), for each package `engine`, `analyzer`, `cli`:
+
+```
+npm ci --no-audit --no-fund
+npm run check
+npm test
+npm run build
+# cli only:
+npm run test:e2e
+bash <smoke-test step extracted verbatim from .github/workflows/governance-operations.yml>
+```
+
+Results: engine 63/63, analyzer 63/63, cli 60 passed + 1 skipped (see 10.4), cli e2e 11/11, smoke test passed (`invalid_args=3 missing_pack=3`). The final one-assertion test fix `02beafc` was verified by CI run #38396121321, not re-run locally.
+
+Lockfile evidence:
+- `npm ci` succeeded for all three packages in the clean clone.
+- `npm install --package-lock-only` produced no content change to any lockfile (empty git diff). A raw byte comparison on this Windows checkout differed only by CRLF line endings.
+- Negative control: changing the engine manifest to `typescript@^4.0.0` makes `npm ci` exit 1 (`EUSAGE ... lock file's typescript@5.9.3 does not satisfy typescript@4.9.5`). A manifest/lock disagreement therefore fails the install step.
+- CI uses `npm ci` with `cache-dependency-path` pointing at each package lock (workflow, commit `b403f38`).
+
+### 10.3 Findings disposition
+
+| ID | Disposition | Evidence |
+|---|---|---|
+| AUD-01 | **Closed for the tested SHA.** Check, test, and build pass in CI and a clean clone; lockfiles committed; `npm ci` enforced. | 10.1, 10.2 |
+| AUD-02 | **Verified, with one defect fixed.** The matrix covers missing, duplicate, stale, expired, invalid-timestamp, future-dated, contradictory, unverified, and unlinked evidence; unknown applicability and partial or failed analysis never yield GO. **Defect found:** evidence listed in a control's `required_evidence` satisfied it even when the record's `supports_controls` named only a different control. Fixed in `8efb6fe`; the regression test fails without the fix. Determinism (same result regardless of evidence order) is tested. | `engine/tests/evaluator.test.ts` |
+| AUD-03 | **Partially verified.** Malformed JSON, schema-invalid, dangling-reference, and duplicate-ID packs exit 3 through the built CLI with empty stdout and a diagnostic in both human and `--json` modes. **Not done:** a field-by-field comparison of the JSON Schema against the runtime TypeScript interfaces. | `cli/tests/end-to-end.test.ts`, `cli/tests/config.test.ts` |
+| AUD-04 | **Verified by fixtures.** Nested manifests, package-scoped facts, a malformed manifest alongside valid ones, unsupported languages. | `analyzer/tests/adapters.test.ts`, `detector.test.ts`, `pipeline.test.ts` |
+| AUD-05 | **Verified by fixtures.** Malformed profile shapes and types, duplicate rule IDs, unresolved alias and relative imports, and absent or ambiguous role mappings stay `PARTIAL`; every finding carries a source location and a resolvable evidence reference. | `analyzer/tests/architecture.test.ts`, `polyglot-graph.test.ts` |
+| AUD-06 | **Verified, one platform gap.** Traversal, directory-link escape, working-directory link escape, size and file-count limits, missing and non-directory roots, metacharacter file names, tool allowlist, verbatim (non-shell) arguments, scrubbed environment, timeout, and output-limit behaviour are tested. The file-symlink test is skipped on Windows (no symlink privilege); it is expected to run on Linux CI. | `cli/tests/node-filesystem.test.ts`, `verification-runner.test.ts` |
+| AUD-07 | **Verified.** The built CLI returns 0 / 1 / 2 / 3 for GO / GO_WITH_CONDITIONS / NO-GO / errors; NO-GO renders identically in human and JSON output; invalid pack, invalid profile, profile path escape, missing pack, missing root, and root-is-a-file all exit 3. | `cli/tests/end-to-end.test.ts` |
+| AUD-08 | **Partially verified.** Check names align with the ruleset (Section 8). Enforcement of a *failing* required check was **not** tested: that needs a deliberately failing PR, and ruleset changes are out of scope. Administrator bypass and disabled strict up-to-date remain policy risks. | Section 8 |
+
+### 10.4 Verification history worth keeping
+
+- `f2ce620`: the earlier e2e test needed `dist/`, but CI runs `npm test` before `Build`. `npm test` now excludes the e2e file; the dedicated step runs it after the build.
+- `f839f0b` failed CI: a new test expected `readTextFile` to *reject* a file symlink pointing outside the root. The code deliberately returns `undefined` for symlink leaves (content is never read). The test was corrected to assert that; no security behaviour changed.
+- That test is skipped on the Windows development machine; its skip status in CI was not inspected.
+
+### 10.5 Real-repository run
+
+`governance analyze <this repository root> --json` exits 1 with analysis status `PARTIAL` (`framework-detection` unsupported). `governance check` was **not** run against a real repository because this repository has no governance pack. The master-plan item "`governance check .` runs against a real repository" therefore stays open.
+
+### 10.6 Branch scope (needs human review)
+
+PR #1 reports 364 commits and 76 changed files against `main`; the compare endpoint reported 363 ahead at the time of this pass. The branch is the whole feature history, not an audit-only change. Whether PR #1 is intentionally the full change set is **not established**. No history was merged or squashed by this pass. Reviewers should also know that the four commits after `016ec95` (now `b403f38`, `9c2a563`, `a864326`, `538d79b`) were re-authored and force-pushed once at the repository owner's request (author identity and commit trailer only; file content unchanged). Their earlier hashes (`0b72dda`, `1dc70e9`, `5e0ed66`, `b29dd88`) are no longer reachable on the branch.
+
+### 10.7 Remaining blockers and accepted limitations
+
+1. AUD-08 failing-check enforcement is untested (needs an approved approach).
+2. AUD-03 schema-versus-runtime-type comparison was not performed.
+3. Exact CI Node/npm patch versions were not recorded.
+4. PR #1's description and issue #2's checklist were **not updated** by this pass: no authenticated GitHub credential for the repository was available in the working session.
+5. Runtime verification beyond tests and the CI smoke test, and any production approval, were not performed.
+6. Unsupported analysis remains: languages other than TypeScript/JavaScript and Python; verification adapters are limited to TypeScript type-checking and Python syntax checks.
+
+### 10.8 Recommendation
+
+**`CONTINUE AUDIT`.** CI is green on the tested SHA and the engine defect found in this pass is fixed, but P0 items AUD-08 (enforcement) and AUD-03 (schema/type comparison) remain unevidenced, and PR scope needs a human decision. Do not close issue #2 or mark Phase 0 complete.
