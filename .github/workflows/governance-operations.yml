@@ -185,4 +185,45 @@ jobs:
             cat "$fixture/missing-pack.stderr"
             exit 1
           fi
+          # Exercise the CLI against the checked-out repository using the
+          # repository's example pack. This is an integration smoke test only,
+          # not a project-specific governance approval.
+          set +e
+          node dist/cli/src/index.js analyze "$GITHUB_WORKSPACE" --json > "$RUNNER_TEMP/repository-analyze.json"
+          repository_analyze_status=$?
+          node dist/cli/src/index.js check "$GITHUB_WORKSPACE" --pack 22-governance-operations/model/example-governance-pack.json --json > "$RUNNER_TEMP/repository-check.json"
+          repository_check_status=$?
+          set -e
+
+          if [ "$repository_analyze_status" -gt 1 ]; then
+            echo "Repository analyze failed with exit code $repository_analyze_status"
+            cat "$RUNNER_TEMP/repository-analyze.json"
+            exit "$repository_analyze_status"
+          fi
+          if [ "$repository_check_status" -gt 2 ]; then
+            echo "Repository check failed with exit code $repository_check_status"
+            cat "$RUNNER_TEMP/repository-check.json"
+            exit "$repository_check_status"
+          fi
+
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const analyze = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            const check = JSON.parse(readFileSync(process.argv[2], "utf8"));
+            if (analyze.context?.analysisStatus !== "PARTIAL") {
+              throw new Error("Repository analyze did not preserve its known PARTIAL status");
+            }
+            if (check.context?.analysisStatus !== "PARTIAL") {
+              throw new Error("Repository check did not preserve the known PARTIAL analysis status");
+            }
+            if (check.evaluation?.decision?.status === "GO") {
+              throw new Error("Repository check incorrectly returned GO with PARTIAL analysis");
+            }
+            console.log("Repository integration smoke passed:", JSON.stringify({
+              analysisStatus: analyze.context.analysisStatus,
+              checkAnalysisStatus: check.context.analysisStatus,
+              decision: check.evaluation?.decision?.status
+            }));
+          ' "$RUNNER_TEMP/repository-analyze.json" "$RUNNER_TEMP/repository-check.json"
+
           echo "CLI failure-path exit-code smoke tests passed: invalid_args=$invalid_args_status missing_pack=$missing_pack_status"
