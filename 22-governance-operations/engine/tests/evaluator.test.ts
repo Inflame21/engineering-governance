@@ -29,11 +29,15 @@ const basePack: GovernancePack = {
   decisions: []
 };
 
+const applicableContext = {
+  signals: ["api_endpoint", "protected_resource"],
+};
+
 describe("rule and control engine", () => {
   it("evaluates one control identically for multiple implementation languages", () => {
     for (const language of ["typescript", "python", "go", "java", "rust"]) {
       const result = evaluateGovernance(basePack, {
-        signals: ["api_endpoint", "protected_resource"],
+        ...applicableContext,
         facts: { language }
       });
       expect(result.decision.status).toBe("GO");
@@ -47,16 +51,48 @@ describe("rule and control engine", () => {
     expect(result.decision.status).toBe("GO");
   });
 
-  it("blocks when required evidence is unverified", () => {
-    const pack = {
+  it("does not allow a declared PASS to override missing required evidence", () => {
+    const pack: GovernancePack = {
       ...basePack,
-      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" as const }]
+      controls: [{ ...basePack.controls[0]!, status: "PASS" }],
+      evidence: [],
     };
-    const result = evaluateGovernance(pack, {
-      signals: ["api_endpoint", "protected_resource"]
-    });
+    const result = evaluateGovernance(pack, applicableContext);
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingEvidence).toContain("EVD-AUTH");
     expect(result.decision.status).toBe("NO-GO");
-    expect(result.decision.blockingViolations[0]?.controlId).toBe("SEC-AUTH-001");
+  });
+
+  it.each(["UNVERIFIED", "PARTIALLY_VERIFIED", "NOT_APPLICABLE"] as const)(
+    "does not accept %s evidence as proof of a required control",
+    (evidenceStatus) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{ ...basePack.controls[0]!, status: "PASS" }],
+        evidence: [{ ...basePack.evidence[0]!, status: evidenceStatus }],
+      };
+      const result = evaluateGovernance(pack, applicableContext);
+
+      expect(result.controls[0]?.status).toBe("UNVERIFIED");
+      expect(result.decision.status).toBe("NO-GO");
+    },
+  );
+
+  it("does not pass a control with no declared or linked evidence", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{
+        ...basePack.controls[0]!,
+        status: "PASS",
+        required_evidence: [],
+      }],
+      evidence: [],
+    };
+    const result = evaluateGovernance(pack, applicableContext);
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
   });
 
   it("blocks on an open P1 risk even when controls pass", () => {
@@ -64,9 +100,7 @@ describe("rule and control engine", () => {
       ...basePack,
       risks: [{ id: "RSK-1", severity: "P1" as const, title: "Duplicate data risk", status: "OPEN" as const }]
     };
-    const result = evaluateGovernance(pack, {
-      signals: ["api_endpoint", "protected_resource"]
-    });
+    const result = evaluateGovernance(pack, applicableContext);
     expect(result.decision.status).toBe("NO-GO");
     expect(result.decision.blockingViolations[0]?.controlId).toBe("RISK:RSK-1");
   });
