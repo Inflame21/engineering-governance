@@ -275,6 +275,52 @@ describe("rule and control engine", () => {
     expect(result.decision.blockingViolations.some((item) => item.controlId === "ANALYSIS:COMPLETENESS")).toBe(true);
   });
 
+
+  it("blocks production on unresolved P1 analyzer findings", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      controls: [],
+      evidence: [],
+    }, {
+      signals: [],
+      analysisStatus: "COMPLETE",
+      findings: [{
+        id: "FND-ARCH-001",
+        rule_id: "ARCH-DOMAIN-INDEPENDENCE",
+        severity: "P1",
+        category: "architecture-boundary",
+        message: "Domain depends on infrastructure.",
+        status: "OPEN",
+        evidence_refs: ["EVD-ARCH-1"],
+      }],
+    });
+
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.some((item) => item.controlId === "FINDING:FND-ARCH-001")).toBe(true);
+  });
+
+  it("does not block on resolved findings", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      controls: [],
+      evidence: [],
+    }, {
+      signals: [],
+      analysisStatus: "COMPLETE",
+      findings: [{
+        id: "FND-ARCH-002",
+        rule_id: "ARCH-DOMAIN-INDEPENDENCE",
+        severity: "P1",
+        category: "architecture-boundary",
+        message: "Domain dependency was removed.",
+        status: "RESOLVED",
+        evidence_refs: ["EVD-ARCH-2"],
+      }],
+    });
+
+    expect(result.decision.status).toBe("GO");
+  });
+
   it("blocks on an open P1 risk even when controls pass", () => {
     const pack = {
       ...basePack,
