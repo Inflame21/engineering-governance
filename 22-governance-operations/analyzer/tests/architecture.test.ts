@@ -52,6 +52,22 @@ describe("architecture profiles", () => {
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
+
+  it("rejects empty style lists and malformed component mapping keys", () => {
+    const emptyStyles = { ...cleanArchitecture, styles: [] };
+    expect(validateArchitectureProfile(emptyStyles).valid).toBe(false);
+
+    const malformedMappings = {
+      ...cleanArchitecture,
+      componentMappings: {
+        "Domain Layer": ["src/domain/**"],
+      },
+    };
+    const result = validateArchitectureProfile(malformedMappings);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes("lowercase role identifier"))).toBe(true);
+  });
+
   it("rejects duplicate boundary rule IDs", () => {
     const duplicate = {
       ...cleanArchitecture,
