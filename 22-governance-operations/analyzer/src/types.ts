@@ -4,12 +4,21 @@ import type { VerificationReport } from "./verification.js";
 
 export type AnalyzerExecutionStatus = "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED";
 
+export interface RepositoryChangeScope {
+  status: "VERIFIED" | "UNVERIFIED";
+  baseRef: string;
+  headRef?: string;
+  files: string[];
+  reason?: string;
+}
+
 export interface RepositorySnapshot {
   rootPath: string;
   files: readonly string[];
   changedFiles: readonly string[];
   fileContents?: Readonly<Record<string, string>>;
   contentLimitations?: readonly string[];
+  changeScope?: RepositoryChangeScope;
 }
 
 export interface RepositoryFacts extends Record<string, unknown> {
@@ -41,6 +50,7 @@ export interface RepositoryAnalysis {
   adapterResults: RepositoryAdapterResult[];
   architecture?: ArchitectureVerificationResult;
   verification?: VerificationReport;
+  changeScope?: RepositoryChangeScope;
 }
 
 export interface RepositoryAdapterOutput {
