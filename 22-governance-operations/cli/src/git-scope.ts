@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
-import path from "node:path";
 import type { RepositoryChangeScope } from "../../analyzer/src/types.js";
 
 export interface GitCommandResult {
