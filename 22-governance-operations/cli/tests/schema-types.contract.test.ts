@@ -224,3 +224,116 @@ describe("JSON Schema and TypeScript contract alignment", () => {
     expect(governanceSchema.$defs.finding.properties.confidence.maximum).toBe(1);
   });
 });
+
+
+function schemaNode(root: unknown, dottedPath: string): Record<string, unknown> {
+  let current: unknown = root;
+  for (const segment of dottedPath.split(".")) {
+    if (Array.isArray(current)) {
+      current = current[Number(segment)];
+    } else if (current && typeof current === "object") {
+      current = (current as Record<string, unknown>)[segment];
+    } else {
+      throw new Error(`Cannot resolve schema path: ${dottedPath}`);
+    }
+  }
+  if (!current || typeof current !== "object" || Array.isArray(current)) {
+    throw new Error(`Schema path is not an object: ${dottedPath}`);
+  }
+  return current as Record<string, unknown>;
+}
+
+describe("JSON Schema constraint inventory", () => {
+  it("keeps primitive types, formats, patterns, bounds, uniqueness, and object policies explicit", () => {
+    const contracts: Array<[string, Record<string, unknown>]> = [
+      ["properties.version", { type: "string", pattern: "^\\\\d+\\\\.\\\\d+\\\\.\\\\d+$" }],
+      ["$defs.project.properties.id", { type: "string", pattern: "^[a-z0-9][a-z0-9._-]*$" }],
+      ["$defs.project.properties.name", { type: "string", minLength: 1 }],
+      ["$defs.change.properties.id", { type: "string", pattern: "^CHG-[0-9A-Z-]+$" }],
+      ["$defs.change.properties.title", { type: "string", minLength: 1 }],
+      ["$defs.standard.properties.id", { type: "string", pattern: "^[A-Z]{2,6}-\\\\d{3}$" }],
+      ["$defs.control.properties.id", { type: "string", pattern: "^[A-Z0-9-]+$" }],
+      ["$defs.control.properties.max_evidence_age_seconds", { type: "integer", minimum: 0 }],
+      ["$defs.evidence.properties.id", { type: "string", pattern: "^EVD-[0-9A-Z-]+$" }],
+      ["$defs.evidence.properties.freshness", { type: "string", minLength: 1 }],
+      ["$defs.evidence.properties.tool_version", { type: "string", minLength: 1 }],
+      ["$defs.evidence.properties.generated_at", { type: "string", format: "date-time" }],
+      ["$defs.evidence.properties.repository_fingerprint", { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }],
+      ["$defs.evidence.properties.duration_ms", { type: "integer", minimum: 0 }],
+      ["$defs.risk.properties.id", { type: "string", pattern: "^RSK-[0-9A-Z-]+$" }],
+      ["$defs.risk.properties.accepted_by", { type: "string", minLength: 1 }],
+      ["$defs.risk.properties.accepted_at", { type: "string", format: "date-time" }],
+      ["$defs.risk.properties.acceptance_expires_at", { type: "string", format: "date-time" }],
+      ["$defs.risk.properties.acceptance_reason", { type: "string", minLength: 1 }],
+      ["$defs.decision.properties.id", { type: "string", pattern: "^DEC-[0-9A-Z-]+$" }],
+      ["$defs.decision.properties.timestamp", { type: "string", format: "date-time" }],
+      ["$defs.exception.properties.id", { type: "string", pattern: "^EXC-[0-9A-Z-]+$" }],
+      ["$defs.exception.properties.control", { type: "string", minLength: 1 }],
+      ["$defs.exception.properties.reason", { type: "string", minLength: 1 }],
+      ["$defs.exception.properties.expires_at", { type: "string", format: "date-time" }],
+      ["$defs.exception.properties.change_id", { type: "string", pattern: "^CHG-[0-9A-Z-]+$" }],
+      ["$defs.debt.properties.id", { type: "string", pattern: "^DEBT-[0-9A-Z-]+$" }],
+      ["$defs.finding.properties.id", { type: "string", minLength: 1 }],
+      ["$defs.finding.properties.category", { type: "string", minLength: 1 }],
+      ["$defs.finding.properties.evidence_refs", { type: "array", uniqueItems: true }],
+      ["$defs.finding.properties.source_location.properties.start_line", { type: "integer", minimum: 1 }],
+      ["$defs.finding.properties.source_location.properties.end_line", { type: "integer", minimum: 1 }],
+      ["$defs.finding.properties.confidence", { type: "number", minimum: 0, maximum: 1 }],
+    ];
+
+    for (const [path, expected] of contracts) {
+      const node = schemaNode(governanceSchema, path);
+      for (const [key, value] of Object.entries(expected)) {
+        expect(node[key], `${path}.${key}`).toEqual(value);
+      }
+    }
+
+    const packSchema = governanceSchema as unknown as Record<string, unknown>;
+    expect(packSchema["additionalProperties"], "top-level governance-pack additionalProperties remains an unresolved policy decision").toBeUndefined();
+    expect(schemaNode(governanceSchema, "$defs.project").additionalProperties).toBe(false);
+    expect(schemaNode(governanceSchema, "$defs.control").additionalProperties).toBe(false);
+    expect(schemaNode(governanceSchema, "$defs.evidence").additionalProperties).toBe(false);
+    expect(schemaNode(architectureProfileSchema, "").additionalProperties).toBe(false);
+  });
+
+  it("keeps status-dependent risk and exception requirements explicit", () => {
+    const riskAccepted = schemaNode(governanceSchema, "$defs.risk.allOf.0");
+    expect(schemaNode(riskAccepted, "if.properties.status").const).toBe("ACCEPTED");
+    expect([...(riskAccepted.then as { required: string[] }).required].sort()).toEqual([
+      "accepted_at", "accepted_by", "acceptance_expires_at", "acceptance_reason",
+    ]);
+
+    const exceptionRequested = schemaNode(governanceSchema, "$defs.exception.allOf.0");
+    expect(schemaNode(exceptionRequested, "if.properties.status").const).toBe("REQUESTED");
+    expect([...(exceptionRequested.then as { required: string[] }).required].sort()).toEqual([
+      "change_id", "control", "project_id", "reason", "requested_at", "requested_by",
+    ]);
+
+    const exceptionApproved = schemaNode(governanceSchema, "$defs.exception.allOf.1");
+    expect(schemaNode(exceptionApproved, "if.properties.status").const).toBe("APPROVED");
+    expect([...(exceptionApproved.then as { required: string[] }).required].sort()).toEqual([
+      "approved_at", "approved_by", "change_id", "control", "expires_at", "project_id",
+      "reason", "requested_at", "requested_by",
+    ]);
+  });
+
+  it("keeps architecture-profile array, pattern, and numeric constraints explicit", () => {
+    const contracts: Array<[string, Record<string, unknown>]> = [
+      ["properties.id", { type: "string", pattern: "^[a-z][a-z0-9-]*$" }],
+      ["properties.version", { type: "string", pattern: "^\\\\d+\\\\.\\\\d+\\\\.\\\\d+$" }],
+      ["properties.styles", { type: "array", minItems: 1, uniqueItems: true }],
+      ["properties.styles.items", { type: "string", minLength: 1 }],
+      ["properties.boundaryRules.items.properties.id", { type: "string", minLength: 1, pattern: "^[A-Z0-9][A-Z0-9-]*$" }],
+      ["properties.boundaryRules.items.properties.allowed", { type: "boolean", default: false }],
+      ["properties.requiredControls", { type: "array", uniqueItems: true }],
+      ["properties.capabilities", { type: "array", uniqueItems: true }],
+      ["properties.componentMappings.additionalProperties", { type: "array", minItems: 1 }],
+    ];
+    for (const [path, expected] of contracts) {
+      const node = schemaNode(architectureProfileSchema, path);
+      for (const [key, value] of Object.entries(expected)) {
+        expect(node[key], `architecture-profile ${path}.${key}`).toEqual(value);
+      }
+    }
+  });
+});
