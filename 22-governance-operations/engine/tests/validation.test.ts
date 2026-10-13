@@ -100,6 +100,44 @@ describe("governance pack semantic validation", () => {
     ]));
   });
 
+
+  it("rejects accepted risks without auditable, unexpired acceptance metadata", () => {
+    const invalidPack: GovernancePack = {
+      ...validPack,
+      risks: [{
+        id: "RSK-1",
+        severity: "P1",
+        title: "Unverified acceptance",
+        status: "ACCEPTED",
+      }],
+    };
+
+    expect(validateGovernancePackSemantics(invalidPack, "2026-10-13T00:00:00Z").map((issue) => issue.code))
+      .toContain("INVALID_RISK_ACCEPTANCE");
+  });
+
+  it("rejects approved exceptions outside the active project/change scope", () => {
+    const invalidPack: GovernancePack = {
+      ...validPack,
+      exceptions: [{
+        id: "EXC-1",
+        status: "APPROVED",
+        control: "SEC-AUTH-001",
+        reason: "Temporary exception.",
+        project_id: "other-project",
+        change_id: "CHG-1",
+        requested_by: "engineering",
+        requested_at: "2026-10-10T00:00:00Z",
+        approved_by: "security-owner",
+        approved_at: "2026-10-11T00:00:00Z",
+        expires_at: "2026-10-20T00:00:00Z",
+      }],
+    };
+
+    expect(validateGovernancePackSemantics(invalidPack, "2026-10-13T00:00:00Z").map((issue) => issue.code))
+      .toContain("INVALID_EXCEPTION");
+  });
+
   it("reports duplicate IDs within a collection", () => {
     const invalidPack: GovernancePack = {
       ...validPack,
