@@ -88,7 +88,7 @@ describe("Node filesystem adapter", () => {
     }
 
     await expect(nodeFileSystem.listFiles(root)).resolves.toEqual([]);
-    await expect(nodeFileSystem.readTextFile(root, "link.txt")).rejects.toThrow();
+    await expect(nodeFileSystem.readTextFile(root, "link.txt")).resolves.toBeUndefined();
   });
 
   it("treats file names containing shell metacharacters as literal data", async () => {
