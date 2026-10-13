@@ -3,6 +3,8 @@ import type {
   GovernanceFinding,
 } from "../../engine/src/types.js";
 import type { RepositorySnapshot, RepositoryAdapterResult } from "./types.js";
+import { fingerprintRepositorySnapshot } from "./fingerprint.js";
+import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
 
 export type VerificationToolName = "typescript" | "python3" | "python";
 export type VerificationToolStatus = "PASS" | "FAIL" | "UNVERIFIED" | "ERROR";
@@ -27,6 +29,11 @@ export interface VerificationToolRunner {
     workingDirectory: string,
     timeoutMs: number,
   ): Promise<VerificationProcessResult>;
+  getVersion?(
+    tool: VerificationToolName,
+    repositoryRoot: string,
+    workingDirectory: string,
+  ): Promise<string | undefined>;
 }
 
 export interface VerificationToolResult {
@@ -36,6 +43,7 @@ export interface VerificationToolResult {
   exitCode?: number;
   summary: string;
   evidenceId?: string;
+  toolVersion?: string;
   findings: GovernanceFinding[];
   limitations: string[];
 }
@@ -46,6 +54,7 @@ export interface VerificationReport {
   evidence: GovernanceEvidence[];
   findings: GovernanceFinding[];
   adapterResults: RepositoryAdapterResult[];
+  snapshotFingerprint: RepositorySnapshotFingerprint;
 }
 
 const MAX_TYPESCRIPT_PROJECTS = 20;
@@ -139,6 +148,7 @@ export async function runVerificationAdapters(
   snapshot: RepositorySnapshot,
   runner: VerificationToolRunner,
 ): Promise<VerificationReport> {
+  const snapshotFingerprint = fingerprintRepositorySnapshot(snapshot);
   const results: VerificationToolResult[] = [];
   const evidence: GovernanceEvidence[] = [];
   const findings: GovernanceFinding[] = [];
@@ -189,9 +199,10 @@ export async function runVerificationAdapters(
         limitations: ["TypeScript project count exceeded the verification limit."],
       });
     } else {
-      const unavailable = [];
+      const unavailable: string[] = [];
       const processResults: VerificationProcessResult[] = [];
       const errors: string[] = [];
+      const toolVersions = new Set<string>();
       for (const configPath of tsconfigs) {
         const workingDirectory = directoryname(configPath);
         if (!(await runner.isAvailable("typescript", snapshot.rootPath, workingDirectory))) {
@@ -199,6 +210,8 @@ export async function runVerificationAdapters(
           continue;
         }
         try {
+          const version = await runner.getVersion?.("typescript", snapshot.rootPath, workingDirectory);
+          if (version) toolVersions.add(version);
           processResults.push(await runner.run(
             "typescript",
             ["--noEmit", "--pretty", "false", "--project", "tsconfig.json"],
@@ -258,6 +271,14 @@ export async function runVerificationAdapters(
           source: "typescript-compiler-adapter",
           freshness: "current",
           supports_controls: [],
+          generated_at: new Date().toISOString(),
+          repository_fingerprint: snapshotFingerprint.digest,
+          ...(toolVersions.size > 0 ? { tool_version: [...toolVersions].sort().join(", ") } : {}),
+          ...(processResults.some((result) => result.durationMs !== undefined)
+            ? { duration_ms: processResults.reduce((total, result) => total + (result.durationMs ?? 0), 0) }
+            : {}),
+          ...(hasLimitations ? {} : { exit_code: failures.length > 0 ? 1 : 0 }),
+          command: ["tsc", "--noEmit", "--pretty", "false", "--project", "tsconfig.json"],
         };
         evidence.push(toolEvidence);
         findings.push(...toolFindings);
@@ -272,6 +293,7 @@ export async function runVerificationAdapters(
               ? "TypeScript type checking is incomplete; one or more projects could not be verified."
               : "TypeScript type checking passed.",
           evidenceId,
+          ...(toolVersions.size > 0 ? { toolVersion: [...toolVersions].sort().join(", ") } : {}),
           findings: toolFindings,
           limitations,
         });
@@ -355,6 +377,7 @@ export async function runVerificationAdapters(
           limitations: [limitation],
         });
       } else {
+        const toolVersion = await runner.getVersion?.(tool, snapshot.rootPath, ".");
         const script = [
           "import ast, json, pathlib, sys",
           "errors = []",
@@ -411,6 +434,12 @@ export async function runVerificationAdapters(
             source: "python-ast-adapter",
             freshness: "current",
             supports_controls: [],
+            generated_at: new Date().toISOString(),
+            repository_fingerprint: snapshotFingerprint.digest,
+            ...(toolVersion ? { tool_version: toolVersion } : {}),
+            ...(processResult.durationMs !== undefined ? { duration_ms: processResult.durationMs } : {}),
+            exit_code: processResult.exitCode,
+            command: [tool, "-c", "<inline AST parser>", `<${pythonFiles.length} source files>`],
           });
           findings.push(...toolFindings);
           results.push({
@@ -426,6 +455,7 @@ export async function runVerificationAdapters(
                   ? `Python syntax verification incomplete: ${uninspectedPythonFiles.length} file(s) were not inspected.`
                   : "Python syntax runner returned invalid output.",
             evidenceId,
+            ...(toolVersion ? { toolVersion } : {}),
             findings: toolFindings,
             limitations: [
               ...(status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : []),
@@ -475,5 +505,5 @@ export async function runVerificationAdapters(
     ? "PARTIAL"
     : "COMPLETE";
 
-  return { status, results, evidence, findings, adapterResults };
+  return { status, results, evidence, findings, adapterResults, snapshotFingerprint };
 }
