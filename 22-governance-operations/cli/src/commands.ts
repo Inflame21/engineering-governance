@@ -1,4 +1,5 @@
 import { analyzeRepository } from "../../analyzer/src/pipeline.js";
+import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack } from "../../engine/src/types.js";
 import { formatHumanResult, formatJsonResult } from "./output.js";
@@ -11,10 +12,8 @@ export interface AnalyzeCommandInput {
 
 export async function runAnalyzeCommand(input: AnalyzeCommandInput): Promise<string> {
   const analysis = await analyzeRepository(input.snapshot);
-  const evaluation = evaluateGovernance(input.governancePack, {
-    signals: analysis.signals,
-    facts: analysis.facts,
-  });
+  const context = toGovernanceContext(analysis);
+  const evaluation = evaluateGovernance(input.governancePack, context);
 
   return input.json
     ? formatJsonResult(analysis, evaluation)
