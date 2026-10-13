@@ -482,3 +482,19 @@ The engine job log records:
 The same version-reporting step ran successfully in all three matrix jobs. This resolves the exact CI Node/npm version capture item for this workflow run. The workflow still selects Node major version 22; future runs can resolve a different patch version, so the emitted log remains the evidence for each run.
 
 This change records the versions but does not pin the Node patch version. Pinning an exact runtime version is a separate reproducibility policy decision and has not been introduced by this audit.
+
+
+## 13. Current branch-scope recheck — 2026-10-13
+
+After the schema-contract and CI-toolchain follow-ups, GitHub's compare endpoint currently reports:
+
+- Base: `main`
+- Audit branch: `audit/phase-0-baseline`
+- Ahead: **374 commits**
+- Behind: **0 commits**
+- Merge base: `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`
+- Changed files: **77**
+
+This is a new current snapshot and supersedes earlier ahead/file counts for present-day scope review. The increase includes follow-up commits and a new schema contract test; it does not mean all 374 commits were authored during this audit. The branch still represents the full feature history rather than an audit-only diff. Human review must decide whether this entire scope is intended for PR #1 and inspect the previously recorded force-push/re-authorship event. No merge or history rewrite was performed as part of this recheck.
+
+Current PR head at the time of this recheck: [`f3c46990f302504cb36917d9ddc36381036ddb70`](https://github.com/Inflame21/engineering-governance/commit/f3c46990f302504cb36917d9ddc36381036ddb70). The current head's workflow run [#38397958132](https://github.com/Inflame21/engineering-governance/actions/runs/38397958132) passed all three package jobs.
