@@ -93,6 +93,7 @@ export interface ArchitectureDependencyGraph {
   componentEdges: ArchitectureComponentEdge[];
   packageEdges: ArchitecturePackageEdge[];
   changeImpact: ArchitectureChangeImpact;
+  ambiguousRoleMappings: Array<{ file: string; roles: string[] }>;
   unresolvedRelativeImports: Array<{ file: string; line: number; specifier: string }>;
   uninspectedSourceFiles: string[];
   unsupportedLanguages: string[];
@@ -499,6 +500,17 @@ export function buildArchitectureDependencyGraph(
       files: [...filesForRole].sort(),
     }));
   const nodeByPath = new Map(nodes.map((node) => [node.path, node]));
+  const ambiguousRoleMappings = nodes
+    .filter((node) =>
+      node.roles.length > 1 &&
+      !profile?.boundaryRules.some((rule) =>
+        rule.allowed === true &&
+        [...roleAlternatives(rule.sourcePattern), ...roleAlternatives(rule.targetPattern)]
+          .some((role) => node.roles.includes(role)),
+      ),
+    )
+    .map((node) => ({ file: node.path, roles: [...node.roles] }))
+    .sort((left, right) => left.file.localeCompare(right.file));
   const componentEdges: ArchitectureComponentEdge[] = [];
   for (const edge of edges) {
     const source = nodeByPath.get(edge.sourceId.slice("FILE:".length));
@@ -645,6 +657,7 @@ export function buildArchitectureDependencyGraph(
       a.sourceFile.localeCompare(b.sourceFile),
     ),
     changeImpact,
+    ambiguousRoleMappings,
     unresolvedRelativeImports: unresolvedRelativeImports.sort((a, b) =>
       a.file.localeCompare(b.file) || a.line - b.line,
     ),
@@ -682,6 +695,13 @@ export function verifyArchitectureProfile(
   if (graph.uninspectedSourceFiles.length > 0) {
     limitations.push(`${graph.uninspectedSourceFiles.length} source file(s) were not inspected for dependencies.`);
     unsupportedCapabilities.push("architecture:source-content");
+  }
+
+  if (graph.ambiguousRoleMappings.length > 0) {
+    limitations.push(
+      `${graph.ambiguousRoleMappings.length} source file(s) match multiple architecture roles; boundary verification may be ambiguous.`,
+    );
+    unsupportedCapabilities.push("architecture:unambiguous-component-mapping");
   }
 
   if (snapshot.contentLimitations?.length) {

@@ -261,6 +261,32 @@ describe("architecture profiles", () => {
     expect(result.unsupportedCapabilities).toContain("architecture:component-role-mapping");
   });
 
+  it("keeps architecture verification partial when a source file maps to multiple roles", () => {
+    const profile: ArchitectureProfile = {
+      ...(cleanArchitectureExample as ArchitectureProfile),
+      componentMappings: {
+        domain: ["src/domain/**"],
+        application: ["src/domain/**"],
+        infrastructure: ["src/infrastructure/**"],
+      },
+    };
+    const result = verifyArchitectureProfile({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, profile);
+
+    expect(result.status).toBe("PARTIAL");
+    expect(result.graph.ambiguousRoleMappings).toEqual([
+      { file: "src/domain/user.ts", roles: ["application", "domain"] },
+    ]);
+    expect(result.unsupportedCapabilities).toContain("architecture:unambiguous-component-mapping");
+  });
+
   it("computes reverse-dependency impact from a verified changed-file scope", () => {
     const result = buildArchitectureDependencyGraph({
       rootPath: "/repo",
