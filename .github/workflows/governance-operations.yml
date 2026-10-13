@@ -39,6 +39,25 @@ jobs:
       - name: Install package dependencies
         run: npm install
 
+      - name: Report dependency vulnerabilities
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node <<'NODE'
+          try {
+            const report = require("./npm-audit.json");
+            console.log("Dependency vulnerability totals:", JSON.stringify(report.metadata?.vulnerabilities ?? {}));
+            for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+              const advisories = (item.via ?? []).map((entry) =>
+                typeof entry === "string" ? entry : `${entry.title} (${entry.url ?? "no advisory URL"})`
+              );
+              console.log(`${item.severity}: ${name} — ${advisories.join("; ")}`);
+            }
+          } catch {
+            console.log("Dependency audit report could not be parsed; inspect npm audit output.");
+          }
+          NODE
+
       - name: Type-check
         run: npm run check
 
