@@ -10,14 +10,14 @@ import type {
   RepositorySnapshot,
 } from "./types.js";
 
-const factKeys: Array<keyof RepositoryFacts> = [
+const factKeys = [
   "languages",
   "frameworks",
   "packageManagers",
   "buildSystems",
   "infrastructureSystems",
   "testSystems",
-];
+] as const;
 
 function mergeRepositoryFacts(
   baseFacts: RepositoryFacts,
