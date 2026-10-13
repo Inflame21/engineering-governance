@@ -29,6 +29,7 @@ function toViolation(
       control.reason ??
       `Control ${control.controlId} is ${control.status}.`,
     missingEvidence: control.missingEvidence,
+    missingSignals: control.missingSignals,
   };
 }
 
@@ -62,6 +63,7 @@ export function deriveDecision(
         : "GO_WITH_CONDITIONS",
     message: risk.title,
     missingEvidence: [],
+    missingSignals: [],
   }));
   const blockingRiskViolations = riskViolations.filter(
     (item) => item.severity === "P0" || item.severity === "P1",
