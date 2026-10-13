@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli/src/index.js",
+    "governance": "node dist/cli/src/index.js"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
@@ -16,5 +18,8 @@
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1"
+  },
+  "bin": {
+    "governance": "./dist/cli/src/index.js"
   }
 }
