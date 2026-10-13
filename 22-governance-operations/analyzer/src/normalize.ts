@@ -63,6 +63,11 @@ export function toGovernanceContext(
     analysisStatus,
     unsupportedCapabilities: [...new Set(unsupportedCapabilities)].sort(),
     analyzerLimitations: [...new Set(analyzerLimitations)].sort(),
+    ...(analysis.changeScope ? {
+      changeScopeStatus: analysis.changeScope.status,
+      ...(analysis.changeScope.reason ? { changeScopeReason: analysis.changeScope.reason } : {}),
+      changedFiles: analysis.changeScope.files,
+    } : {}),
     evaluatedAt: new Date().toISOString(),
   };
 }
