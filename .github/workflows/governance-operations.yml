@@ -51,7 +51,7 @@ jobs:
               const advisories = (item.via ?? []).map((entry) =>
                 typeof entry === "string" ? entry : `${entry.title} (${entry.url ?? "no advisory URL"})`
               );
-              console.log(`${item.severity}: ${name} — ${advisories.join("; ")}`);
+              console.log(`${item.severity}: ${name} | affected=${item.range} | fixAvailable=${JSON.stringify(item.fixAvailable)} | ${advisories.join("; ")}`);
             }
           } catch {
             console.log("Dependency audit report could not be parsed; inspect npm audit output.");
