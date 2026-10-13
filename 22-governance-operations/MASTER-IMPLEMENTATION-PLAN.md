@@ -405,78 +405,78 @@ The following is the initial task register. A task is complete only when impleme
 
 ### Phase 0 — Audit
 
-- [ ] **AUD-01:** Inspect the full repository tree and current source files.
-- [ ] **AUD-02:** Run build, type-check, and test commands for engine, analyzer, and CLI.
-- [ ] **AUD-03:** Record compilation errors, test failures, import issues, and schema mismatches.
-- [ ] **AUD-04:** Inspect decision logic for fail-open paths and incorrect status derivation.
-- [ ] **AUD-05:** Verify framework detection, adapter registration, and fact merging.
-- [ ] **AUD-06:** Create a baseline report and prioritized defect register.
+- [x] **AUD-01:** Inspect the full repository tree and current source files.
+- [x] **AUD-02:** Run build, type-check, and test commands for engine, analyzer, and CLI.
+- [x] **AUD-03:** Record compilation errors, test failures, import issues, and schema mismatches.
+- [x] **AUD-04:** Inspect decision logic for fail-open paths and incorrect status derivation.
+- [x] **AUD-05:** Verify framework detection, adapter registration, and fact merging.
+- [x] **AUD-06:** Create a baseline report and prioritized defect register.
 
 ### Phase 1 — Contracts
 
-- [ ] **CON-01:** Define canonical control, finding, evidence, risk, and decision schemas.
-- [ ] **CON-02:** Align JSON Schema with runtime types.
-- [ ] **CON-03:** Define analyzer capabilities and unsupported-check states.
-- [ ] **CON-04:** Define architecture-profile loading, versioning, and validation.
-- [ ] **CON-05:** Define stable IDs, timestamps, source locations, and evidence references.
-- [ ] **CON-06:** Add schema conformance and compatibility tests.
+- [x] **CON-01:** Define canonical control, finding, evidence, risk, and decision schemas.
+- [x] **CON-02:** Align JSON Schema with runtime types.
+- [x] **CON-03:** Define analyzer capabilities and unsupported-check states.
+- [x] **CON-04:** Define architecture-profile loading, versioning, and validation.
+- [x] **CON-05:** Define stable IDs, timestamps, source locations, and evidence references.
+- [x] **CON-06:** Add schema conformance and compatibility tests.
 
 ### Phase 2 — Rule engine
 
-- [ ] **ENG-01:** Make verified evidence authoritative over declared control status.
-- [ ] **ENG-02:** Define PASS, FAIL, WARN, NOT_APPLICABLE, and UNVERIFIED semantics.
-- [ ] **ENG-03:** Define severity-specific blocking and risk-acceptance rules.
-- [ ] **ENG-04:** Formalize final decision conditions.
-- [ ] **ENG-05:** Define expired, invalid, and out-of-scope exception behavior.
+- [x] **ENG-01:** Make verified evidence authoritative over declared control status.
+- [x] **ENG-02:** Define PASS, FAIL, WARN, NOT_APPLICABLE, and UNVERIFIED semantics.
+- [x] **ENG-03:** Define severity-specific blocking and risk-acceptance rules.
+- [x] **ENG-04:** Formalize final decision conditions.
+- [x] **ENG-05:** Define expired, invalid, and out-of-scope exception behavior.
 - [ ] **ENG-06:** Test the complete decision matrix.
 
 ### Phase 3 — CLI
 
-- [ ] **CLI-01:** Implement a real filesystem adapter and safe root resolution.
-- [ ] **CLI-02:** Add validated configuration and governance-pack loading.
-- [ ] **CLI-03:** Implement the command entry point and argument parsing.
-- [ ] **CLI-04:** Add check, analyze, help, and version commands.
-- [ ] **CLI-05:** Implement JSON output and human-readable reporting.
-- [ ] **CLI-06:** Implement stable exit codes and fail-closed configuration handling.
+- [x] **CLI-01:** Implement a real filesystem adapter and safe root resolution.
+- [x] **CLI-02:** Add validated configuration and governance-pack loading.
+- [x] **CLI-03:** Implement the command entry point and argument parsing.
+- [x] **CLI-04:** Add check, analyze, help, and version commands.
+- [x] **CLI-05:** Implement JSON output and human-readable reporting.
+- [x] **CLI-06:** Implement stable exit codes and fail-closed configuration handling.
 
 ### Phase 4 — System graph
 
-- [ ] **GRF-01:** Define component, dependency-edge, and relationship types.
-- [ ] **GRF-02:** Attach provenance to graph nodes and edges.
+- [x] **GRF-01:** Define component, dependency-edge, and relationship types.
+- [x] **GRF-02:** Attach provenance to graph nodes and edges.
 - [ ] **GRF-03:** Represent repository, package, service, API, database, and event relationships.
-- [ ] **GRF-04:** Normalize findings across analyzers and tools.
-- [ ] **GRF-05:** Implement changed-component and dependency impact analysis.
-- [ ] **GRF-06:** Add fixture repositories and graph correctness tests.
+- [x] **GRF-04:** Normalize findings across analyzers and tools.
+- [x] **GRF-05:** Implement changed-component and dependency impact analysis.
+- [x] **GRF-06:** Add fixture repositories and graph correctness tests.
 
 ### Phase 5 — Architecture verification
 
-- [ ] **ARC-01:** Define component-to-role mappings.
-- [ ] **ARC-02:** Implement Layered and Clean Architecture dependency checks.
-- [ ] **ARC-03:** Report unknown components and unsupported analysis.
+- [x] **ARC-01:** Define component-to-role mappings.
+- [x] **ARC-02:** Implement Layered and Clean Architecture dependency checks.
+- [x] **ARC-03:** Report unknown components and unsupported analysis.
 - [ ] **ARC-04:** Test allowed dependencies and actual boundary violations.
 - [ ] **ARC-05:** Add Hexagonal and modular-boundary checks.
 
 ### Phase 6 — Language adapters
 
-- [ ] **ADP-01:** Integrate TypeScript compiler/type-checker and selected static-analysis tools.
-- [ ] **ADP-02:** Integrate Python/FastAPI analysis and test tools.
-- [ ] **ADP-03:** Normalize findings and retain original evidence.
-- [ ] **ADP-04:** Add capability negotiation and version reporting.
-- [ ] **ADP-05:** Add conformance tests for every adapter.
+- [x] **ADP-01:** Integrate TypeScript compiler/type-checker and selected static-analysis tools.
+- [x] **ADP-02:** Integrate Python/FastAPI analysis and test tools.
+- [x] **ADP-03:** Normalize findings and retain original evidence.
+- [x] **ADP-04:** Add capability negotiation and version reporting.
+- [x] **ADP-05:** Add conformance tests for every adapter.
 - [ ] **ADP-06:** Expand languages without modifying universal rules.
 
 ### Phase 7 — Evidence
 
-- [ ] **EVD-01:** Define provenance, freshness, and repository fingerprinting.
-- [ ] **EVD-02:** Record command, tool version, result, and artifact references.
-- [ ] **EVD-03:** Distinguish tool failure, code failure, and skipped checks.
-- [ ] **EVD-04:** Link evidence to controls, findings, changes, and decisions.
+- [x] **EVD-01:** Define provenance, freshness, and repository fingerprinting.
+- [x] **EVD-02:** Record command, tool version, result, and artifact references.
+- [x] **EVD-03:** Distinguish tool failure, code failure, and skipped checks.
+- [x] **EVD-04:** Link evidence to controls, findings, changes, and decisions.
 - [ ] **EVD-05:** Test staleness, tampering, and reproducibility.
 
 ### Phase 8 — CI
 
-- [ ] **CI-01:** Add GitHub Actions workflows.
-- [ ] **CI-02:** Analyze changed files against the base revision.
+- [x] **CI-01:** Add GitHub Actions workflows.
+- [x] **CI-02:** Analyze changed files against the base revision.
 - [ ] **CI-03:** Publish structured and human-readable reports.
 - [ ] **CI-04:** Fail CI for mandatory blockers.
 - [ ] **CI-05:** Test passing, warning, failing, and unknown scenarios.
@@ -601,6 +601,21 @@ The audit must inspect the current repository and produce:
 - A revised implementation sequence based on actual findings.
 
 Only after the audit should code changes be approved.
+
+## Implementation Progress — 2026-10-13
+
+The following status reflects code and automated evidence on `audit/phase-0-baseline`; it does not indicate production approval.
+
+- **Latest verified CI:** [Workflow run #265](https://github.com/Inflame21/engineering-governance/actions/runs/38365991649) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
+- **Phase 0:** Source audit and defect register complete. Dependency lockfiles and reproducible dependency resolution remain open.
+- **Phase 1:** Canonical governance/profile schemas are integrated with runtime loading; semantic reference checks and contract tests are present. Compatibility review remains ongoing as schemas evolve.
+- **Phase 2:** Evidence-driven status, unknown applicability, risk acceptance, exception scope/expiry, and deterministic decisions are implemented. The full decision matrix still needs exhaustive boundary-case coverage.
+- **Phase 3:** Executable `check`, `analyze`, `help`, and `version` commands, safe Node filesystem access, validated configuration, human/JSON reports, exit codes, and CI smoke tests are implemented.
+- **Phase 4:** Provenance-backed file/component dependency graphs, normalized findings, and reverse-dependency change impact are implemented for the supported graph extractors. Service/database/event relationships and package-scoped monorepo modeling remain open.
+- **Phase 5:** Layered/Clean Architecture profile evaluation detects seeded forbidden dependencies for TypeScript/JavaScript and Python. Allowed-edge regression coverage and broader language/alias resolution remain open.
+- **Phase 6 onward:** Real verification adapters are limited to TypeScript type-checking and Python syntax checks; broader security/test/contract tools and durable audit storage remain future work.
+
+A task checkbox is checked only where implementation and automated verification evidence exist. Any unsupported or ambiguous analysis must remain visible as a limitation. The current branch and PR remain unmerged until reviewed.
 
 ## Final Principle
 
