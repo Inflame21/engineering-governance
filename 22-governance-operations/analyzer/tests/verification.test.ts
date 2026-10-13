@@ -142,6 +142,44 @@ describe("opt-in verification adapters", () => {
   });
 
 
+  it("classifies a non-zero Python verifier exit without diagnostics as a tool error", async () => {
+    const report = await runVerificationAdapters({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["main.py"],
+      fileContents: { "main.py": "print('ok')" },
+    }, runner({
+      python3Available: true,
+      results: [{ exitCode: 2, stdout: JSON.stringify({ errors: [] }), stderr: "interpreter failure" }],
+    }));
+
+    expect(report.results[0]?.status).toBe("ERROR");
+    expect(report.results[0]?.summary).toContain("invalid output");
+    expect(report.findings).toEqual([]);
+    expect(report.adapterResults[0]?.executionStatus).toBe("FAILED");
+    expect(report.status).toBe("PARTIAL");
+  });
+
+  it("classifies syntax diagnostics paired with a zero exit code as a tool error", async () => {
+    const report = await runVerificationAdapters({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["main.py"],
+      fileContents: { "main.py": "if True print('broken')" },
+    }, runner({
+      python3Available: true,
+      results: [{
+        exitCode: 0,
+        stdout: JSON.stringify({ errors: [{ file: "main.py", line: 1, message: "invalid syntax" }] }),
+        stderr: "",
+      }],
+    }));
+
+    expect(report.results[0]?.status).toBe("ERROR");
+    expect(report.findings).toEqual([]);
+    expect(report.adapterResults[0]?.executionStatus).toBe("FAILED");
+  });
+
   it("does not parse Python files that were excluded by source-content limits", async () => {
     const report = await runVerificationAdapters({
       rootPath: "/repo",
