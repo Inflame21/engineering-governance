@@ -106,6 +106,35 @@ describe("architecture profiles", () => {
 
 
 
+  it("links cross-package imports to package-level dependency edges", () => {
+    const graph = buildArchitectureDependencyGraph({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: [
+        "apps/web/package.json",
+        "apps/web/src/App.tsx",
+        "packages/shared/package.json",
+        "packages/shared/src/index.ts",
+      ],
+      fileContents: {
+        "apps/web/package.json": JSON.stringify({ dependencies: { react: "^19.0.0" } }),
+        "apps/web/src/App.tsx": 'import { shared } from "../../packages/shared/src/index.js";\\nexport const app = shared;',
+        "packages/shared/package.json": JSON.stringify({ name: "@example/shared" }),
+        "packages/shared/src/index.ts": "export const shared = true;",
+      },
+    });
+
+    expect(graph.packageEdges).toHaveLength(1);
+    expect(graph.packageEdges[0]).toMatchObject({
+      sourcePackageId: "package:apps/web",
+      targetPackageId: "package:packages/shared",
+      sourceFile: "apps/web/src/App.tsx",
+      targetFile: "packages/shared/src/index.ts",
+      sourceLocation: { file: "apps/web/src/App.tsx", line: 1 },
+    });
+    expect(graph.packageEdges[0]?.evidenceRef).toMatch(/^EVD-ARCH-/);
+  });
+
   it("aggregates file dependencies into role-level component edges", () => {
     const graph = buildArchitectureDependencyGraph({
       rootPath: "/repo",
