@@ -107,6 +107,35 @@ describe("CLI output", () => {
     expect(output).toContain("services/api | languages: python | frameworks: fastapi | package managers: uv");
   });
 
+  it("renders typed system relationship graph counts and limitations", () => {
+    const withSystemGraph: RepositoryAnalysis = {
+      ...analysis,
+      systemGraph: {
+        status: "PARTIAL",
+        nodes: [
+          { id: "REPO:ROOT", type: "REPOSITORY", name: "repository", confidence: 1, evidenceRefs: [] },
+          { id: "API:1", type: "API_ENDPOINT", name: "GET /users", confidence: 0.95, evidenceRefs: ["EVD-SYSTEM-API-1"] },
+          { id: "DATABASE:1", type: "DATABASE", name: "postgresql", confidence: 0.95, evidenceRefs: ["EVD-SYSTEM-DB-1"] },
+          { id: "EVENT:1", type: "EVENT", name: "user.created", confidence: 0.65, evidenceRefs: ["EVD-SYSTEM-EVENT-1"] },
+        ],
+        edges: [
+          { id: "EDGE-1", type: "EXPOSES_API", sourceId: "package:api", targetId: "API:1", confidence: 0.95, evidenceRefs: ["EVD-SYSTEM-API-1"] },
+          { id: "EDGE-2", type: "USES_DATABASE", sourceId: "package:api", targetId: "DATABASE:1", confidence: 0.95, evidenceRefs: ["EVD-SYSTEM-DB-1"] },
+          { id: "EDGE-3", type: "PUBLISHES_EVENT", sourceId: "package:api", targetId: "EVENT:1", confidence: 0.65, evidenceRefs: ["EVD-SYSTEM-EVENT-1"] },
+        ],
+        evidence: [],
+        limitations: ["A dynamic route was not inspected."],
+      },
+    };
+
+    const output = formatAnalysisResult(withSystemGraph, context);
+    expect(output).toContain("System relationship graph: PARTIAL");
+    expect(output).toContain("API endpoints: 1");
+    expect(output).toContain("Databases: 1");
+    expect(output).toContain("Publishes events: 1");
+    expect(output).toContain("System-graph limitation: A dynamic route was not inspected.");
+  });
+
   it("renders verified architecture change-impact details", () => {
     const withImpact: RepositoryAnalysis = {
       ...analysis,
