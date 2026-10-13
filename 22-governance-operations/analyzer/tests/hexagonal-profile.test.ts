@@ -42,10 +42,17 @@ describe("Hexagonal Architecture profile", () => {
     const allowedDirection: RepositorySnapshot = {
       rootPath: "/repo",
       changedFiles: [],
-      files: ["src/ports/customer-repository.ts", "src/domain/customer.ts"],
+      files: [
+        "src/adapters/inbound/controller.ts",
+        "src/domain/customer.ts",
+        "src/infrastructure/repository.ts",
+        "src/ports/customer-repository.ts",
+      ],
       fileContents: {
-        "src/ports/customer-repository.ts": 'import { Customer } from "../domain/customer.js";',
+        "src/adapters/inbound/controller.ts": "export const controller = true;",
         "src/domain/customer.ts": "export interface Customer { id: string }",
+        "src/infrastructure/repository.ts": "export const repository = {};",
+        "src/ports/customer-repository.ts": 'import { Customer } from "../domain/customer.js"; export type CustomerPort = Customer;',
       },
     };
 
