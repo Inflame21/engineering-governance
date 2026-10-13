@@ -4,6 +4,7 @@ import { detectRepositoryFacts } from "./detector.js";
 import { defaultAnalyzerAdapters } from "./adapters/registry.js";
 import { toGovernanceContext } from "./normalize.js";
 import type {
+  RepositoryAdapterResult,
   RepositoryAnalysis,
   RepositoryFacts,
   RepositoryAnalyzerAdapter,
@@ -38,22 +39,90 @@ function mergeRepositoryFacts(
   return merged;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function analyzeRepository(
   snapshot: RepositorySnapshot,
   adapters: readonly RepositoryAnalyzerAdapter[] = defaultAnalyzerAdapters,
 ): Promise<RepositoryAnalysis> {
   const baseFacts = detectRepositoryFacts(snapshot);
-  const supportedAdapters = adapters.filter((adapter) =>
-    adapter.supports(snapshot),
+  const detectedLanguages = new Set(baseFacts.languages);
+  const registeredLanguages = new Set(adapters.flatMap((adapter) => adapter.languages));
+  const outputs: AnalyzerOutput[] = [];
+  const adapterResults: RepositoryAdapterResult[] = [];
+  const findings: RepositoryAnalysis["findings"] = [];
+
+  // Keep language-relevant adapters in the result even when they cannot run.
+  // A skipped/failed analyzer is not equivalent to a clean analysis.
+  const relevantAdapters = adapters.filter((adapter) =>
+    adapter.supports(snapshot) ||
+    adapter.languages.some((language) => detectedLanguages.has(language)) ||
+    adapter.languages.length === 0,
   );
 
-  const outputs: AnalyzerOutput[] = [];
-  for (const adapter of supportedAdapters) {
-    const analysis = await adapter.analyze(snapshot);
-    outputs.push({
-      signals: analysis.signals,
-      ...(analysis.facts ? { facts: analysis.facts } : {}),
-      evidence: analysis.evidence ?? [],
+  for (const adapter of relevantAdapters) {
+    if (!adapter.supports(snapshot)) {
+      adapterResults.push({
+        adapterId: adapter.id,
+        version: adapter.version,
+        executionStatus: "SKIPPED",
+        supportedCapabilities: [],
+        unsupportedCapabilities: [...adapter.capabilities],
+        evidenceRefs: [],
+        limitations: ["Adapter was relevant to the detected repository but could not run on the available snapshot."],
+      });
+      continue;
+    }
+
+    try {
+      const result = await adapter.analyze(snapshot);
+      const executionStatus = result.executionStatus ?? "SUCCESS";
+      const supportedCapabilities = result.supportedCapabilities ?? [...adapter.capabilities];
+      const unsupportedCapabilities = result.unsupportedCapabilities ?? [];
+      const limitations = result.limitations ?? [];
+
+      outputs.push({
+        signals: result.signals,
+        ...(result.facts ? { facts: result.facts } : {}),
+        evidence: result.evidence ?? [],
+      });
+      findings.push(...(result.findings ?? []));
+      adapterResults.push({
+        adapterId: adapter.id,
+        version: adapter.version,
+        executionStatus,
+        supportedCapabilities,
+        unsupportedCapabilities,
+        evidenceRefs: (result.evidence ?? []).map((item) => item.id),
+        limitations,
+      });
+    } catch (error) {
+      adapterResults.push({
+        adapterId: adapter.id,
+        version: adapter.version,
+        executionStatus: "FAILED",
+        supportedCapabilities: [],
+        unsupportedCapabilities: [...adapter.capabilities],
+        evidenceRefs: [],
+        limitations: [`Adapter execution failed: ${errorMessage(error)}`],
+      });
+    }
+  }
+
+  const uncoveredLanguages = [...detectedLanguages].filter(
+    (language) => !registeredLanguages.has(language),
+  );
+  if (uncoveredLanguages.length > 0) {
+    adapterResults.push({
+      adapterId: "language-coverage",
+      version: "0.1.0",
+      executionStatus: "PARTIAL",
+      supportedCapabilities: [],
+      unsupportedCapabilities: uncoveredLanguages.map((language) => `language-specific-analysis:${language}`),
+      evidenceRefs: [],
+      limitations: [`No language-specific adapter is registered for: ${uncoveredLanguages.join(", ")}.`],
     });
   }
 
@@ -62,6 +131,8 @@ export async function analyzeRepository(
     facts: mergeRepositoryFacts(baseFacts, outputs),
     signals: merged.signals,
     evidence: merged.evidence ?? [],
+    findings,
+    adapterResults,
   };
 
   // Validate that the normalization path is executable and deterministic.
