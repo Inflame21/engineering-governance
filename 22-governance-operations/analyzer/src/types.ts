@@ -22,6 +22,20 @@ export interface RepositorySnapshot {
   changeScope?: RepositoryChangeScope;
 }
 
+export interface RepositoryPackageFacts {
+  /** Repository-relative package/workspace root; "." denotes the repository root. */
+  id: string;
+  root: string;
+  manifestPaths: string[];
+  sourceFiles: string[];
+  languages: string[];
+  frameworks: string[];
+  packageManagers: string[];
+  buildSystems: string[];
+  infrastructureSystems: string[];
+  testSystems: string[];
+}
+
 export interface RepositoryFacts extends Record<string, unknown> {
   languages: string[];
   frameworks: string[];
@@ -29,6 +43,8 @@ export interface RepositoryFacts extends Record<string, unknown> {
   buildSystems: string[];
   infrastructureSystems: string[];
   testSystems: string[];
+  /** Package-scoped facts preserve monorepo ownership instead of flattening everything. */
+  packages?: RepositoryPackageFacts[];
 }
 
 export type RepositoryEvidence = GovernanceEvidence;
