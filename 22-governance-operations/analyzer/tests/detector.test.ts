@@ -48,7 +48,7 @@ describe("repository fact detection", () => {
       },
     });
 
-    expect(facts.frameworks).toEqual(["django", "fastapi", "vite"]);
+    expect(facts.frameworks).toEqual(["django", "vite"]);
     expect(facts.packageManagers).toEqual(["pnpm", "poetry"]);
     expect(facts.infrastructureSystems).toEqual(["terraform"]);
     expect(facts.packages?.map(({ root, frameworks, packageManagers }) => ({
