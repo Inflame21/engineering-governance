@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "declaration": true
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "../engine/src/**/*.ts"]
