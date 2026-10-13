@@ -144,7 +144,7 @@ export async function loadRepositorySnapshot(
       contentLimitations.push(
         `Source-content limits reached; ${relativePath} and later source files were not inspected.`,
       );
-      continue;
+      break;
     }
 
     const content = await fs.readTextFile(rootPath, relativePath);
@@ -161,7 +161,7 @@ export async function loadRepositorySnapshot(
       contentLimitations.push(
         `Source-content character limit reached before ${relativePath}; this and later source files were not inspected.`,
       );
-      continue;
+      break;
     }
 
     fileContents[relativePath] = content;
