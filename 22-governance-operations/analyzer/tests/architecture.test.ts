@@ -205,10 +205,10 @@ describe("architecture profiles", () => {
   it("does not flag dependencies explicitly allowed by the selected profile", () => {
     const allowedProfile: ArchitectureProfile = {
       ...(cleanArchitectureExample as ArchitectureProfile),
-      boundaryRules: (cleanArchitectureExample as ArchitectureProfile).boundaryRules.map((rule) => ({
-        ...rule,
+      boundaryRules: [{
+        ...(cleanArchitectureExample as ArchitectureProfile).boundaryRules[0]!,
         allowed: true,
-      })),
+      }],
     };
     const result = verifyArchitectureProfile({
       rootPath: "/repo",
