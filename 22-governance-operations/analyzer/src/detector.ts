@@ -47,6 +47,10 @@ export function detectRepositoryFacts(
   snapshot: RepositorySnapshot,
 ): RepositoryFacts {
   const files = new Set(snapshot.files);
+  const hasBasename = (name: string): boolean =>
+    snapshot.files.some((file) => file.split("/").at(-1) === name);
+  const hasDirectory = (name: string): boolean =>
+    snapshot.files.some((file) => file.split("/").includes(name));
   const languages = new Set<string>();
   const frameworks = new Set<string>();
   const packageManagers = new Set<string>();
@@ -62,28 +66,28 @@ export function detectRepositoryFacts(
 
   // A Go module is authoritative enough to identify Go even when the module
   // contains no tracked .go source in the current snapshot.
-  if (files.has("go.mod")) languages.add("go");
+  if (hasBasename("go.mod")) languages.add("go");
 
   for (const [marker, framework] of Object.entries(frameworkMarkers)) {
-    if (files.has(marker)) frameworks.add(framework);
+    if (hasBasename(marker)) frameworks.add(framework);
   }
 
   for (const [marker, manager] of Object.entries(packageManagerMarkers)) {
-    if (files.has(marker)) packageManagers.add(manager);
+    if (hasBasename(marker)) packageManagers.add(manager);
   }
 
   const buildSystems = new Set<string>();
-  if (files.has("Makefile")) buildSystems.add("make");
-  if (files.has("Dockerfile")) buildSystems.add("docker");
-  if (files.has("docker-compose.yml") || files.has("docker-compose.yaml")) {
+  if (hasBasename("Makefile")) buildSystems.add("make");
+  if (hasBasename("Dockerfile")) buildSystems.add("docker");
+  if (hasBasename("docker-compose.yml") || hasBasename("docker-compose.yaml")) {
     buildSystems.add("docker-compose");
   }
 
   const infrastructureSystems = new Set<string>();
-  if (files.has("terraform") || [...files].some((file) => file.endsWith(".tf"))) {
+  if (hasDirectory("terraform") || snapshot.files.some((file) => file.endsWith(".tf"))) {
     infrastructureSystems.add("terraform");
   }
-  if (files.has("k8s") || files.has("kubernetes")) {
+  if (hasDirectory("k8s") || hasDirectory("kubernetes")) {
     infrastructureSystems.add("kubernetes");
   }
 
