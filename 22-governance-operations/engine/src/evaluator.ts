@@ -31,9 +31,21 @@ function evidenceForControl(
   const missing: string[] = [];
   const supporting: string[] = [];
 
-  for (const evidenceId of required) {
+  // When a control does not enumerate evidence IDs, require evidence explicitly
+  // linked to the control rather than treating an empty list as proof of success.
+  const evidenceIds = required.length > 0
+    ? required
+    : evidence
+        .filter((item) => item.supports_controls.includes(control.id))
+        .map((item) => item.id);
+
+  if (evidenceIds.length === 0) {
+    return { missing: [`EVIDENCE_REQUIRED:${control.id}`], supporting };
+  }
+
+  for (const evidenceId of evidenceIds) {
     const item = byId.get(evidenceId);
-    if (!item || item.status === "UNVERIFIED") {
+    if (!item || item.status !== "VERIFIED") {
       missing.push(evidenceId);
       continue;
     }
@@ -64,7 +76,36 @@ export function evaluateControl(
   }
 
   const { missing, supporting } = evidenceForControl(control, evidence);
-  const status = control.status ?? (missing.length > 0 ? "UNVERIFIED" : "PASS");
+
+  // Explicit failure/warning findings remain findings. For a claimed PASS (or
+  // absent status), incomplete proof must produce UNVERIFIED, never PASS.
+  // NOT_APPLICABLE is derived from applicability above and cannot be asserted
+  // by a control that the normalized context says is applicable.
+  let status: ControlEvaluation["status"];
+  if (control.status === "FAIL") {
+    status = "FAIL";
+  } else if (control.status === "WARN") {
+    status = "WARN";
+  } else if (control.status === "NOT_APPLICABLE") {
+    status = "UNVERIFIED";
+  } else if (missing.length > 0) {
+    status = "UNVERIFIED";
+  } else {
+    status = "PASS";
+  }
+
+  let reason: string;
+  if (control.status === "FAIL") {
+    reason = control.message ?? `Control ${control.id} is explicitly marked as failed.`;
+  } else if (control.status === "WARN") {
+    reason = control.message ?? `Control ${control.id} requires review.`;
+  } else if (control.status === "NOT_APPLICABLE") {
+    reason = "Control is marked NOT_APPLICABLE but its applicability conditions are satisfied; verification is required.";
+  } else if (missing.length > 0) {
+    reason = `Required evidence is missing, partial, unverified, or not applicable: ${missing.join(", ")}.`;
+  } else {
+    reason = `Verified evidence satisfies control ${control.id}.`;
+  }
 
   return {
     controlId: control.id,
@@ -74,10 +115,7 @@ export function evaluateControl(
     failureDecision: control.failure_decision ?? "NONE",
     missingEvidence: missing,
     supportingEvidence: supporting,
-    reason:
-      missing.length > 0
-        ? `Required evidence is missing or unverified: ${missing.join(", ")}.`
-        : `Required evidence is satisfied for control ${control.id}.`,
+    reason,
   };
 }
 
