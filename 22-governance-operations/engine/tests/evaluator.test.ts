@@ -110,7 +110,7 @@ describe("rule and control engine", () => {
     (freshness) => {
       const pack: GovernancePack = {
         ...basePack,
-        evidence: [{ ...basePack.evidence[0]!, freshness }],
+        evidence: [{ ...basePack.evidence[0]!, freshness_status: freshness }],
       };
       const result = evaluateGovernance(pack, {
         ...applicableContext,
