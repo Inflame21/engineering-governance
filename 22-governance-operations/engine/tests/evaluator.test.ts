@@ -104,6 +104,61 @@ describe("rule and control engine", () => {
     },
   );
 
+
+  it.each(["stale", "expired", "unknown"] as const)(
+    "does not accept %s evidence as current proof",
+    (freshness) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        evidence: [{ ...basePack.evidence[0]!, freshness }],
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        evaluatedAt: "2026-10-13T00:00:00.000Z",
+      });
+
+      expect(result.controls[0]?.status).toBe("UNVERIFIED");
+      expect(result.controls[0]?.missingEvidence).toContain("EVD-AUTH");
+      expect(result.decision.status).toBe("NO-GO");
+    },
+  );
+
+  it("requires a valid timestamp when a control defines a maximum evidence age", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, max_evidence_age_seconds: 3600 }],
+      evidence: [{
+        ...basePack.evidence[0]!,
+        generated_at: "2026-10-12T00:00:00.000Z",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00.000Z",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("rejects future-dated evidence when maximum age is enforced", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, max_evidence_age_seconds: 3600 }],
+      evidence: [{
+        ...basePack.evidence[0]!,
+        generated_at: "2026-10-14T00:00:00.000Z",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00.000Z",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
   it("does not pass a control with no declared or linked evidence", () => {
     const pack: GovernancePack = {
       ...basePack,
