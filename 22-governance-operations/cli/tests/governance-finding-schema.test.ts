@@ -22,6 +22,8 @@ type AjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => 
 const require = createRequire(import.meta.url);
 const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
+const addFormats = require("ajv-formats") as (ajv: AjvInstance) => void;
+addFormats(ajv);
 const validateGovernancePack = ajv.compile(governanceSchema);
 
 function cloneExamplePack(): Record<string, unknown> {
