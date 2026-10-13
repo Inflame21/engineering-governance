@@ -22,7 +22,7 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 
 ### WP0 — Baseline and branch scope
 - [x] Compare audit branch against `main`.
-- [x] Confirm branch is 357 commits ahead and 0 behind; merge base is `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`.
+- [x] Record historical branch comparison and merge base `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`; use PR #1's current compare view/description for the live scope count.
 - [x] Confirm the comparison contains substantial implementation and test changes, not merely audit follow-ups.
 - [ ] Review PR #1 file/commit scope and determine whether its history is intentionally the full 357-commit feature branch.
 - [ ] Do not rewrite or squash history until PR intent and reviewability are clear.
@@ -34,7 +34,7 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 - [x] Choose and document one dependency strategy for each independent package.
 - [x] Generate authentic lockfiles using npm, commit them, and replace `npm install` with `npm ci`.
 - [x] Ensure lockfile updates are deterministic and CI fails when manifests and locks disagree.
-- [ ] Record Node, npm, action, runner, and exact SHA in the evidence report.
+- [x] Record Node, npm, action, runner, and exact SHA in the evidence report (audit §12; CI run #38397850555). Reviewer authentication of the logged Node/npm values remains unconfirmed.
 
 **Acceptance:** clean CI on the final SHA; no unlocked install path in required CI; exact check names match the ruleset.
 
@@ -59,8 +59,8 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 **Acceptance:** exit codes match the documented contract; NO-GO cannot exit 0; analysis/tool failure cannot silently become GO; filesystem access remains confined to the intended repository.
 
 ### WP4 — Analyzer and architecture graph
-- [x] Test nested/multiple manifests and package-scoped fact attribution.
-- [x] Test malformed/unreadable manifests, mixed framework/language repositories, deterministic ordering, unresolved imports, unsupported languages, exclusions, ambiguous component mappings, and partial graph construction.
+- [x] Test nested/multiple manifests and package-scoped fact attribution; test malformed manifests and mixed framework/language repositories.
+- [x] Verify deterministic ordering, unresolved imports, unsupported-language reporting, generated-directory ignoring, ambiguous component mappings, and partial graph construction. Source-file read failures are covered; unreadable-manifest behavior and analyzer-level exclusion behavior are not fully evidenced and remain open.
 - [x] Validate malformed profiles (unknown fields, duplicate IDs, severity, pattern types, mappings, JSON types).
 - [x] Ensure incomplete graph coverage is explicit and every architecture violation carries inspectable source evidence.
 
@@ -70,6 +70,7 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 - [x] Verify active ruleset targets `main` and requires the three workflow job names.
 - [x] Verify one approving review, stale review dismissal, latest-push approval, review-thread resolution, and deletion/force-push restrictions.
 - [x] Record current policy choices: administrator bypass is always allowed; strict up-to-date check is disabled.
+- [x] Record that the direct legacy branch-protection endpoint returned HTTP 403; the active ruleset was readable, but legacy protection outside the ruleset remains unverified.
 - [ ] Decide these policy exceptions separately; do not change them in this audit batch without explicit authorization.
 - [ ] Verify enforcement with a safe test of required-check failure behavior if available without weakening `main` protections.
 - [ ] Record the limitation that legacy branch-protection endpoint access returned 403.
@@ -84,15 +85,17 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 
 ## Final pass status (supersedes the evidence list below)
 
-Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/commit/02beafc8ec6558f21c50cb343da54af6a8ed3fdf) passed CI run [#38396121321](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321). The schema/TypeScript contract test at [`9884a1a`](https://github.com/Inflame21/engineering-governance/commit/9884a1a9f77f71d7575d9c628ec4e5e515b35078) passed [CI run #38397574762](https://github.com/Inflame21/engineering-governance/actions/runs/38397574762); the audit record was then extended in [`a63c9a2`](https://github.com/Inflame21/engineering-governance/commit/a63c9a28d66c69318fb68223d3eee3ecc3f07278). See [Section 11 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#11-schematypescript-contract-comparison--2026-10-13). AUD-03 is improved but remains partial: field/requiredness/enum drift is tested, while the complete primitive-type, constraint, and conditional-rule matrix remains open. Still open: PR #1 scope/history review (WP0), failing-check enforcement and policy decisions (WP5), the unsupported framework-detection investigation, and final PR/issue reconciliation (WP6). A real-repository CLI integration smoke now runs analyze and check using the example pack; it confirms PARTIAL analysis is preserved and the decision is NO-GO (run [#38398216932](https://github.com/Inflame21/engineering-governance/actions/runs/38398216932)). Exact CI versions were captured in [run #38397850555](https://github.com/Inflame21/engineering-governance/actions/runs/38397850555): Node v22.23.3 and npm 10.9.9 on Linux. The workflow selects Node 22 rather than pinning the exact patch. The latest scope recheck is 377 commits ahead, 0 behind, 77 changed files; see [Section 14 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#14-real-repository-cli-integration-smoke--2026-10-13). Older ahead-counts below are historical snapshots.
+Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/commit/02beafc8ec6558f21c50cb343da54af6a8ed3fdf) passed CI run [#38396121321](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321). The schema/TypeScript contract test at [`9884a1a`](https://github.com/Inflame21/engineering-governance/commit/9884a1a9f77f71d7575d9c628ec4e5e515b35078) passed [CI run #38397574762](https://github.com/Inflame21/engineering-governance/actions/runs/38397574762); the audit record was then extended in [`a63c9a2`](https://github.com/Inflame21/engineering-governance/commit/a63c9a28d66c69318fb68223d3eee3ecc3f07278). See [Section 11 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#11-schematypescript-contract-comparison--2026-10-13). AUD-03 is improved but remains partial: field/requiredness/enum drift is tested, while the complete primitive-type, constraint, and conditional-rule matrix remains open. Still open: PR #1 scope/history review (WP0), failing-check enforcement (WP5), the unsupported framework-detection investigation, unreadable-manifest/analyzer-exclusion evidence (WP4), and final review of PR/issue reconciliation (WP6). A real-repository CLI integration smoke now runs analyze and check using the example pack; it confirms PARTIAL analysis is preserved and the decision is NO-GO (run [#38398216932](https://github.com/Inflame21/engineering-governance/actions/runs/38398216932)). Exact CI versions were captured in [run #38397850555](https://github.com/Inflame21/engineering-governance/actions/runs/38397850555): Node v22.23.3 and npm 10.9.9 on Linux. The workflow selects Node 22 rather than pinning the exact patch. The current scope count: see PR #1's live compare view and latest PR description; this plan does not treat any embedded historical ahead-count as authoritative. See [Section 14 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#14-real-repository-cli-integration-smoke--2026-10-13) for the integration-smoke evidence.
 
 ## Current verified evidence
+
+> **Scope-count note:** Use PR #1's current compare view and latest PR description for live ahead/behind/file counts. Historical counts in this document are retained only as snapshots and must not be used as current scope claims.
 
 - CI run [38384895443](https://github.com/Inflame21/engineering-governance/actions/runs/38384895443): all engine, analyzer, and CLI jobs succeeded after the action/runner update; CLI smoke test succeeded.
 - Workflow commit: [5a63563ec4bb84ff5433ef9cd7ebc9af260188fc](https://github.com/Inflame21/engineering-governance/commit/5a63563ec4bb84ff5433ef9cd7ebc9af260188fc).
 - Earlier CLI exit-path smoke-test commit: [8426a96cae2e9edd54bda2d13d6ca25b588391ba](https://github.com/Inflame21/engineering-governance/commit/8426a96cae2e9edd54bda2d13d6ca25b588391ba).
 - Duplicate evidence ID guard/test passed in CI before the latest workflow-only update.
-- Branch comparison: 357 commits ahead, 0 behind; this count is branch divergence, not a count of commits made during this audit.
+- Branch comparison: use PR #1's current compare view and latest PR description for live ahead/behind/file counts. Historical snapshots in earlier plan/audit sections are not authoritative for current scope.
 
 ## Execution order
 
