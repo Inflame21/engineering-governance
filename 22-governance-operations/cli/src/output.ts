@@ -19,7 +19,7 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
       "",
       `Snapshot fingerprint: ${analysis.snapshotFingerprint.digest}`,
       `  Files inventoried: ${analysis.snapshotFingerprint.fileCount}`,
-      `  Source content coverage: ${analysis.snapshotFingerprint.inspectedSourceFiles}/${analysis.snapshotFingerprint.sourceFileCount} (${analysis.snapshotFingerprint.sourceContentStatus})`,
+      `  Source content coverage: ${analysis.snapshotFingerprint.inspectedSourceFileCount}/${analysis.snapshotFingerprint.sourceFileCount} (${analysis.snapshotFingerprint.sourceContentStatus})`,
     );
     for (const limitation of analysis.snapshotFingerprint.limitations) {
       lines.push(`  Fingerprint limitation: ${limitation}`);
