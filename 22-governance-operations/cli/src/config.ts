@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 import type { GovernancePack } from "../../engine/src/types.js";
+import { validateArchitectureProfile } from "../../analyzer/src/architecture.js";
+import type { ArchitectureProfile } from "../../analyzer/src/architecture.js";
 import { validateGovernancePackSemantics } from "../../engine/src/validation.js";
 import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
 
@@ -77,4 +79,29 @@ export async function loadGovernancePack(
   }
 
   return pack;
+}
+
+/** Load and validate an architecture profile from a repository-relative JSON path. */
+export async function loadArchitectureProfile(
+  rootPath: string,
+  path: string,
+  fs: ConfigFileSystemPort,
+): Promise<ArchitectureProfile> {
+  const content = await fs.readTextFile(rootPath, path);
+  if (content === undefined) throw new Error(`Architecture profile not found: ${path}`);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Architecture profile is not valid JSON: ${message}`);
+  }
+
+  const validation = validateArchitectureProfile(parsed);
+  if (!validation.valid) {
+    throw new Error(`Architecture profile validation failed: ${validation.errors.join("; ")}`);
+  }
+
+  return parsed as ArchitectureProfile;
 }
