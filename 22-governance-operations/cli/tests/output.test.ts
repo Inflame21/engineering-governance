@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatHumanResult, formatJsonResult } from "../src/output.js";
+import { formatAnalysisResult, formatHumanResult, formatJsonResult } from "../src/output.js";
 import type { GovernanceEvaluation } from "../../engine/src/types.js";
 import type { RepositoryAnalysis } from "../../analyzer/src/types.js";
 
