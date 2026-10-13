@@ -145,7 +145,7 @@ export async function runVerificationAdapters(
   const adapterResults: RepositoryAdapterResult[] = [];
   const files = snapshot.files.map((file) => file.replaceAll("\\", "/"));
   const pythonFiles = files.filter((file) => file.endsWith(".py")).sort();
-  const typescriptFiles = files.filter((file) => /\.(ts|tsx|mts|cts)$/.test(file)).sort();
+  const typescriptFiles = files.filter((file) => /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(file)).sort();
   const tsconfigs = files.filter((file) => basename(file) === "tsconfig.json").sort();
 
   if (typescriptFiles.length > 0) {
@@ -199,7 +199,7 @@ export async function runVerificationAdapters(
         try {
           processResults.push(await runner.run(
             "typescript",
-            ["--noEmit", "--pretty", "false", "--project", configPath],
+            ["--noEmit", "--pretty", "false", "--project", "tsconfig.json"],
             snapshot.rootPath,
             workingDirectory,
             TOOL_TIMEOUT_MS,
