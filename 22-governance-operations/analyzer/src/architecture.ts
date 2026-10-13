@@ -403,10 +403,11 @@ export function buildArchitectureDependencyGraph(
   const fileSet = new Set(sourceFiles);
   const sourceContent = snapshot.fileContents ?? {};
   const topLevelModules = new Set(sourceFiles.map((file) => file.split("/")[0]?.replace(/\.py$/, "") ?? ""));
-  const packageFacts = detectRepositoryFacts(snapshot).packages ?? [];
-  const packageForFile = (file: string) => packageFacts
-    .filter((item) => item.root === "." || file === item.root || file.startsWith(`${item.root}/`))
-    .sort((left, right) => right.root.length - left.root.length)[0];
+  const packageFacts = [...(detectRepositoryFacts(snapshot).packages ?? [])]
+    .sort((left, right) => right.root.length - left.root.length);
+  const packageForFile = (file: string) => packageFacts.find(
+    (item) => item.root === "." || file === item.root || file.startsWith(`${item.root}/`),
+  );
   const nodes: ArchitectureGraphNode[] = sourceFiles.map((file) => {
     const projectPackage = packageForFile(file);
     return {
