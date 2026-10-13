@@ -411,6 +411,7 @@ export function verifyArchitectureProfile(
         source?.roles.some((role) => sourceRoles.includes(role)) &&
         target?.roles.some((role) => targetRoles.includes(role))
       ) {
+        const componentId = source.roles.find((role) => sourceRoles.includes(role));
         findings.push({
           id: `FND-ARCH-${stableId(`${rule.id}:${edge.id}`)}`,
           rule_id: rule.id,
@@ -423,7 +424,7 @@ export function verifyArchitectureProfile(
             file: edge.sourceLocation.file,
             start_line: edge.sourceLocation.line,
           },
-          component_id: source.roles.find((role) => sourceRoles.includes(role)),
+          ...(componentId ? { component_id: componentId } : {}),
           confidence: edge.confidence,
           remediation: `Remove or invert the dependency from ${source.path} to ${target.path}.`,
         });
