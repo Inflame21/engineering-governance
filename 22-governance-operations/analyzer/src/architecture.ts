@@ -213,7 +213,13 @@ function resolveTypeScriptImport(
 ): string | undefined {
   if (!specifier.startsWith(".")) return undefined;
   const base = path.posix.normalize(path.posix.join(path.posix.dirname(sourceFile), specifier));
-  const candidates = [base, ...resolutionExtensions.map((extension) => `${base}${extension}`)];
+  const sourceExtension = path.posix.extname(base);
+  const extensionlessBase = sourceExtension ? base.slice(0, -sourceExtension.length) : base;
+  const candidates = [
+    base,
+    ...resolutionExtensions.map((extension) => `${base}${extension}`),
+    ...(sourceExtension ? resolutionExtensions.map((extension) => `${extensionlessBase}${extension}`) : []),
+  ];
   for (const extension of resolutionExtensions) candidates.push(path.posix.join(base, `index${extension}`));
   return candidates.find((candidate) => fileSet.has(candidate));
 }
