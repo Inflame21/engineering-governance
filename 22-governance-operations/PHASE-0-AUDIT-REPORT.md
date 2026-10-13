@@ -223,9 +223,9 @@ The ordering prioritizes governance correctness and a reproducible build before 
 
 ## 7. Remediation and Verification Update
 
-**Verified commit:** `4fde99c18fd0631445faddad96b67b856e2e2008`  
-**Workflow run:** [Governance Operations Verification #46](https://github.com/Inflame21/engineering-governance/actions/runs/38360103606)  
-**Result:** `success` — all three package jobs completed dependency audit, type-check, tests, and build successfully on Node.js 22 / npm 10.9.9.
+**Initial remediation verification:** commit `4fde99c18fd0631445faddad96b67b856e2e2008`, [workflow run #46](https://github.com/Inflame21/engineering-governance/actions/runs/38360103606).  
+**Latest verification at this update:** commit `5a074df7a7150500621da3d09c297ff734e80ce5`, [workflow run #337](https://github.com/Inflame21/engineering-governance/actions/runs/38368677119).  
+**Result:** `success` — engine, analyzer, and CLI jobs completed dependency-audit reporting, type-check, tests, and builds; the CLI job also passed the executable smoke tests. This does not establish runtime or production verification.
 
 | Finding | Current branch status | Evidence / remaining work |
 |---|---|---|
@@ -261,4 +261,4 @@ The ordering prioritizes governance correctness and a reproducible build before 
 - The CLI is executable and smoke-tested in CI. Schema validation, graph-backed architecture checks, package-scoped monorepo facts, cross-package import edges, and a typed system graph for service/API/database/event relationships are implemented. Dependency locking, runtime/dynamic topology, alias/dynamic import resolution, and runtime/production verification remain open.
 - No runtime or production approval is claimed.
 
-**Updated status (2026-10-13):** source audit is complete, the executable CLI and schema/profile validation are integrated, and the architecture graph reports provenance-backed boundary findings, change impact, package ownership, and cross-package import edges. The latest verified run [#335](https://github.com/Inflame21/engineering-governance/actions/runs/38368575027) passed type-checks, tests, builds, dependency audits, and the CLI smoke test for engine, analyzer, and CLI. The control/risk decision matrices, polyglot architecture fixture, service/API/database/event graph tests, and Hexagonal Architecture profile tests passed. Dependency locking and the remaining limitations above stay open. No runtime or production approval is claimed.
+**Updated status (2026-10-13):** source audit is complete, the executable CLI and schema/profile validation are integrated, and the architecture graph reports provenance-backed boundary findings, change impact, package ownership, and cross-package import edges. The latest verified run [#337](https://github.com/Inflame21/engineering-governance/actions/runs/38368677119) passed type-checks, tests, builds, dependency-audit reporting, and the CLI smoke test for engine, analyzer, and CLI. The control/risk decision matrices, polyglot architecture fixture, service/API/database/event graph tests, and Hexagonal Architecture profile tests passed. Dependency locking and the remaining limitations above stay open. No runtime or production approval is claimed.
