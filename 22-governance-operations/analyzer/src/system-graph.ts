@@ -162,7 +162,16 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
 
   const addNode = (node: SystemGraphNode) => {
     const existing = nodes.find((item) => item.id === node.id);
-    if (!existing) nodes.push(node);
+    if (!existing) {
+      nodes.push(node);
+      return;
+    }
+    existing.evidenceRefs = [...new Set([...existing.evidenceRefs, ...node.evidenceRefs])].sort();
+    existing.confidence = Math.min(existing.confidence, node.confidence);
+    if (existing.packageId && node.packageId && existing.packageId !== node.packageId) {
+      delete existing.packageId;
+    }
+    if (!existing.sourceLocation && node.sourceLocation) existing.sourceLocation = node.sourceLocation;
   };
 
   const addEdge = (edge: SystemGraphEdge) => {
@@ -324,7 +333,6 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
           id: eventId,
           type: "EVENT",
           name: eventName,
-          packageId: projectPackage.id,
           sourceLocation: { file, line: match.line },
           confidence: 0.65,
           evidenceRefs: [evidenceId],
