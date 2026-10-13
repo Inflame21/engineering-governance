@@ -110,6 +110,27 @@ describe("architecture profiles", () => {
     expect(result.evidence.some((item) => item.id === result.findings[0]?.evidence_refs[0])).toBe(true);
   });
 
+
+  it("does not silently treat unresolved path aliases as external imports", () => {
+    const result = verifyArchitectureProfile({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "@/infrastructure/db";',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, cleanArchitectureExample as ArchitectureProfile);
+
+    expect(result.status).toBe("PARTIAL");
+    expect(result.graph.unresolvedRelativeImports).toContainEqual({
+      file: "src/domain/user.ts",
+      line: 1,
+      specifier: "@/infrastructure/db",
+    });
+    expect(result.unsupportedCapabilities).toContain("architecture:resolve-local-imports");
+  });
+
   it("keeps architecture verification partial when role mappings are absent", () => {
     const profile: ArchitectureProfile = { ...cleanArchitecture };
     const result = verifyArchitectureProfile({
