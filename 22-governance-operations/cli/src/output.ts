@@ -14,6 +14,14 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     `  Analyzer adapters: ${analysis.adapterResults.length}`,
   ];
 
+  const packages = analysis.facts.packages ?? [];
+  lines.push(`  Packages/workspaces: ${packages.length}`);
+  for (const projectPackage of packages) {
+    lines.push(
+      `    - ${projectPackage.root} | languages: ${projectPackage.languages.join(", ") || "none"} | frameworks: ${projectPackage.frameworks.join(", ") || "none"} | package managers: ${projectPackage.packageManagers.join(", ") || "none"}`,
+    );
+  }
+
   if (analysis.snapshotFingerprint) {
     lines.push(
       "",
