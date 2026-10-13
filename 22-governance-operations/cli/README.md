@@ -32,7 +32,7 @@ Both `--pack` and `--profile` paths are relative to the repository being assesse
 For the repository containing this CLI, the example pack path is relative to the repository root, so use:
 
 ```bash
-node 22-governance-operations/cli/dist/cli/src/index.js check . --pack 22-governance-operations/model/example-governance-pack.json --profile 22-governance-operations/model/architecture-profile-clean-architecture.json
+node 22-governance-operations/cli/dist/cli/src/index.js check . --pack 22-governance-operations/model/example-governance-pack.json --profile 22-governance-operations/model/architecture-profile-clean-architecture.json --run-tools
 ```
 
 ## Exit codes
@@ -52,4 +52,5 @@ A partial or failed analysis is surfaced explicitly. A partial analysis cannot p
 - Text files read for manifest detection are limited to 1 MB; discovery is limited to 50,000 files.
 - Governance packs are validated against the canonical JSON Schema and cross-reference invariants before evaluation.
 - Language/framework detection is heuristic. Architecture dependency extraction currently supports relative TypeScript/JavaScript imports and Python imports; other languages are reported as unsupported rather than treated as verified. Alias imports, dynamic resolution, and full AST/type-aware analysis are not implemented yet. It is not a substitute for compiler, test, or security-tool verification.
+- `--run-tools` is opt-in. It runs only the local TypeScript compiler and Python syntax parser, never package scripts or dependency installation. Use it only for repositories you trust, or inside a sandbox; a local compiler package is still executable code.
 - The current CLI does not yet compute a Git diff or validate changed-file scope.
