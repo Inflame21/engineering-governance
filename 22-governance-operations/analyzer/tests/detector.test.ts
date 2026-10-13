@@ -26,6 +26,27 @@ describe("repository fact detection", () => {
     expect(facts.buildSystems).toEqual(["docker", "make"]);
   });
 
+
+  it("detects package and framework markers in nested monorepo packages", () => {
+    const facts = detectRepositoryFacts({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: [
+        "apps/web/package.json",
+        "apps/web/pnpm-lock.yaml",
+        "apps/web/vite.config.ts",
+        "services/api/pyproject.toml",
+        "services/api/poetry.lock",
+        "services/api/manage.py",
+        "infra/terraform/main.tf",
+      ],
+    });
+
+    expect(facts.frameworks).toEqual(["django", "vite"]);
+    expect(facts.packageManagers).toEqual(["pnpm", "poetry"]);
+    expect(facts.infrastructureSystems).toEqual(["terraform"]);
+  });
+
   it("does not infer a language from an unknown extension", () => {
     const facts = detectRepositoryFacts({
       rootPath: "/repo",
