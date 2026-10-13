@@ -210,6 +210,54 @@ describe("architecture profiles", () => {
     expect(result.unsupportedCapabilities).toContain("architecture:component-role-mapping");
   });
 
+  it("computes reverse-dependency impact from a verified changed-file scope", () => {
+    const result = buildArchitectureDependencyGraph({
+      rootPath: "/repo",
+      changedFiles: [],
+      changeScope: {
+        status: "VERIFIED",
+        baseRef: "origin/main",
+        headRef: "head-sha",
+        files: ["src/infrastructure/db.ts"],
+      },
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";\\nexport const user = db;',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, cleanArchitectureExample as ArchitectureProfile);
+
+    expect(result.changeImpact.status).toBe("VERIFIED");
+    expect(result.changeImpact.changedFiles).toEqual(["src/infrastructure/db.ts"]);
+    expect(result.changeImpact.changedComponents).toEqual(["COMP:infrastructure"]);
+    expect(result.changeImpact.impactedFiles).toEqual([
+      "src/domain/user.ts",
+      "src/infrastructure/db.ts",
+    ]);
+    expect(result.changeImpact.impactedComponents).toEqual([
+      "COMP:domain",
+      "COMP:infrastructure",
+    ]);
+  });
+
+  it("does not claim verified change impact when file scope is not verified", () => {
+    const result = buildArchitectureDependencyGraph({
+      rootPath: "/repo",
+      changedFiles: ["src/infrastructure/db.ts"],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, cleanArchitectureExample as ArchitectureProfile);
+
+    expect(result.changeImpact.status).toBe("UNVERIFIED");
+    expect(result.changeImpact.impactedFiles).toContain("src/domain/user.ts");
+    expect(result.changeImpact.limitations).toContain(
+      "Changed files were supplied without a verified Git change scope.",
+    );
+  });
+
   it("converts multiple architecture styles into normalized signals", () => {
     expect(architectureSignals(cleanArchitecture)).toEqual([
       "architecture-profile:clean-architecture",
