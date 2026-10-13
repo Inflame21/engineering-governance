@@ -229,6 +229,14 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
         evidenceRefs: [packageEvidence],
       });
       addEdge({
+        id: `SYS-EDGE-${stableId(`contains-service:${serviceId}`)}`,
+        type: "CONTAINS",
+        sourceId: "REPO:ROOT",
+        targetId: serviceId,
+        confidence: 0.85,
+        evidenceRefs: [packageEvidence],
+      });
+      addEdge({
         id: `SYS-EDGE-${stableId(`service-package:${serviceId}:${projectPackage.id}`)}`,
         type: "IMPLEMENTED_BY",
         sourceId: serviceId,
