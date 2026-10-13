@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { verifyArchitectureProfile } from "../src/architecture.js";
-import type { ArchitectureProfile, RepositorySnapshot } from "../src/types.js";
+import type { ArchitectureProfile } from "../src/architecture.js";
+import type { RepositorySnapshot } from "../src/types.js";
 
 const profile: ArchitectureProfile = {
   id: "clean-architecture",
