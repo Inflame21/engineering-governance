@@ -18,3 +18,6 @@ export type {
   VerificationToolRunner,
   VerificationToolStatus,
 } from "./verification.js";
+
+export { fingerprintRepositorySnapshot } from "./fingerprint.js";
+export type { RepositorySnapshotFingerprint } from "./fingerprint.js";
