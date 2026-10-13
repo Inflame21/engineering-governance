@@ -224,7 +224,7 @@ The ordering prioritizes governance correctness and a reproducible build before 
 ## 7. Remediation and Verification Update
 
 **Initial remediation verification:** commit `4fde99c18fd0631445faddad96b67b856e2e2008`, [workflow run #46](https://github.com/Inflame21/engineering-governance/actions/runs/38360103606).  
-**Latest verification at this update:** commit `5a074df7a7150500621da3d09c297ff734e80ce5`, [workflow run #337](https://github.com/Inflame21/engineering-governance/actions/runs/38368677119).  
+**Latest verification at this update:** commit `af199c67ac0a93ddd369e8af9a22da6f4cd0f04a`, [workflow run #343](https://github.com/Inflame21/engineering-governance/actions/runs/38371235093).  
 **Result:** `success` — engine, analyzer, and CLI jobs completed dependency-audit reporting, type-check, tests, and builds; the CLI job also passed the executable smoke tests. This does not establish runtime or production verification.
 
 | Finding | Current branch status | Evidence / remaining work |
@@ -251,7 +251,9 @@ The ordering prioritizes governance correctness and a reproducible build before 
 - Go projects are recognized from `go.mod`.
 - Python dependency detection now handles quoted `pyproject.toml` declarations.
 - TypeScript frontend detection recognizes conventional `App.tsx`, `main.tsx`, and `index.tsx` entry files; tests now use representative paths.
-- Vitest was upgraded to a patched release after CI surfaced dependency advisories; the subsequent npm audit reports zero vulnerabilities.
+- Vitest was upgraded to a patched release after CI surfaced dependency advisories; the subsequent npm audit reported zero vulnerabilities on the previously verified dependency resolution.
+- Python verification now classifies malformed output and exit-code/result contradictions as tool errors rather than source syntax failures or passes. Regression tests cover non-zero exits without diagnostics and syntax diagnostics paired with a zero exit code.
+- TypeScript evidence now preserves a failing exit code when one project fails while another project is unavailable; a regression test covers partial multi-project verification.
 
 ### Remaining verification limits
 
@@ -261,4 +263,4 @@ The ordering prioritizes governance correctness and a reproducible build before 
 - The CLI is executable and smoke-tested in CI. Schema validation, graph-backed architecture checks, package-scoped monorepo facts, cross-package import edges, and a typed system graph for service/API/database/event relationships are implemented. Dependency locking, runtime/dynamic topology, alias/dynamic import resolution, and runtime/production verification remain open.
 - No runtime or production approval is claimed.
 
-**Updated status (2026-10-13):** source audit is complete, the executable CLI and schema/profile validation are integrated, and the architecture graph reports provenance-backed boundary findings, change impact, package ownership, and cross-package import edges. The latest verified run [#337](https://github.com/Inflame21/engineering-governance/actions/runs/38368677119) passed type-checks, tests, builds, dependency-audit reporting, and the CLI smoke test for engine, analyzer, and CLI. The control/risk decision matrices, polyglot architecture fixture, service/API/database/event graph tests, and Hexagonal Architecture profile tests passed. Dependency locking and the remaining limitations above stay open. No runtime or production approval is claimed.
+**Updated status (2026-10-13):** source audit is complete, the executable CLI and schema/profile validation are integrated, and the architecture graph reports provenance-backed boundary findings, change impact, package ownership, and cross-package import edges. The latest verified code run [#343](https://github.com/Inflame21/engineering-governance/actions/runs/38371235093) passed type-checks, tests, builds, dependency-audit reporting, and the CLI smoke test for engine, analyzer, and CLI, including the new verification-contract regression tests. The control/risk decision matrices, polyglot architecture fixture, service/API/database/event graph tests, and Hexagonal Architecture profile tests passed. Dependency locking and the remaining limitations above stay open. No runtime or production approval is claimed.
