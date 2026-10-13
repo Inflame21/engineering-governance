@@ -338,8 +338,9 @@ export function evaluateGovernance(
       severity: finding.severity,
       decision: blocking ? "NO-GO" : "GO_WITH_CONDITIONS",
       message: `[${finding.rule_id}] ${finding.message}`,
-      missingEvidence: finding.evidence_refs,
+      missingEvidence: [],
       missingSignals: [],
+      evidenceRefs: finding.evidence_refs,
     };
     if (blocking) {
       decision.status = "NO-GO";
