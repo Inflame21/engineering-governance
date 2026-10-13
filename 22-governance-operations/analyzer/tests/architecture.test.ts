@@ -98,7 +98,7 @@ describe("architecture profiles", () => {
         "src/infrastructure/db.ts": "export const db = {};",
       },
     };
-    const result = verifyArchitectureProfile(snapshot, cleanArchitectureExample);
+    const result = verifyArchitectureProfile(snapshot, cleanArchitectureExample as ArchitectureProfile);
 
     expect(result.status).toBe("PARTIAL");
     expect(result.findings).toHaveLength(1);
@@ -111,10 +111,7 @@ describe("architecture profiles", () => {
   });
 
   it("keeps architecture verification partial when role mappings are absent", () => {
-    const profile: ArchitectureProfile = {
-      ...cleanArchitecture,
-      componentMappings: undefined,
-    };
+    const profile: ArchitectureProfile = { ...cleanArchitecture };
     const result = verifyArchitectureProfile({
       rootPath: "/repo",
       changedFiles: [],
