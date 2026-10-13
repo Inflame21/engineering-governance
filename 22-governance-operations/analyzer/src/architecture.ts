@@ -499,10 +499,10 @@ export function buildArchitectureDependencyGraph(
     (snapshot.changeScope?.status === "VERIFIED"
       ? snapshot.changeScope.files
       : snapshot.changedFiles)
-      .map((file) => file.replaceAll("\\\\", "/").replace(/^\.\\//, "")),
+      .map((file) => file.replaceAll("\\", "/").replace(/^\.\//, "")),
   )].sort();
   const changeImpactLimitations: string[] = [];
-  let changeImpactStatus: ArchitectureChangeImpact["status"] = "NOT_REQUESTED";
+  let changeImpactStatus: ArchitectureChangeImpact["status"] = snapshot.changeScope?.status === "VERIFIED" ? "VERIFIED" : "NOT_REQUESTED";
   const changedComponents = new Set<string>();
   const impactedFileSet = new Set<string>();
   const unresolvedChangedFiles: string[] = [];
@@ -564,7 +564,7 @@ export function buildArchitectureDependencyGraph(
       );
     }
     if (graphableLanguages.size > 0 && uninspectedSourceFiles.length > 0) {
-      changeImpactStatus = changeImpactStatus === "PARTIAL" ? "PARTIAL" : "PARTIAL";
+      changeImpactStatus = "PARTIAL";
       changeImpactLimitations.push(
         "Some source files were not inspected, so reverse-dependency impact may be incomplete.",
       );
