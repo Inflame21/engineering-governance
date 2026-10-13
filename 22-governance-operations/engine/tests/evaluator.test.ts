@@ -33,6 +33,16 @@ const applicableContext = {
   signals: ["api_endpoint", "protected_resource"],
 };
 
+const controlDecisionCases = (["P0", "P1", "P2", "P3"] as const).flatMap((severity) =>
+  (["NO-GO", "GO_WITH_CONDITIONS", "REVIEW_REQUIRED", "NONE"] as const).map((failureDecision) => ({
+    severity,
+    failureDecision,
+    expected: severity === "P0" || failureDecision === "NO-GO"
+      ? "NO-GO" as const
+      : "GO_WITH_CONDITIONS" as const,
+  })),
+);
+
 describe("rule and control engine", () => {
   it("evaluates one control identically for multiple implementation languages", () => {
     for (const language of ["typescript", "python", "go", "java", "rust"]) {
@@ -392,6 +402,29 @@ describe("rule and control engine", () => {
     expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
     expect(result.decision.warnings.some((item) => item.controlId === "CHANGE-SCOPE:VERIFICATION")).toBe(true);
   });
+
+  it.each(controlDecisionCases)(
+    "applies the control severity/failure-policy matrix: $severity + $failureDecision",
+    ({ severity, failureDecision, expected }) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{
+          ...basePack.controls[0]!,
+          severity,
+          status: "FAIL",
+          failure_decision: failureDecision,
+        }],
+        evidence: [],
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        analysisStatus: "COMPLETE",
+        evaluatedAt: "2026-10-13T00:00:00Z",
+      });
+
+      expect(result.decision.status).toBe(expected);
+    },
+  );
 
   it.each([
     { severity: "P0" as const, failureDecision: "NONE" as const, expected: "NO-GO" as const },
