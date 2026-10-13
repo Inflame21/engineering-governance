@@ -52,6 +52,21 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
   };
   const evaluation = evaluateGovernance(assessmentPack, context);
 
+  if (!context.changeScopeStatus) {
+    const scopeWarning: GovernanceViolation = {
+      controlId: "CHANGE-SCOPE:NOT-REQUESTED",
+      severity: "P1",
+      decision: "GO_WITH_CONDITIONS",
+      message: "Git changed-file scope was not requested. Pass --base <git-ref> before treating this as a complete change review.",
+      missingEvidence: [],
+      missingSignals: [],
+    };
+    if (evaluation.decision.status === "GO") evaluation.decision.status = "GO_WITH_CONDITIONS";
+    evaluation.decision.warnings.push(scopeWarning);
+    evaluation.decision.reason = `${evaluation.decision.reason} Git changed-file scope was not requested.`;
+    evaluation.violations.push(scopeWarning);
+  }
+
   if (context.changeScopeStatus === "VERIFIED") {
     const normalizeChangedPath = (file: string): string =>
       file.replaceAll("\\", "/").replace(/^\.\//, "");
