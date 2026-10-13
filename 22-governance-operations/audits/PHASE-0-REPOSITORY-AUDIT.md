@@ -428,7 +428,7 @@ PR #1 reports 364 commits and 76 changed files against `main`; the compare endpo
 
 1. AUD-08 failing-check enforcement is untested (needs an approved approach).
 2. AUD-03 schema-versus-runtime-type comparison was not performed.
-3. Exact CI Node/npm patch versions were not recorded.
+3. At the time of Section 10, exact CI Node/npm patch versions were not recorded; this was subsequently addressed in Section 12.
 4. PR #1's description and issue #2's checklist were **not updated** by this pass: no authenticated GitHub credential for the repository was available in the working session.
 5. Runtime verification beyond tests and the CI smoke test, and any production approval, were not performed.
 6. Unsupported analysis remains: languages other than TypeScript/JavaScript and Python; verification adapters are limited to TypeScript type-checking and Python syntax checks.
@@ -466,3 +466,19 @@ PR #1 reports 364 commits and 76 changed files against `main`; the compare endpo
 ### Disposition
 
 The structural field/requiredness/enum drift checks are now automated and pass CI. Keep AUD-03 **open/partial** until the remaining constraint and conditional-rule matrix is reviewed and either covered by tests or explicitly recorded as an accepted design limitation. Phase 0 remains `IN_PROGRESS`.
+
+
+## 12. CI toolchain version capture — 2026-10-13
+
+**Workflow change:** [`4ad5f58c4bbca04b30880649fea14bd79d50e79a`](https://github.com/Inflame21/engineering-governance/commit/4ad5f58c4bbca04b30880649fea14bd79d50e79a) adds a `Record runtime toolchain versions` step to each package job.
+
+**CI run:** [#38397850555](https://github.com/Inflame21/engineering-governance/actions/runs/38397850555). All three jobs (`Verify engine`, `Verify analyzer`, `Verify cli`) succeeded, including `npm ci`, type-check, tests, and builds; the CLI E2E and smoke-test steps also succeeded.
+
+The engine job log records:
+- Runner OS: `Linux`
+- Node.js: `v22.23.3`
+- npm: `10.9.9`
+
+The same version-reporting step ran successfully in all three matrix jobs. This resolves the exact CI Node/npm version capture item for this workflow run. The workflow still selects Node major version 22; future runs can resolve a different patch version, so the emitted log remains the evidence for each run.
+
+This change records the versions but does not pin the Node patch version. Pinning an exact runtime version is a separate reproducibility policy decision and has not been introduced by this audit.
