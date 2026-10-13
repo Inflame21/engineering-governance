@@ -27,7 +27,7 @@ node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/exa
 node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/example-governance-pack.json --json
 ```
 
-The `--pack` and `--profile` paths are relative to the repository being assessed. By default, `check` looks for `.governance/governance-pack.json` inside that repository. The optional `--profile` flag loads a validated architecture profile and inspects source dependencies against its component mappings and boundary rules. The optional `--base origin/main` flag computes changed files from the merge base between that Git revision and `HEAD`; if the requested scope cannot be verified, the decision is conditional rather than silently treated as a complete change review.
+The `--pack` and `--profile` paths are relative to the repository being assessed. By default, `check` looks for `.governance/governance-pack.json` inside that repository. The optional `--profile` flag loads a validated architecture profile and inspects source dependencies against its component mappings and boundary rules. The optional `--base origin/main` flag computes changed files from the merge base between that Git revision and `HEAD`, then includes staged/unstaged tracked changes and non-ignored untracked files from the working tree. If the requested scope cannot be verified, the decision is conditional rather than silently treated as a complete change review.
 
 For the repository containing this CLI, the example pack path is relative to the repository root, so use:
 
