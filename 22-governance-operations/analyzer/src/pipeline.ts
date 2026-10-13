@@ -1,13 +1,42 @@
 import { mergeAnalyzerOutputs } from "../../engine/src/analyzer.js";
 import type { AnalyzerOutput } from "../../engine/src/types.js";
 import { detectRepositoryFacts } from "./detector.js";
-import { defaultAnalyzerAdapters, selectAnalyzerAdapters } from "./adapters/registry.js";
+import { defaultAnalyzerAdapters } from "./adapters/registry.js";
 import { toGovernanceContext } from "./normalize.js";
 import type {
   RepositoryAnalysis,
+  RepositoryFacts,
   RepositoryAnalyzerAdapter,
   RepositorySnapshot,
 } from "./types.js";
+
+const factKeys: Array<keyof RepositoryFacts> = [
+  "languages",
+  "frameworks",
+  "packageManagers",
+  "buildSystems",
+  "infrastructureSystems",
+  "testSystems",
+];
+
+function mergeRepositoryFacts(
+  baseFacts: RepositoryFacts,
+  outputs: readonly AnalyzerOutput[],
+): RepositoryFacts {
+  const merged = { ...baseFacts };
+
+  for (const key of factKeys) {
+    const adapterValues = outputs.flatMap((output) => {
+      const value = output.facts?.[key];
+      return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string")
+        : [];
+    });
+    merged[key] = [...new Set([...baseFacts[key], ...adapterValues])].sort();
+  }
+
+  return merged;
+}
 
 export async function analyzeRepository(
   snapshot: RepositorySnapshot,
@@ -23,24 +52,14 @@ export async function analyzeRepository(
     const analysis = await adapter.analyze(snapshot);
     outputs.push({
       signals: analysis.signals,
-      facts: analysis.facts,
-      evidence: analysis.evidence,
+      ...(analysis.facts ? { facts: analysis.facts } : {}),
+      evidence: analysis.evidence ?? [],
     });
   }
 
   const merged = mergeAnalyzerOutputs(outputs);
-  const facts = {
-    languages: baseFacts.languages,
-    frameworks: baseFacts.frameworks,
-    packageManagers: baseFacts.packageManagers,
-    buildSystems: baseFacts.buildSystems,
-    infrastructureSystems: baseFacts.infrastructureSystems,
-    testSystems: baseFacts.testSystems,
-    ...((merged.facts ?? {}) as Record<string, unknown>),
-  };
-
   const analysis: RepositoryAnalysis = {
-    facts: facts as RepositoryAnalysis["facts"],
+    facts: mergeRepositoryFacts(baseFacts, outputs),
     signals: merged.signals,
     evidence: merged.evidence ?? [],
   };
