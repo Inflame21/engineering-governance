@@ -352,15 +352,20 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
 
   const contentLimitations = snapshot.contentLimitations ?? [];
   const unreadSourceFiles = sourceFiles.filter((file) => snapshot.fileContents?.[file] === undefined);
-  if (contentLimitations.length > 0 || unreadSourceFiles.length > 0) {
+  const manifestPaths = packages.flatMap((item) => item.manifestPaths);
+  const unreadManifestPaths = manifestPaths.filter((file) => snapshot.fileContents?.[file] === undefined);
+  if (contentLimitations.length > 0 || unreadSourceFiles.length > 0 || unreadManifestPaths.length > 0) {
     limitations.push(...contentLimitations);
     if (unreadSourceFiles.length > 0) {
       limitations.push(`System relationships were not inspected in ${unreadSourceFiles.length} source file(s).`);
     }
+    if (unreadManifestPaths.length > 0) {
+      limitations.push(`Package manifests were not inspected for system relationships: ${unreadManifestPaths.join(", ")}.`);
+    }
   }
 
   return {
-    status: contentLimitations.length > 0 || unreadSourceFiles.length > 0 ? "PARTIAL" : "COMPLETE",
+    status: contentLimitations.length > 0 || unreadSourceFiles.length > 0 || unreadManifestPaths.length > 0 ? "PARTIAL" : "COMPLETE",
     nodes: nodes.sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges.sort((a, b) => a.id.localeCompare(b.id)),
     evidence: [...evidenceById.values()].sort((a, b) => a.id.localeCompare(b.id)),
