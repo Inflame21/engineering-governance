@@ -130,5 +130,23 @@ export function formatJsonResult(
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
 ): string {
-  return JSON.stringify({ analysis, context, evaluation }, null, 2);
+  const generatedAt = new Date().toISOString();
+  const fingerprint = analysis.snapshotFingerprint?.digest ?? null;
+  const timestampKey = generatedAt.replace(/\\D/g, "").slice(0, 17);
+  const fingerprintKey = fingerprint?.replace(/^sha256:/, "").slice(0, 12).toUpperCase() ?? "NO-FINGERPRINT";
+  const assessmentId = `ASM-${timestampKey}-${fingerprintKey}`;
+
+  return JSON.stringify({
+    report: {
+      schemaVersion: "1.0.0",
+      assessmentId,
+      generatedAt,
+      repositoryFingerprint: fingerprint,
+      changeScope: analysis.changeScope ?? null,
+      decision: evaluation.decision.status,
+    },
+    analysis,
+    context,
+    evaluation,
+  }, null, 2);
 }
