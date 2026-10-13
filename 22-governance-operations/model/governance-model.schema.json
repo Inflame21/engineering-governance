@@ -248,6 +248,10 @@
         },
         "message": {
           "type": "string"
+        },
+        "max_evidence_age_seconds": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -293,7 +297,12 @@
           "type": "string"
         },
         "freshness": {
-          "type": "string"
+          "enum": [
+            "current",
+            "stale",
+            "expired",
+            "unknown"
+          ]
         },
         "supports_controls": {
           "type": "array",
