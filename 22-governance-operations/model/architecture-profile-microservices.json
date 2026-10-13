@@ -1,0 +1,19 @@
+{
+  "id": "microservices",
+  "version": "1.0.0",
+  "name": "Microservices",
+  "description": "An architecture profile for independently deployable services with explicit ownership and network contracts.",
+  "styles": ["microservices", "distributed-systems"],
+  "boundaryRules": [
+    {
+      "id": "ARCH-SERVICE-DATA-OWNERSHIP",
+      "description": "A service must not bypass another service's ownership by directly modifying its private datastore.",
+      "severity": "P1",
+      "sourcePattern": "service-a",
+      "targetPattern": "service-b-private-database",
+      "allowed": false
+    }
+  ],
+  "requiredControls": ["ARCH-SERVICE-OWNERSHIP", "API-CONTRACT-COMPATIBILITY", "OBS-DISTRIBUTED-TRACEABILITY"],
+  "capabilities": ["service-discovery", "api-contract-analysis", "deployment-topology-analysis"]
+}
