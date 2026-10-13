@@ -12,7 +12,10 @@ export const typescriptAdapter: RepositoryAnalyzerAdapter = {
     if (files.some((file) => /(^|\/)(src\/)?(api|routes?|controllers?)\//.test(file))) {
       signals.add("capability:http-api");
     }
-    if (files.some((file) => /(^|\/)(components?|pages?|app)\//.test(file))) {
+    if (
+      files.some((file) => /(^|\/)(components?|pages?|app)\//i.test(file)) ||
+      files.some((file) => /(^|\/)(App|main|index)\.(tsx|jsx)$/i.test(file))
+    ) {
       signals.add("capability:frontend");
     }
     if (files.some((file) => /(^|\/)(tests?|__tests__)\//.test(file))) {
