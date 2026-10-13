@@ -172,13 +172,17 @@ export interface GovernanceContext {
   analyzerLimitations?: string[];
 }
 
+export type ApplicabilityStatus = "APPLICABLE" | "NOT_APPLICABLE" | "UNVERIFIED";
+
 export interface ControlEvaluation {
   controlId: string;
   applicable: boolean;
+  applicabilityStatus: ApplicabilityStatus;
   status: ControlStatus;
   severity: Severity;
   failureDecision: FailureDecision;
   missingEvidence: string[];
+  missingSignals: string[];
   supportingEvidence: string[];
   reason: string;
 }
@@ -189,6 +193,7 @@ export interface GovernanceViolation {
   decision: FailureDecision;
   message: string;
   missingEvidence: string[];
+  missingSignals: string[];
 }
 
 export interface GovernanceDecision {
