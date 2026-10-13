@@ -152,7 +152,8 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Declared changed-file set. When a Git diff is verified, this set must exactly match the actual changed paths."
         }
       },
       "additionalProperties": false
