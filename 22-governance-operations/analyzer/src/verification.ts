@@ -277,7 +277,7 @@ export async function runVerificationAdapters(
           ...(processResults.some((result) => result.durationMs !== undefined)
             ? { duration_ms: processResults.reduce((total, result) => total + (result.durationMs ?? 0), 0) }
             : {}),
-          ...(hasLimitations ? {} : { exit_code: failures.length > 0 ? 1 : 0 }),
+          ...(failures.length > 0 ? { exit_code: 1 } : hasLimitations ? {} : { exit_code: 0 }),
           command: ["tsc", "--noEmit", "--pretty", "false", "--project", "tsconfig.json"],
         };
         evidence.push(toolEvidence);
