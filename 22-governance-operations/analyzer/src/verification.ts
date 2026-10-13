@@ -144,7 +144,9 @@ export async function runVerificationAdapters(
   const findings: GovernanceFinding[] = [];
   const adapterResults: RepositoryAdapterResult[] = [];
   const files = snapshot.files.map((file) => file.replaceAll("\\", "/"));
-  const pythonFiles = files.filter((file) => file.endsWith(".py")).sort();
+  const pythonCandidates = files.filter((file) => file.endsWith(".py")).sort();
+  const pythonFiles = pythonCandidates.filter((file) => snapshot.fileContents?.[file] !== undefined);
+  const uninspectedPythonFiles = pythonCandidates.filter((file) => snapshot.fileContents?.[file] === undefined);
   const typescriptFiles = files.filter((file) => /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(file)).sort();
   const tsconfigs = files.filter((file) => basename(file) === "tsconfig.json").sort();
 
@@ -289,9 +291,9 @@ export async function runVerificationAdapters(
     }
   }
 
-  if (pythonFiles.length > 0) {
+  if (pythonCandidates.length > 0) {
     const evidenceId = "EVD-PYTHON-SYNTAX";
-    if (pythonFiles.length > MAX_PYTHON_FILES) {
+    if (pythonCandidates.length > MAX_PYTHON_FILES) {
       results.push({
         tool: "python",
         status: "UNVERIFIED",
@@ -308,6 +310,25 @@ export async function runVerificationAdapters(
         unsupportedCapabilities: ["verification:python-file-limit"],
         evidenceRefs: [],
         limitations: ["Python file count exceeded the verification limit."],
+      });
+    } else if (pythonFiles.length === 0) {
+      const limitation = "Python source content was not ingested within the repository scan limits; syntax was not checked.";
+      results.push({
+        tool: "python",
+        status: "UNVERIFIED",
+        command: ["python", "-c", "ast.parse(...)"],
+        summary: limitation,
+        findings: [],
+        limitations: [limitation],
+      });
+      adapterResults.push({
+        adapterId: "python-syntax",
+        version: "0.1.0",
+        executionStatus: "PARTIAL",
+        supportedCapabilities: [],
+        unsupportedCapabilities: ["verification:python-source-content"],
+        evidenceRefs: [],
+        limitations: [limitation],
       });
     } else {
       const tool: VerificationToolName | undefined =
@@ -372,7 +393,9 @@ export async function runVerificationAdapters(
             ? "ERROR"
             : processResult.exitCode !== 0 || parsedErrors.length > 0
               ? "FAIL"
-              : "PASS";
+              : uninspectedPythonFiles.length > 0
+                ? "UNVERIFIED"
+                : "PASS";
           const toolFindings = status === "FAIL" ? pythonFindings(parsedErrors, evidenceId) : [];
           evidence.push({
             id: evidenceId,
@@ -382,7 +405,9 @@ export async function runVerificationAdapters(
               ? `Python syntax verification passed for ${pythonFiles.length} file(s).`
               : status === "FAIL"
                 ? `Python syntax verification found ${parsedErrors.length || 1} failure(s).`
-                : "Python syntax runner returned invalid output; verification could not be trusted.",
+                : status === "UNVERIFIED"
+                  ? `Python syntax was checked for ${pythonFiles.length} file(s), but ${uninspectedPythonFiles.length} file(s) were not inspected.`
+                  : "Python syntax runner returned invalid output; verification could not be trusted.",
             source: "python-ast-adapter",
             freshness: "current",
             supports_controls: [],
@@ -397,19 +422,30 @@ export async function runVerificationAdapters(
               ? `Python syntax passed for ${pythonFiles.length} file(s).`
               : status === "FAIL"
                 ? `Python syntax failed for ${parsedErrors.length || 1} file(s).`
-                : "Python syntax runner returned invalid output.",
+                : status === "UNVERIFIED"
+                  ? `Python syntax verification incomplete: ${uninspectedPythonFiles.length} file(s) were not inspected.`
+                  : "Python syntax runner returned invalid output.",
             evidenceId,
             findings: toolFindings,
-            limitations: status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : [],
+            limitations: [
+              ...(status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : []),
+              ...(uninspectedPythonFiles.length > 0 ? [`Source content was not ingested for: ${uninspectedPythonFiles.slice(0, 10).join(", ")}.`] : []),
+            ],
           });
           adapterResults.push({
             adapterId: "python-syntax",
             version: "0.1.0",
-            executionStatus: status === "ERROR" ? "FAILED" : "SUCCESS",
+            executionStatus: status === "ERROR" ? "FAILED" : uninspectedPythonFiles.length > 0 ? "PARTIAL" : "SUCCESS",
             supportedCapabilities: status === "ERROR" ? [] : ["verification:python-syntax"],
-            unsupportedCapabilities: status === "ERROR" ? ["verification:python-syntax-output"] : [],
+            unsupportedCapabilities: [
+              ...(status === "ERROR" ? ["verification:python-syntax-output"] : []),
+              ...(uninspectedPythonFiles.length > 0 ? ["verification:python-source-content"] : []),
+            ],
             evidenceRefs: [evidenceId],
-            limitations: status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : [],
+            limitations: [
+              ...(status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : []),
+              ...(uninspectedPythonFiles.length > 0 ? [`Source content was not ingested for: ${uninspectedPythonFiles.slice(0, 10).join(", ")}.`] : []),
+            ],
           });
         } catch (error) {
           const limitation = `Python syntax runner failed: ${error instanceof Error ? error.message : String(error)}`;
