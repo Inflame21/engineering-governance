@@ -84,9 +84,16 @@ interface AjvInstance {
 type AjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => AjvInstance;
 
 const require = createRequire(import.meta.url);
-const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
-const ajv = new Ajv2020({ allErrors: true, strict: true });
-const validateSchema = ajv.compile(architectureProfileSchema);
+let cachedProfileValidator: SchemaValidator | undefined;
+
+function getProfileValidator(): SchemaValidator {
+  if (!cachedProfileValidator) {
+    const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    cachedProfileValidator = ajv.compile(architectureProfileSchema);
+  }
+  return cachedProfileValidator;
+}
 
 const sourceExtensions: Record<string, string> = {
   ".ts": "typescript",
@@ -117,6 +124,7 @@ const graphableLanguages = new Set(["typescript", "javascript", "python"]);
 const resolutionExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
 
 export function validateArchitectureProfile(value: unknown): ArchitectureProfileValidation {
+  const validateSchema = getProfileValidator();
   if (!validateSchema(value)) {
     const errors = (validateSchema.errors ?? []).map((error) => {
       const location = error.instancePath || "/";
