@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { loadArchitectureProfile, loadGovernancePack } from "./config.js";
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
+import { nodeVerificationToolRunner } from "./verification-runner.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
 export { loadArchitectureProfile, loadGovernancePack } from "./config.js";
@@ -18,6 +19,7 @@ interface ParsedArguments {
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
+  runTools: boolean;
   json: boolean;
 }
 
@@ -38,6 +40,7 @@ function usage(): string {
     "Options:",
     `  --pack    Governance pack JSON path relative to the repository root (default: ${DEFAULT_PACK_PATH})`,
     "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
+    "  --run-tools Execute installed local TypeScript/Python checks (never installs dependencies).",
     "  --json    Emit machine-readable JSON.",
     "  -h, --help",
     "  -v, --version",
@@ -52,10 +55,10 @@ function usage(): string {
 
 export function parseCliArguments(argv: string[]): ParsedArguments {
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
-    return { command: "help", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, json: false };
+    return { command: "help", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, runTools: false, json: false };
   }
   if (argv.includes("--version") || argv.includes("-v")) {
-    return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, json: false };
+    return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, runTools: false, json: false };
   }
 
   const [rawCommand, ...rest] = argv;
@@ -66,6 +69,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let repositoryPath = ".";
   let packPath = DEFAULT_PACK_PATH;
   let profilePath: string | undefined;
+  let runTools = false;
   let json = false;
   let repositoryProvided = false;
 
@@ -73,6 +77,10 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     const argument = rest[index]!;
     if (argument === "--json") {
       json = true;
+      continue;
+    }
+    if (argument === "--run-tools") {
+      runTools = true;
       continue;
     }
     if (argument === "--pack" || argument === "--profile") {
@@ -94,6 +102,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     repositoryPath: path.resolve(repositoryPath),
     packPath,
     ...(profilePath ? { profilePath } : {}),
+    runTools,
     json,
   };
 }
@@ -123,7 +132,12 @@ export async function runCli(argv: string[]): Promise<number> {
       const architectureProfile = args.profilePath
         ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem)
         : undefined;
-      const result = await runRepositoryAnalysisCommand(snapshot, args.json, architectureProfile);
+      const result = await runRepositoryAnalysisCommand(
+        snapshot,
+        args.json,
+        architectureProfile,
+        args.runTools ? nodeVerificationToolRunner : undefined,
+      );
       process.stdout.write(`${result.output}\n`);
       return result.context.analysisStatus === "COMPLETE" ? 0 : 1;
     }
@@ -137,6 +151,7 @@ export async function runCli(argv: string[]): Promise<number> {
       governancePack,
       ...(args.json ? { json: true } : {}),
       ...(architectureProfile ? { architectureProfile } : {}),
+      ...(args.runTools ? { verificationRunner: nodeVerificationToolRunner } : {}),
     });
     process.stdout.write(`${result.output}\n`);
 
