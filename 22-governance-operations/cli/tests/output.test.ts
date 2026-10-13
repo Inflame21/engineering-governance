@@ -118,6 +118,7 @@ describe("CLI output", () => {
           edges: [],
           components: [],
           componentEdges: [],
+          packageEdges: [],
           changeImpact: {
             status: "VERIFIED",
             changedFiles: ["src/infrastructure/db.ts"],
