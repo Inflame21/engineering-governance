@@ -460,14 +460,14 @@ PR #1 reports 364 commits and 76 changed files against `main`; the compare endpo
 
 ### Remaining limits
 
-1. This test does **not** exhaustively compare every JSON Schema primitive type, regex, date-time format, string/numeric bound, array uniqueness rule, or nested conditional constraint to an explicit TypeScript-side expectation. TypeScript interfaces cannot express many of these restrictions; the JSON Schema and AJV validation remain authoritative at the input boundary.
+1. The follow-up `JSON Schema constraint inventory` test now asserts representative primitive types, regexes, date-time formats, string/numeric bounds, array uniqueness, object policies, and risk/exception conditional required sets for governance packs and architecture profiles. It is a targeted schema-shape contract, not yet a complete recursive constraint inventory or a valid/invalid runtime fixture for every rule. TypeScript interfaces cannot express many JSON Schema restrictions; the JSON Schema and AJV validation remain authoritative at the input boundary.
 2. The schema currently does not set `additionalProperties: false` at the top-level governance-pack object, while nested entity definitions generally do. That may be intentional extensibility, but the policy is not documented or tested as an explicit decision. Do not change it without deciding whether top-level extensions are supported.
 3. Status-dependent risk/exception requirements are enforced by JSON Schema and semantic validation rather than by the plain TypeScript interfaces. The current contract test confirms the schema's conditional rules exist, but does not compare every condition branch to the semantic validator.
-4. A complete constraint-by-constraint matrix, including deliberate invalid/valid fixtures for each schema rule and the corresponding runtime validation behavior, remains outstanding.
+4. A complete constraint-by-constraint matrix, including deliberate valid/invalid fixtures for every schema rule and verification through the actual loader/CLI runtime path, remains outstanding. The new static assertions are partial evidence only.
 
 ### Disposition
 
-The structural field/requiredness/enum drift checks are now automated and pass CI. Keep AUD-03 **open/partial** until the remaining constraint and conditional-rule matrix is reviewed and either covered by tests or explicitly recorded as an accepted design limitation. Phase 0 remains `IN_PROGRESS`.
+The structural field/requiredness/enum checks and a targeted schema-constraint inventory are now automated. CI for the latest follow-up must be checked before claiming these new assertions pass. Keep AUD-03 **open/partial** until the complete constraint/conditional matrix and representative runtime validation fixtures are covered or explicitly recorded as accepted design limitations. Phase 0 remains `IN_PROGRESS`.
 
 
 ## 12. CI toolchain version capture — 2026-10-13
