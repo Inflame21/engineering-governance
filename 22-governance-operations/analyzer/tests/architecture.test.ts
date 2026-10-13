@@ -118,7 +118,7 @@ describe("architecture profiles", () => {
       ],
       fileContents: {
         "apps/web/package.json": JSON.stringify({ dependencies: { react: "^19.0.0" } }),
-        "apps/web/src/App.tsx": 'import { shared } from "../../packages/shared/src/index.js";\\nexport const app = shared;',
+        "apps/web/src/App.tsx": 'import { shared } from "../../../packages/shared/src/index.js";\\nexport const app = shared;',
         "packages/shared/package.json": JSON.stringify({ name: "@example/shared" }),
         "packages/shared/src/index.ts": "export const shared = true;",
       },
