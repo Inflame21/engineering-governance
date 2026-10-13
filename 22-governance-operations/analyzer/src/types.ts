@@ -1,4 +1,5 @@
 import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
+import type { ArchitectureVerificationResult } from "./architecture.js";
 
 export type AnalyzerExecutionStatus = "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED";
 
@@ -36,6 +37,7 @@ export interface RepositoryAnalysis {
   evidence: RepositoryEvidence[];
   findings: GovernanceFinding[];
   adapterResults: RepositoryAdapterResult[];
+  architecture?: ArchitectureVerificationResult;
 }
 
 export interface RepositoryAdapterOutput {
