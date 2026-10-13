@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { loadGovernancePack } from "./config.js";
+import { loadArchitectureProfile, loadGovernancePack } from "./config.js";
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
-export { loadGovernancePack } from "./config.js";
+export { loadArchitectureProfile, loadGovernancePack } from "./config.js";
 export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
@@ -17,6 +17,7 @@ interface ParsedArguments {
   command: "check" | "analyze" | "help" | "version";
   repositoryPath: string;
   packPath: string;
+  profilePath?: string;
   json: boolean;
 }
 
@@ -25,8 +26,8 @@ function usage(): string {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--json]",
-    "  governance analyze <repository> [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--json]",
+    "  governance analyze <repository> [--profile <relative-path>] [--json]",
     "  governance --help",
     "  governance --version",
     "",
@@ -36,6 +37,7 @@ function usage(): string {
     "",
     "Options:",
     `  --pack    Governance pack JSON path relative to the repository root (default: ${DEFAULT_PACK_PATH})`,
+    "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
     "  --json    Emit machine-readable JSON.",
     "  -h, --help",
     "  -v, --version",
@@ -63,6 +65,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
 
   let repositoryPath = ".";
   let packPath = DEFAULT_PACK_PATH;
+  let profilePath: string | undefined;
   let json = false;
   let repositoryProvided = false;
 
@@ -72,10 +75,11 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       json = true;
       continue;
     }
-    if (argument === "--pack") {
+    if (argument === "--pack" || argument === "--profile") {
       const value = rest[index + 1];
-      if (!value || value.startsWith("--")) throw new Error("--pack requires a relative path.");
-      packPath = value;
+      if (!value || value.startsWith("--")) throw new Error(`${argument} requires a relative path.`);
+      if (argument === "--pack") packPath = value;
+      else profilePath = value;
       index += 1;
       continue;
     }
@@ -89,6 +93,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     command: rawCommand,
     repositoryPath: path.resolve(repositoryPath),
     packPath,
+    ...(profilePath ? { profilePath } : {}),
     json,
   };
 }
@@ -115,16 +120,23 @@ export async function runCli(argv: string[]): Promise<number> {
     const snapshot = await loadRepositorySnapshot(args.repositoryPath, nodeFileSystem);
 
     if (args.command === "analyze") {
-      const result = await runRepositoryAnalysisCommand(snapshot, args.json);
+      const architectureProfile = args.profilePath
+        ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem)
+        : undefined;
+      const result = await runRepositoryAnalysisCommand(snapshot, args.json, architectureProfile);
       process.stdout.write(`${result.output}\n`);
       return result.context.analysisStatus === "COMPLETE" ? 0 : 1;
     }
 
     const governancePack = await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
+    const architectureProfile = args.profilePath
+      ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem)
+      : undefined;
     const result = await runGovernanceCommand({
       snapshot,
       governancePack,
       ...(args.json ? { json: true } : {}),
+      ...(architectureProfile ? { architectureProfile } : {}),
     });
     process.stdout.write(`${result.output}\n`);
 
