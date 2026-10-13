@@ -611,7 +611,7 @@ The following status reflects code and automated evidence on `audit/phase-0-base
 - **Phase 1:** Canonical governance/profile schemas are integrated with runtime loading; semantic reference checks and contract tests are present. Compatibility review remains ongoing as schemas evolve.
 - **Phase 2:** Evidence-driven status, unknown applicability, risk acceptance, exception scope/expiry, and deterministic decisions are implemented. The full decision matrix still needs exhaustive boundary-case coverage.
 - **Phase 3:** Executable `check`, `analyze`, `help`, and `version` commands, safe Node filesystem access, validated configuration, human/JSON reports, exit codes, and CI smoke tests are implemented.
-- **Phase 4:** Provenance-backed file/component dependency graphs, normalized findings, and reverse-dependency change impact are implemented for the supported graph extractors. Service/database/event relationships and package-scoped monorepo modeling remain open.
+- **Phase 4:** Provenance-backed file/component dependency graphs, normalized findings, reverse-dependency change impact, package-scoped facts, and cross-package import edges are implemented for the supported graph extractors. Service/API/database/event relationships and component attribution beyond manifest roots remain open.
 - **Phase 5:** Layered/Clean Architecture profile evaluation detects seeded forbidden dependencies for TypeScript/JavaScript and Python. Allowed-edge regression coverage and broader language/alias resolution remain open.
 - **Phase 6 onward:** Real verification adapters are limited to TypeScript type-checking and Python syntax checks; broader security/test/contract tools and durable audit storage remain future work.
 
