@@ -66,6 +66,15 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
       `  Component dependency edges: ${analysis.architecture.graph.componentEdges.length}`,
       `  Boundary findings: ${analysis.architecture.findings.length}`,
     );
+    const impact = analysis.architecture.graph.changeImpact;
+    lines.push(
+      `  Change impact: ${impact.status}`,
+      `  Changed source files: ${impact.changedFiles.length}`,
+      `  Changed components: ${impact.changedComponents.join(", ") || "none mapped"}`,
+      `  Impacted files (including changed files): ${impact.impactedFiles.length}`,
+      `  Impacted components: ${impact.impactedComponents.join(", ") || "none mapped"}`,
+    );
+    for (const limitation of impact.limitations) lines.push(`  Change-impact limitation: ${limitation}`);
     for (const finding of analysis.architecture.findings) {
       const location = finding.source_location
         ? ` ${finding.source_location.file}:${finding.source_location.start_line ?? 1}`
