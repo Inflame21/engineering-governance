@@ -1,0 +1,49 @@
+name: Governance Operations Verification
+
+on:
+  push:
+    paths:
+      - "22-governance-operations/**"
+      - ".github/workflows/governance-operations.yml"
+  pull_request:
+    paths:
+      - "22-governance-operations/**"
+      - ".github/workflows/governance-operations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [engine, analyzer, cli]
+
+    defaults:
+      run:
+        working-directory: 22-governance-operations/${{ matrix.package }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install package dependencies
+        run: npm install
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
