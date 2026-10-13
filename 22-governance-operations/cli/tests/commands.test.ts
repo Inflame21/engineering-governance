@@ -35,7 +35,7 @@ describe("analyze command", () => {
       snapshot: {
         rootPath: "/repo",
         changedFiles: ["main.py"],
-        files: ["main.py", "pyproject.toml"],
+        files: ["main.py", "routers/users.py", "pyproject.toml"],
         fileContents: {
           "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
         },
