@@ -26,6 +26,7 @@ function toViolation(
     decision: control.failureDecision,
     message:
       definition?.message ??
+      control.reason ??
       `Control ${control.controlId} is ${control.status}.`,
     missingEvidence: control.missingEvidence,
   };
@@ -44,58 +45,64 @@ export function deriveDecision(
     )
     .map((item) => toViolation(item, pack));
 
-  const blockingViolations = violations.filter(
+  const blockingControlViolations = violations.filter(
     (item) => item.decision === "NO-GO" || item.severity === "P0",
   );
-
-  const warnings = violations.filter(
-    (item) => !blockingViolations.includes(item),
+  const controlWarnings = violations.filter(
+    (item) => !blockingControlViolations.includes(item),
   );
 
-  const openRisks = pack.risks.filter(
-    (risk) => risk.status === "OPEN" && (risk.severity === "P0" || risk.severity === "P1"),
+  const openRisks = pack.risks.filter((risk) => risk.status === "OPEN");
+  const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
+    controlId: `RISK:${risk.id}`,
+    severity: risk.severity,
+    decision:
+      risk.severity === "P0" || risk.severity === "P1"
+        ? "NO-GO"
+        : "GO_WITH_CONDITIONS",
+    message: risk.title,
+    missingEvidence: [],
+  }));
+  const blockingRiskViolations = riskViolations.filter(
+    (item) => item.severity === "P0" || item.severity === "P1",
   );
+  const riskWarnings = riskViolations.filter(
+    (item) => item.severity === "P2" || item.severity === "P3",
+  );
+  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations]
+    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  const warnings = [...controlWarnings, ...riskWarnings]
+    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 
-  if (blockingViolations.length > 0 || openRisks.length > 0) {
-    const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
-      controlId: `RISK:${risk.id}`,
-      severity: risk.severity,
-      decision: "NO-GO",
-      message: risk.title,
-      missingEvidence: [],
-    }));
-
+  if (blockingViolations.length > 0) {
     return {
       status: "NO-GO",
       reason:
-        blockingViolations.length > 0
-          ? `Production blocked by ${blockingViolations.length} control violation(s).`
-          : `Production blocked by ${openRisks.length} open P0/P1 risk(s).`,
-      blockingViolations: [...blockingViolations, ...riskViolations].sort(
-        (a, b) => severityRank[a.severity] - severityRank[b.severity],
-      ),
-      warnings: warnings.sort(
-        (a, b) => severityRank[a.severity] - severityRank[b.severity],
-      ),
+        blockingControlViolations.length > 0
+          ? `Production blocked by ${blockingControlViolations.length} blocking control violation(s) and ${blockingRiskViolations.length} blocking risk(s).`
+          : `Production blocked by ${blockingRiskViolations.length} open P0/P1 risk(s).`,
+      blockingViolations,
+      warnings,
+      openRisks,
     };
   }
 
   if (warnings.length > 0) {
     return {
       status: "GO_WITH_CONDITIONS",
-      reason: `${warnings.length} applicable control(s) require review or conditional approval.`,
+      reason: `${warnings.length} applicable control or risk item(s) require review or conditional approval.`,
       blockingViolations: [],
-      warnings: warnings.sort(
-        (a, b) => severityRank[a.severity] - severityRank[b.severity],
-      ),
+      warnings,
+      openRisks,
     };
   }
 
   return {
     status: "GO",
-    reason: "All applicable controls are satisfied and no blocking risks remain.",
+    reason: "All applicable controls are satisfied and no open risks remain.",
     blockingViolations: [],
     warnings: [],
+    openRisks,
   };
 }
 
