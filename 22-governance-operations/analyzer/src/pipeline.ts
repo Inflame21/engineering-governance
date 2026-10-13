@@ -129,6 +129,18 @@ export async function analyzeRepository(
     });
   }
 
+  if (snapshot.contentLimitations?.length) {
+    adapterResults.push({
+      adapterId: "repository-snapshot",
+      version: "0.1.0",
+      executionStatus: "PARTIAL",
+      supportedCapabilities: [],
+      unsupportedCapabilities: ["repository:source-content"],
+      evidenceRefs: [],
+      limitations: [...snapshot.contentLimitations],
+    });
+  }
+
   const merged = mergeAnalyzerOutputs(outputs);
   const architecture = architectureProfile
     ? verifyArchitectureProfile(snapshot, architectureProfile)
