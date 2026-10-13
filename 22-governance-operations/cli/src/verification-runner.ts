@@ -90,6 +90,30 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
     }
   },
 
+  async getVersion(
+    tool: VerificationToolName,
+    rootPath: string,
+    workingDirectory: string,
+  ): Promise<string | undefined> {
+    try {
+      if (tool === "typescript") {
+        const compiler = await findTypeScriptCompiler(rootPath, workingDirectory);
+        if (!compiler) return undefined;
+        const result = await runExecutable(
+          process.execPath,
+          [compiler, "--version"],
+          path.resolve(rootPath, workingDirectory),
+          5_000,
+        );
+        return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
+      }
+      const result = await runExecutable(tool, ["--version"], path.resolve(rootPath, workingDirectory), 5_000);
+      return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
+    } catch {
+      return undefined;
+    }
+  },
+
   async run(
     tool: VerificationToolName,
     args: string[],
