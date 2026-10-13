@@ -325,6 +325,22 @@ export function evaluateGovernance(
     decision.reason = `${decision.reason} Analysis status: ${context.analysisStatus}.`;
   }
 
+  if (context.changeScopeStatus === "UNVERIFIED") {
+    const scopeViolation: GovernanceViolation = {
+      controlId: "CHANGE-SCOPE:VERIFICATION",
+      severity: "P1",
+      decision: "GO_WITH_CONDITIONS",
+      message: context.changeScopeReason
+        ? `Changed-file scope could not be verified: ${context.changeScopeReason}`
+        : "Changed-file scope was requested but could not be verified.",
+      missingEvidence: [],
+      missingSignals: [],
+    };
+    if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+    decision.warnings.push(scopeViolation);
+    decision.reason = `${decision.reason} Changed-file scope is unverified.`;
+  }
+
   const findingsById = new Map<string, NonNullable<GovernancePack["findings"]>[number]>();
   for (const finding of [...(pack.findings ?? []), ...(context.findings ?? [])]) {
     // Findings are only closed by an explicit RESOLVED state. A local "accepted"
