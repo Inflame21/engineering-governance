@@ -1,9 +1,9 @@
 import { createRequire } from "node:module";
 import type { GovernancePack } from "../../engine/src/types.js";
-import { validateArchitectureProfile } from "../../analyzer/src/architecture.js";
 import type { ArchitectureProfile } from "../../analyzer/src/architecture.js";
 import { validateGovernancePackSemantics } from "../../engine/src/validation.js";
 import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
+import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
 
 export interface GovernanceConfig {
   governancePackPath: string;
@@ -36,6 +36,7 @@ const addFormats = require("ajv-formats") as (ajv: AjvInstance) => void;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validateSchema = ajv.compile(governanceSchema);
+const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
 
 function formatSchemaErrors(errors: readonly SchemaError[]): string {
   return errors
@@ -98,10 +99,20 @@ export async function loadArchitectureProfile(
     throw new Error(`Architecture profile is not valid JSON: ${message}`);
   }
 
-  const validation = validateArchitectureProfile(parsed);
-  if (!validation.valid) {
-    throw new Error(`Architecture profile validation failed: ${validation.errors.join("; ")}`);
+  if (!validateArchitectureProfileSchema(parsed)) {
+    throw new Error(
+      `Architecture profile validation failed: ${formatSchemaErrors(validateArchitectureProfileSchema.errors ?? [])}`,
+    );
   }
 
-  return parsed as ArchitectureProfile;
+  const profile = parsed as ArchitectureProfile;
+  const seenRuleIds = new Set<string>();
+  for (const rule of profile.boundaryRules) {
+    if (seenRuleIds.has(rule.id)) {
+      throw new Error(`Architecture profile validation failed: duplicate boundary rule id '${rule.id}'.`);
+    }
+    seenRuleIds.add(rule.id);
+  }
+
+  return profile;
 }
