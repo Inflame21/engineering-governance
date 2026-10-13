@@ -36,6 +36,7 @@ describe("repository system graph", () => {
     expect(graph.nodes.find((node) => node.type === "DATABASE")?.name).toBe("sqlalchemy");
     expect(graph.nodes.find((node) => node.type === "EVENT" && node.name === "user.created")?.evidenceRefs)
       .toHaveLength(2);
+    expect(graph.edges.some((edge) => edge.type === "CONTAINS" && edge.targetId.startsWith("SERVICE:"))).toBe(true);
     expect(graph.edges.some((edge) => edge.type === "EXPOSES_API")).toBe(true);
     expect(graph.edges.some((edge) => edge.type === "USES_DATABASE")).toBe(true);
     expect(graph.edges.some((edge) => edge.type === "PUBLISHES_EVENT")).toBe(true);
