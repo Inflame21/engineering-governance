@@ -23,8 +23,8 @@ node dist/cli/src/index.js analyze ../.. --json
 Evaluate a repository against a governance pack:
 
 ```bash
-node dist/cli/src/index.js check ../.. --pack model/example-governance-pack.json
-node dist/cli/src/index.js check ../.. --pack model/example-governance-pack.json --json
+node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/example-governance-pack.json
+node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/example-governance-pack.json --json
 ```
 
 The `--pack` path is relative to the repository being assessed. By default, `check` looks for `.governance/governance-pack.json` inside that repository.
