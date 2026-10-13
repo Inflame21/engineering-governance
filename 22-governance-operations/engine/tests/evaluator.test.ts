@@ -321,6 +321,23 @@ describe("rule and control engine", () => {
     expect(result.decision.status).toBe("GO");
   });
 
+
+  it("does not return unconditional GO when requested change scope is unverified", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      controls: [],
+      evidence: [],
+    }, {
+      signals: [],
+      analysisStatus: "COMPLETE",
+      changeScopeStatus: "UNVERIFIED",
+      changeScopeReason: "Base revision is unavailable.",
+    });
+
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.warnings.some((item) => item.controlId === "CHANGE-SCOPE:VERIFICATION")).toBe(true);
+  });
+
   it("blocks on an open P1 risk even when controls pass", () => {
     const pack = {
       ...basePack,
