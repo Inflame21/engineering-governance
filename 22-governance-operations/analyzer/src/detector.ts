@@ -28,13 +28,6 @@ const frameworkMarkers: Record<string, string> = {
   "angular.json": "angular",
   "nuxt.config.ts": "nuxt",
   "manage.py": "django",
-  "pyproject.toml": "python",
-  "go.mod": "go",
-  "Cargo.toml": "rust",
-  "pom.xml": "spring",
-  "build.gradle": "gradle",
-  "build.gradle.kts": "gradle",
-  "package.json": "node",
 };
 
 const packageManagerMarkers: Record<string, string> = {
