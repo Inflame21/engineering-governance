@@ -252,3 +252,53 @@ GitHub Actions run [#38368575027](https://github.com/Inflame21/engineering-gover
 - **Dependency reproducibility:** Keep open until package lockfile strategy is explicitly chosen and CI installs dependencies reproducibly.
 
 No production approval is granted by this follow-up.
+
+
+## 8. Follow-up verification — active workflow and `main` ruleset
+
+**Follow-up date:** 2026-10-13  
+**Branch inspected:** `audit/phase-0-baseline`  
+**Ruleset inspected:** `main-engineering-governance` (ID `24978229`)
+
+### Active workflow and check-name alignment
+
+The repository API confirms that the active workflow is `.github/workflows/governance-operations.yml`. It runs on pull requests that change `22-governance-operations/**` or the workflow itself, on pushes to `main` affecting those paths, and on manual dispatch. Its matrix jobs are named `Verify engine`, `Verify analyzer`, and `Verify cli`.
+
+The active `main` ruleset requires the exact corresponding check contexts:
+- `Verify analyzer`
+- `Verify cli`
+- `Verify engine`
+
+The check-runs API for audit-branch SHA `59381c69fca7587bfa08353cca4f48aeb2300d7f` reports all three checks completed with conclusion `success`:
+- [Verify cli](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243744314)
+- [Verify analyzer](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243744155)
+- [Verify engine](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243744314)
+
+**Evidence scope:** this verifies emitted check names and successful results for the exact audit-branch SHA above. It does not prove that a deliberately failing check blocks merging; that enforcement test remains outstanding.
+
+### Active ruleset settings observed through the API
+
+The ruleset is active and targets only `refs/heads/main`. It requires one approving review, dismisses stale approvals after new pushes, requires approval of the latest reviewable push, requires review-thread resolution, blocks branch deletion and force pushes, and permits administrator bypass with mode `always`.
+
+Two policy details must remain explicit:
+- `strict_required_status_checks_policy` is `false`; the ruleset does not require the branch to be up to date with its base before merging.
+- `require_extra_approval_for_unattributed_changes` is `true`. This is separate from the ordinary required approving review. Confirm the intended behavior in the GitHub UI before changing it; this audit does not change ruleset configuration.
+
+The direct branch-protection endpoint returned HTTP 403 for this connection. The ruleset itself was readable and verified; legacy branch-protection settings outside the ruleset could not be independently inspected.
+
+### Dependency reproducibility discrepancy
+
+The engine manifest differs across branches:
+- `main`: Vitest `^3.2.4`
+- `audit/phase-0-baseline`: Vitest `^5.0.4`
+
+This confirms dependency-version drift between the base branch and audit branch. The workflow currently uses `npm install`, and no committed package lockfiles were confirmed in the inspected package directories. Resolve the intended Vitest version and commit lockfiles before treating dependency installation as reproducible. Do not infer the cause or compatibility impact from version strings alone.
+
+### Updated disposition
+
+- **AUD-01:** CI evidence now exists for the current audit-branch SHA `59381c69fca7587bfa08353cca4f48aeb2300d7f`; reproducible dependency resolution remains open.
+- **AUD-07:** The current workflow's CLI smoke test is present and the CLI check passed, but the complete documented exit-code/error matrix remains unverified.
+- **AUD-08:** Active workflow and exact required check-name alignment are verified. Enforcement against a deliberately failing check remains unverified. The strict up-to-date policy is disabled and should be an explicit governance decision.
+- **Ruleset administration:** Active ruleset and administrator bypass are API-verified. No ruleset settings were changed during this audit.
+
+Phase 0 remains `IN_PROGRESS`; this evidence does not grant runtime verification or production approval.
