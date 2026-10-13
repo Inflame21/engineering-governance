@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   architectureSignals,
+  buildArchitectureDependencyGraph,
   validateArchitectureProfile,
+  verifyArchitectureProfile,
 } from "../src/architecture.js";
 import type { ArchitectureProfile } from "../src/architecture.js";
 import cleanArchitectureExample from "../../model/architecture-profile-clean-architecture.json" with { type: "json" };
@@ -61,6 +63,71 @@ describe("architecture profiles", () => {
     const result = validateArchitectureProfile(duplicate);
     expect(result.valid).toBe(false);
     expect(result.errors.some((error) => error.includes("duplicate rule id"))).toBe(true);
+  });
+
+
+  it("builds a provenance-bearing dependency graph from relative TypeScript imports", () => {
+    const snapshot = {
+      rootPath: "/repo",
+      changedFiles: ["src/domain/user.ts"],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";\\nexport const user = db;',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    };
+    const graph = buildArchitectureDependencyGraph(snapshot, cleanArchitecture);
+
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      sourceId: "FILE:src/domain/user.ts",
+      targetId: "FILE:src/infrastructure/db.ts",
+      sourceLocation: { file: "src/domain/user.ts", line: 1 },
+    });
+    expect(graph.edges[0]?.evidenceRef).toMatch(/^EVD-ARCH-/);
+  });
+
+  it("finds a real forbidden dependency across mapped Clean Architecture roles", () => {
+    const snapshot = {
+      rootPath: "/repo",
+      changedFiles: ["src/domain/user.ts"],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";\\nexport const user = db;',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    };
+    const result = verifyArchitectureProfile(snapshot, cleanArchitectureExample);
+
+    expect(result.status).toBe("COMPLETE");
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      rule_id: "ARCH-DOMAIN-INDEPENDENCE",
+      category: "architecture-boundary",
+      source_location: { file: "src/domain/user.ts", start_line: 1 },
+    });
+    expect(result.evidence.some((item) => item.id === result.findings[0]?.evidence_refs[0])).toBe(true);
+  });
+
+  it("keeps architecture verification partial when role mappings are absent", () => {
+    const profile: ArchitectureProfile = {
+      ...cleanArchitecture,
+      componentMappings: undefined,
+    };
+    const result = verifyArchitectureProfile({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db";',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, profile);
+
+    expect(result.status).toBe("PARTIAL");
+    expect(result.findings).toHaveLength(0);
+    expect(result.unsupportedCapabilities).toContain("architecture:component-role-mapping");
   });
 
   it("converts multiple architecture styles into normalized signals", () => {
