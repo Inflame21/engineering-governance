@@ -51,6 +51,7 @@ A partial or failed analysis is surfaced explicitly. A partial analysis cannot p
 - Repository discovery skips common generated/dependency directories and does not traverse symlinks.
 - Text files read for manifest detection are limited to 1 MB; discovery is limited to 50,000 files. Reports include a SHA-256 snapshot fingerprint over the path inventory and ingested content. Source-content coverage is reported explicitly; when ingestion limits are reached, this is not a full-tree content hash.
 - Governance packs are validated against the canonical JSON Schema and cross-reference invariants before evaluation.
+- Generated evidence records include a generation timestamp and snapshot fingerprint; executed local checks also record tool version, command, exit code, and duration when available.
 - Language/framework detection is heuristic. Architecture dependency extraction currently supports relative TypeScript/JavaScript imports and Python imports; other languages are reported as unsupported rather than treated as verified. Alias imports, dynamic resolution, and full AST/type-aware analysis are not implemented yet. It is not a substitute for compiler, test, or security-tool verification.
 - `--run-tools` is opt-in. It runs only the local TypeScript compiler and Python syntax parser, never package scripts or dependency installation. Use it only for repositories you trust, or inside a sandbox; a local compiler package is still executable code.
 - The current CLI does not yet compute a Git diff or validate changed-file scope.
