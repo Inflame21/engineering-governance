@@ -91,6 +91,56 @@ describe("governance pack loader", () => {
     ).rejects.toThrow("schema validation failed");
   });
 
+
+  it.each([
+    ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
+    ["project identifier pattern", (candidate: Record<string, unknown>) => {
+      (candidate["project"] as Record<string, unknown>)["id"] = "Invalid Project ID";
+    }],
+    ["change identifier pattern", (candidate: Record<string, unknown>) => {
+      (candidate["change"] as Record<string, unknown>)["id"] = "change-1";
+    }],
+    ["negative maximum evidence age", (candidate: Record<string, unknown>) => {
+      (candidate["controls"] as Array<Record<string, unknown>>)[0]!["max_evidence_age_seconds"] = -1;
+    }],
+    ["invalid evidence date-time", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["generated_at"] = "yesterday";
+    }],
+    ["invalid repository fingerprint", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["repository_fingerprint"] = "sha256:bad";
+    }],
+    ["negative evidence duration", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["duration_ms"] = -1;
+    }],
+    ["unknown nested project property", (candidate: Record<string, unknown>) => {
+      (candidate["project"] as Record<string, unknown>)["unexpected"] = true;
+    }],
+    ["accepted risk missing conditional acceptance metadata", (candidate: Record<string, unknown>) => {
+      candidate["risks"] = [{ id: "RSK-CONTRACT", severity: "P1", title: "accepted risk", status: "ACCEPTED" }];
+    }],
+    ["requested exception missing conditional request metadata", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{ id: "EXC-CONTRACT", status: "REQUESTED" }];
+    }],
+    ["finding confidence outside the allowed range", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-CONTRACT", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "invalid confidence", status: "OPEN", evidence_refs: [], confidence: 1.1,
+      }];
+    }],
+    ["duplicate finding evidence references", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-CONTRACT", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "duplicate references", status: "OPEN", evidence_refs: ["EVD-1", "EVD-1"],
+      }];
+    }],
+  ])("rejects schema constraint violation: %s", async (_name, mutate) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
   it("rejects dangling cross-references even when JSON shape is valid", async () => {
     const invalid = JSON.parse(JSON.stringify(examplePack)) as {
       controls: Array<Record<string, unknown>>;
