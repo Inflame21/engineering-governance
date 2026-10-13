@@ -707,6 +707,23 @@ export function verifyArchitectureProfile(
   }
 
   let unverifiedRules = 0;
+  const allowedRules = profile.boundaryRules.filter((rule) => rule.allowed === true);
+  for (const rule of allowedRules) {
+    const sourceRoles = roleAlternatives(rule.sourcePattern);
+    const targetRoles = roleAlternatives(rule.targetPattern);
+    if (sourceRoles.length === 0 || targetRoles.length === 0) {
+      unverifiedRules += 1;
+      limitations.push(`Allowed dependency rule ${rule.id} is missing a sourcePattern or targetPattern and cannot act as an exception.`);
+      continue;
+    }
+    const matchingSources = graph.nodes.some((node) => node.roles.some((role) => sourceRoles.includes(role)));
+    const matchingTargets = graph.nodes.some((node) => node.roles.some((role) => targetRoles.includes(role)));
+    if (!matchingSources || !matchingTargets) {
+      unverifiedRules += 1;
+      limitations.push(`Allowed dependency rule ${rule.id} could not be verified because its source or target role has no matched files.`);
+    }
+  }
+
   for (const rule of profile.boundaryRules) {
     if (rule.allowed === true) continue;
     const sourceRoles = roleAlternatives(rule.sourcePattern);
@@ -732,6 +749,16 @@ export function verifyArchitectureProfile(
         source?.roles.some((role) => sourceRoles.includes(role)) &&
         target?.roles.some((role) => targetRoles.includes(role))
       ) {
+        const explicitlyAllowed = allowedRules.some((allowRule) => {
+          const allowedSourceRoles = roleAlternatives(allowRule.sourcePattern);
+          const allowedTargetRoles = roleAlternatives(allowRule.targetPattern);
+          return (
+            source.roles.some((role) => allowedSourceRoles.includes(role)) &&
+            target.roles.some((role) => allowedTargetRoles.includes(role))
+          );
+        });
+        if (explicitlyAllowed) continue;
+
         const componentId = source.roles.find((role) => sourceRoles.includes(role));
         findings.push({
           id: `FND-ARCH-${stableId(`${rule.id}:${edge.id}`)}`,
