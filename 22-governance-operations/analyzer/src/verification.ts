@@ -234,7 +234,10 @@ export async function runVerificationAdapters(
       } else {
         const failures = processResults.filter((result) => result.exitCode !== 0);
         const output = processResults.map((result) => compactOutput(result.stdout, result.stderr)).filter(Boolean).join("\n");
-        const toolFindings = failures.flatMap((result) => typescriptFindings(compactOutput(result.stdout, result.stderr), evidenceId));
+        const toolFindings = failures.flatMap((result) => typescriptFindings(
+          compactOutput(result.stdout, result.stderr) || `TypeScript compiler exited with code ${result.exitCode} without diagnostics.`,
+          evidenceId,
+        ));
         const limitations = [
           ...unavailable.map((configPath) => `TypeScript compiler unavailable for ${configPath}.`),
           ...errors,
@@ -351,22 +354,35 @@ export async function runVerificationAdapters(
             TOOL_TIMEOUT_MS,
           );
           let parsedErrors: Array<{ file?: string; line?: number; message?: string }> = [];
+          let invalidToolOutput = false;
           try {
             const parsed = JSON.parse(processResult.stdout) as { errors?: Array<{ file?: string; line?: number; message?: string }> };
-            parsedErrors = parsed.errors ?? [];
+            if (!parsed || !Array.isArray(parsed.errors)) throw new Error("Python syntax runner returned an invalid result shape.");
+            parsedErrors = parsed.errors;
           } catch {
-            if (processResult.exitCode !== 0) parsedErrors = [{ message: compactOutput(processResult.stdout, processResult.stderr) || "Python syntax verification failed." }];
+            invalidToolOutput = true;
+            if (processResult.exitCode !== 0) {
+              parsedErrors = [{
+                message: compactOutput(processResult.stdout, processResult.stderr) || "Python syntax verification failed without diagnostics.",
+              }];
+            }
           }
 
-          const toolFindings = pythonFindings(parsedErrors, evidenceId);
-          const status = processResult.exitCode === 0 ? "PASS" : "FAIL";
+          const status: VerificationToolStatus = invalidToolOutput && processResult.exitCode === 0
+            ? "ERROR"
+            : processResult.exitCode !== 0 || parsedErrors.length > 0
+              ? "FAIL"
+              : "PASS";
+          const toolFindings = status === "FAIL" ? pythonFindings(parsedErrors, evidenceId) : [];
           evidence.push({
             id: evidenceId,
             type: "E3_AUTOMATED_ANALYSIS",
             status: status === "PASS" ? "VERIFIED" : "PARTIALLY_VERIFIED",
             description: status === "PASS"
               ? `Python syntax verification passed for ${pythonFiles.length} file(s).`
-              : `Python syntax verification found ${parsedErrors.length || 1} failure(s).`,
+              : status === "FAIL"
+                ? `Python syntax verification found ${parsedErrors.length || 1} failure(s).`
+                : "Python syntax runner returned invalid output; verification could not be trusted.",
             source: "python-ast-adapter",
             freshness: "current",
             supports_controls: [],
@@ -377,19 +393,23 @@ export async function runVerificationAdapters(
             status,
             command: [tool, "-c", "ast.parse(...)", `<${pythonFiles.length} source files>`],
             exitCode: processResult.exitCode,
-            summary: status === "PASS" ? `Python syntax passed for ${pythonFiles.length} file(s).` : `Python syntax failed for ${parsedErrors.length || 1} file(s).`,
+            summary: status === "PASS"
+              ? `Python syntax passed for ${pythonFiles.length} file(s).`
+              : status === "FAIL"
+                ? `Python syntax failed for ${parsedErrors.length || 1} file(s).`
+                : "Python syntax runner returned invalid output.",
             evidenceId,
             findings: toolFindings,
-            limitations: [],
+            limitations: status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : [],
           });
           adapterResults.push({
             adapterId: "python-syntax",
             version: "0.1.0",
-            executionStatus: "SUCCESS",
-            supportedCapabilities: ["verification:python-syntax"],
-            unsupportedCapabilities: [],
+            executionStatus: status === "ERROR" ? "FAILED" : "SUCCESS",
+            supportedCapabilities: status === "ERROR" ? [] : ["verification:python-syntax"],
+            unsupportedCapabilities: status === "ERROR" ? ["verification:python-syntax-output"] : [],
             evidenceRefs: [evidenceId],
-            limitations: [],
+            limitations: status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : [],
           });
         } catch (error) {
           const limitation = `Python syntax runner failed: ${error instanceof Error ? error.message : String(error)}`;
