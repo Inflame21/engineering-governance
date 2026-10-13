@@ -96,7 +96,7 @@ describe("CLI output", () => {
     };
     expect(parsed.evaluation.decision.status).toBe("GO");
     expect(parsed.report.schemaVersion).toBe("1.0.0");
-    expect(parsed.report.assessmentId).toMatch(/^ASM-\\d{17}-[A-F0-9]{12}$/);
+    expect(parsed.report.assessmentId).toMatch(/^ASM-\d{17}-[A-F0-9]{12}$/);
     expect(parsed.report.repositoryFingerprint).toBe(analysis.snapshotFingerprint?.digest);
     expect(Number.isNaN(Date.parse(parsed.report.generatedAt))).toBe(false);
     expect(parsed.report.decision).toBe("GO");
