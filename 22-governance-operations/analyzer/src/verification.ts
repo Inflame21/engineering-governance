@@ -209,7 +209,7 @@ export async function runVerificationAdapters(
         }
       }
 
-      if (unavailable.length > 0 || processResults.length === 0) {
+      if (processResults.length === 0) {
         const limitations = [
           ...(unavailable.length ? [`TypeScript compiler unavailable for: ${unavailable.join(", ")}.`] : []),
           ...errors,
@@ -235,14 +235,17 @@ export async function runVerificationAdapters(
         const failures = processResults.filter((result) => result.exitCode !== 0);
         const output = processResults.map((result) => compactOutput(result.stdout, result.stderr)).filter(Boolean).join("\n");
         const toolFindings = failures.flatMap((result) => typescriptFindings(compactOutput(result.stdout, result.stderr), evidenceId));
-        const status = failures.length > 0 ? "FAIL" : "PASS";
+        const hasLimitations = unavailable.length > 0 || errors.length > 0;
+        const status: VerificationToolStatus = failures.length > 0 ? "FAIL" : hasLimitations ? "UNVERIFIED" : "PASS";
         const toolEvidence: GovernanceEvidence = {
           id: evidenceId,
           type: "E3_AUTOMATED_ANALYSIS",
-          status: failures.length > 0 ? "PARTIALLY_VERIFIED" : "VERIFIED",
+          status: status === "PASS" ? "VERIFIED" : "PARTIALLY_VERIFIED",
           description: failures.length > 0
             ? `TypeScript type checking failed in ${failures.length} project(s).`
-            : `TypeScript type checking passed for ${tsconfigs.length} project(s).`,
+            : hasLimitations
+              ? `TypeScript type checking completed for ${processResults.length} project(s), but some projects were not verified.`
+              : `TypeScript type checking passed for ${tsconfigs.length} project(s).`,
           source: "typescript-compiler-adapter",
           freshness: "current",
           supports_controls: [],
@@ -253,8 +256,12 @@ export async function runVerificationAdapters(
           tool: "typescript",
           status,
           command: ["tsc", "--noEmit", "--pretty", "false", "--project", "<each tsconfig.json>"],
-          exitCode: failures.length > 0 ? 1 : 0,
-          summary: failures.length > 0 ? `TypeScript type checking failed in ${failures.length} project(s).` : "TypeScript type checking passed.",
+          ...(failures.length > 0 ? { exitCode: 1 } : hasLimitations ? {} : { exitCode: 0 }),
+          summary: failures.length > 0
+            ? `TypeScript type checking failed in ${failures.length} project(s).`
+            : hasLimitations
+              ? "TypeScript type checking is incomplete; one or more projects could not be verified."
+              : "TypeScript type checking passed.",
           evidenceId,
           findings: toolFindings,
           limitations: errors,
@@ -262,9 +269,9 @@ export async function runVerificationAdapters(
         adapterResults.push({
           adapterId: "typescript-typecheck",
           version: "0.1.0",
-          executionStatus: errors.length > 0 ? "PARTIAL" : "SUCCESS",
+          executionStatus: hasLimitations ? "PARTIAL" : "SUCCESS",
           supportedCapabilities: ["verification:typescript-typecheck"],
-          unsupportedCapabilities: errors.length > 0 ? ["verification:typescript-project-execution"] : [],
+          unsupportedCapabilities: hasLimitations ? ["verification:typescript-project-execution"] : [],
           evidenceRefs: [evidenceId],
           limitations: errors,
         });
