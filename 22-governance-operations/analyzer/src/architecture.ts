@@ -1,3 +1,6 @@
+import { createRequire } from "node:module";
+import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
+
 export interface ArchitectureBoundaryRule {
   id: string;
   description: string;
@@ -11,10 +14,12 @@ export interface ArchitectureProfile {
   id: string;
   version: string;
   name: string;
+  description?: string;
   styles: string[];
   boundaryRules: ArchitectureBoundaryRule[];
   requiredControls: string[];
   capabilities?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface ArchitectureProfileValidation {
@@ -22,50 +27,47 @@ export interface ArchitectureProfileValidation {
   errors: string[];
 }
 
+interface SchemaError {
+  instancePath?: string;
+  message?: string;
+}
+
+interface SchemaValidator {
+  (value: unknown): boolean;
+  errors: SchemaError[] | null;
+}
+
+interface AjvInstance {
+  compile(schema: unknown): SchemaValidator;
+}
+
+type AjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => AjvInstance;
+
+const require = createRequire(import.meta.url);
+const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
+const ajv = new Ajv2020({ allErrors: true, strict: true });
+const validateSchema = ajv.compile(architectureProfileSchema);
+
 export function validateArchitectureProfile(
   value: unknown,
 ): ArchitectureProfileValidation {
-  const errors: string[] = [];
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { valid: false, errors: ["Profile must be an object."] };
-  }
-
-  const profile = value as Record<string, unknown>;
-  for (const field of ["id", "version", "name"]) {
-    if (typeof profile[field] !== "string" || profile[field].trim() === "") {
-      errors.push(`'${field}' must be a non-empty string.`);
-    }
-  }
-
-  if (!Array.isArray(profile.styles) || profile.styles.length === 0 ||
-      !profile.styles.every((item) => typeof item === "string" && item.trim() !== "")) {
-    errors.push("'styles' must be a non-empty array of strings.");
-  }
-
-  if (!Array.isArray(profile.requiredControls) ||
-      !profile.requiredControls.every((item) => typeof item === "string")) {
-    errors.push("'requiredControls' must be an array of strings.");
-  }
-
-  if (!Array.isArray(profile.boundaryRules)) {
-    errors.push("'boundaryRules' must be an array.");
-  } else {
-    profile.boundaryRules.forEach((item, index) => {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
-        errors.push(`boundaryRules[${index}] must be an object.`);
-        return;
-      }
-      const rule = item as Record<string, unknown>;
-      if (typeof rule.id !== "string" || rule.id.trim() === "") {
-        errors.push(`boundaryRules[${index}].id must be a non-empty string.`);
-      }
-      if (typeof rule.description !== "string" || rule.description.trim() === "") {
-        errors.push(`boundaryRules[${index}].description must be a non-empty string.`);
-      }
-      if (!["P0", "P1", "P2", "P3"].includes(String(rule.severity))) {
-        errors.push(`boundaryRules[${index}].severity must be P0, P1, P2, or P3.`);
-      }
+  if (!validateSchema(value)) {
+    const errors = (validateSchema.errors ?? []).map((error) => {
+      const location = error.instancePath || "/";
+      return `${location} ${error.message ?? "is invalid"}`;
     });
+    return { valid: false, errors };
+  }
+
+  const profile = value as ArchitectureProfile;
+  const ruleIds = new Set<string>();
+  const errors: string[] = [];
+
+  for (const rule of profile.boundaryRules) {
+    if (ruleIds.has(rule.id)) {
+      errors.push(`/boundaryRules contains duplicate rule id '${rule.id}'.`);
+    }
+    ruleIds.add(rule.id);
   }
 
   return { valid: errors.length === 0, errors };
