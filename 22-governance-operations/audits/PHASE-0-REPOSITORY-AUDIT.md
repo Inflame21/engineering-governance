@@ -498,3 +498,23 @@ After the schema-contract and CI-toolchain follow-ups, GitHub's compare endpoint
 This is a new current snapshot and supersedes earlier ahead/file counts for present-day scope review. The increase includes follow-up commits and a new schema contract test; it does not mean all 374 commits were authored during this audit. The branch still represents the full feature history rather than an audit-only diff. Human review must decide whether this entire scope is intended for PR #1 and inspect the previously recorded force-push/re-authorship event. No merge or history rewrite was performed as part of this recheck.
 
 Current PR head at the time of this recheck: [`f3c46990f302504cb36917d9ddc36381036ddb70`](https://github.com/Inflame21/engineering-governance/commit/f3c46990f302504cb36917d9ddc36381036ddb70). The current head's workflow run [#38397958132](https://github.com/Inflame21/engineering-governance/actions/runs/38397958132) passed all three package jobs.
+
+
+## 14. Real-repository CLI integration smoke — 2026-10-13
+
+**Workflow change:** [`cbaade822b1341e534afde13a76d1aeaaad3c10a`](https://github.com/Inflame21/engineering-governance/commit/cbaade822b1341e534afde13a76d1aeaaad3c10a) extends the CLI smoke test to run both `governance analyze` and `governance check` against the checked-out repository. The check uses the repository's existing example governance pack at `22-governance-operations/model/example-governance-pack.json`.
+
+**CI run:** [#38398216932](https://github.com/Inflame21/engineering-governance/actions/runs/38398216932) — all three jobs succeeded; the CLI E2E and smoke-test steps passed.
+
+Observed repository integration result:
+- `governance analyze "$GITHUB_WORKSPACE" --json`: exit 1, analysis status `PARTIAL`.
+- `governance check "$GITHUB_WORKSPACE" --pack 22-governance-operations/model/example-governance-pack.json --json`: decision `NO-GO`, analysis status `PARTIAL`.
+- The smoke test explicitly fails if analysis is not `PARTIAL`, if check loses that `PARTIAL` status, or if the decision is `GO`.
+
+**Evidence boundary:** the example pack is a structural integration fixture, not a project-specific governance pack and not a production assessment. This closes the gap that the CLI check command had never been executed against the real repository filesystem. It does not resolve why framework detection is unsupported, supply a tailored pack, or grant approval.
+
+### Current scope snapshot after this follow-up
+
+GitHub compare currently reports **377 commits ahead, 0 behind, 77 changed files**, with merge base `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`. The current PR head is [`cbaade822b1341e534afde13a76d1aeaaad3c10a`](https://github.com/Inflame21/engineering-governance/commit/cbaade822b1341e534afde13a76d1aeaaad3c10a); CI run #38398216932 passed all three jobs. These are the current counts for scope review; older snapshots in Sections 10 and 13 remain historical.
+
+Phase 0 remains `IN_PROGRESS`. The outstanding blockers include the complete schema constraint/conditional-rule matrix, safe required-check enforcement evidence, the unsupported framework-detection investigation, and human review of branch scope/history.
