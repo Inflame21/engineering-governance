@@ -217,7 +217,7 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
       evidenceRefs: [packageEvidence],
     });
 
-    const firstSegment = projectPackage.root.split("/")[0];
+    const firstSegment = projectPackage.root.split("/")[0] ?? "";
     if (projectPackage.root !== "." && ["services", "service", "backend", "workers", "worker"].includes(firstSegment)) {
       const serviceId = `SERVICE:${stableId(projectPackage.root)}`;
       addNode({
