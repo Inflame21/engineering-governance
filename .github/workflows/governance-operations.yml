@@ -67,3 +67,57 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Smoke test executable CLI
+        if: matrix.package == 'cli'
+        shell: bash
+        run: |
+          node dist/cli/src/index.js --help
+          node dist/cli/src/index.js --version
+
+          fixture="$(mktemp -d)"
+          mkdir -p "$fixture/.governance" "$fixture/backend/routers" "$fixture/backend/models" "$fixture/backend/tests" "$fixture/src" "$fixture/tests"
+          cp ../model/example-governance-pack.json "$fixture/.governance/governance-pack.json"
+          printf '[project]\ndependencies = ["fastapi>=0.115"]\n' > "$fixture/pyproject.toml"
+          printf '{"dependencies":{"react":"^19.0.0","vite":"^7.0.0"}}\n' > "$fixture/package.json"
+          printf 'from fastapi import APIRouter\nrouter = APIRouter()\n' > "$fixture/backend/routers/users.py"
+          printf 'class User: pass\n' > "$fixture/backend/models/user.py"
+          printf 'def test_user(): assert True\n' > "$fixture/backend/tests/test_users.py"
+          printf 'export default 1;\n' > "$fixture/src/App.tsx"
+          printf 'export const api = true;\n' > "$fixture/src/api.ts"
+          printf 'export const test = true;\n' > "$fixture/tests/App.test.tsx"
+
+          set +e
+          node dist/cli/src/index.js analyze "$fixture" --json > "$fixture/analyze.json"
+          analyze_status=$?
+          node dist/cli/src/index.js check "$fixture" --json > "$fixture/check.json"
+          check_status=$?
+          set -e
+
+          if [ "$analyze_status" -gt 1 ]; then
+            echo "CLI analyze failed with exit code $analyze_status"
+            cat "$fixture/analyze.json"
+            exit "$analyze_status"
+          fi
+          if [ "$check_status" -gt 2 ]; then
+            echo "CLI check failed with exit code $check_status"
+            cat "$fixture/check.json"
+            exit "$check_status"
+          fi
+
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const analyze = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            const check = JSON.parse(readFileSync(process.argv[2], "utf8"));
+            if (!analyze.analysis || !analyze.context || !Array.isArray(analyze.analysis.adapterResults)) {
+              throw new Error("Analyze command did not return the canonical analysis contract");
+            }
+            if (!check.analysis || !check.context || !check.evaluation?.decision?.status) {
+              throw new Error("Check command did not return the canonical governance decision");
+            }
+            console.log("CLI smoke test passed:", JSON.stringify({
+              analysisStatus: analyze.context.analysisStatus,
+              decision: check.evaluation.decision.status,
+              adapters: analyze.analysis.adapterResults.length
+            }));
+          ' "$fixture/analyze.json" "$fixture/check.json"
