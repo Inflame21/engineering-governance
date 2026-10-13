@@ -178,6 +178,40 @@ describe("architecture profile loader", () => {
 
   it.each([
     {
+      name: "an invalid profile identifier pattern",
+      profile: { ...cleanArchitecture, id: "Invalid Profile ID" },
+    },
+    {
+      name: "an empty styles array",
+      profile: { ...cleanArchitecture, styles: [] },
+    },
+    {
+      name: "duplicate architecture styles",
+      profile: { ...cleanArchitecture, styles: [...cleanArchitecture.styles, cleanArchitecture.styles[0]!] },
+    },
+    {
+      name: "an empty component mapping pattern list",
+      profile: { ...cleanArchitecture, componentMappings: { domain: [] } },
+    },
+    {
+      name: "an unknown nested boundary-rule property",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, unexpected: true }],
+      },
+    },
+  ])("rejects schema constraint violation: $name", async ({ profile }) => {
+    await expect(
+      loadArchitectureProfile(
+        "/repo",
+        "architecture.json",
+        memoryFileSystem(undefined, JSON.stringify(profile)),
+      ),
+    ).rejects.toThrow("Architecture profile validation failed");
+  });
+
+  it.each([
+    {
       name: "a duplicate boundary-rule identifier",
       profile: {
         ...cleanArchitecture,
