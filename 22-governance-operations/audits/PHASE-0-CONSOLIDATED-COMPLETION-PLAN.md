@@ -110,3 +110,12 @@ Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/co
 4. Complete analyzer/filesystem adversarial tests.
 5. Run the complete CI matrix on the final batch SHA.
 6. Update audit evidence and issue checklist; present residual risks and request review.
+
+
+### AUD-03 schema-constraint follow-up
+
+- [x] Add targeted schema-shape assertions for representative governance-pack and architecture-profile constraints, conditional required fields, and object policies.
+- [x] Add loader-level invalid-input fixtures for representative patterns, date-time formats, numeric bounds, nested additional properties, conditional requirements, finding confidence/uniqueness, and architecture-profile constraints.
+- [x] Run required CI on head [`d308148`](https://github.com/Inflame21/engineering-governance/commit/d30814884eda295a0ab297b029e5c550510a1dec): [run #38401267284](https://github.com/Inflame21/engineering-governance/actions/runs/38401267284), all three jobs succeeded.
+- [ ] Complete a recursive constraint-by-constraint valid/invalid fixture matrix and explicitly resolve/document the top-level governance-pack `additionalProperties` policy before closing AUD-03.
+
