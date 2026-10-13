@@ -100,7 +100,7 @@ describe("architecture profiles", () => {
     };
     const result = verifyArchitectureProfile(snapshot, cleanArchitectureExample);
 
-    expect(result.status).toBe("COMPLETE");
+    expect(result.status).toBe("PARTIAL");
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]).toMatchObject({
       rule_id: "ARCH-DOMAIN-INDEPENDENCE",
