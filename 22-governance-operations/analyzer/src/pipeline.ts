@@ -143,6 +143,8 @@ export async function analyzeRepository(
   }
 
   const merged = mergeAnalyzerOutputs(outputs);
+  const snapshotFingerprint = fingerprintRepositorySnapshot(snapshot);
+  const generatedAt = new Date().toISOString();
   const architecture = architectureProfile
     ? verifyArchitectureProfile(snapshot, architectureProfile)
     : undefined;
@@ -163,12 +165,16 @@ export async function analyzeRepository(
   const analysis: RepositoryAnalysis = {
     facts: mergeRepositoryFacts(baseFacts, outputs),
     signals: merged.signals,
-    evidence: [...(merged.evidence ?? []), ...(architecture?.evidence ?? [])],
+    evidence: [...(merged.evidence ?? []), ...(architecture?.evidence ?? [])].map((item) => ({
+      ...item,
+      generated_at: item.generated_at ?? generatedAt,
+      repository_fingerprint: item.repository_fingerprint ?? snapshotFingerprint.digest,
+    })),
     findings,
     adapterResults,
     ...(architecture ? { architecture } : {}),
     ...(snapshot.changeScope ? { changeScope: snapshot.changeScope } : {}),
-    snapshotFingerprint: fingerprintRepositorySnapshot(snapshot),
+    snapshotFingerprint,
   };
 
   // Validate that the normalization path is executable and deterministic.
