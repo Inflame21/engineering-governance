@@ -393,6 +393,86 @@ describe("rule and control engine", () => {
     expect(result.decision.warnings.some((item) => item.controlId === "CHANGE-SCOPE:VERIFICATION")).toBe(true);
   });
 
+  it.each([
+    { severity: "P0" as const, failureDecision: "NONE" as const, expected: "NO-GO" as const },
+    { severity: "P1" as const, failureDecision: "NO-GO" as const, expected: "NO-GO" as const },
+    { severity: "P1" as const, failureDecision: "GO_WITH_CONDITIONS" as const, expected: "GO_WITH_CONDITIONS" as const },
+    { severity: "P2" as const, failureDecision: "NO-GO" as const, expected: "NO-GO" as const },
+    { severity: "P3" as const, failureDecision: "REVIEW_REQUIRED" as const, expected: "GO_WITH_CONDITIONS" as const },
+  ])(
+    "derives $expected for a $severity control with $failureDecision policy",
+    ({ severity, failureDecision, expected }) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{
+          ...basePack.controls[0]!,
+          severity,
+          status: "FAIL",
+          failure_decision: failureDecision,
+        }],
+        evidence: [],
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        analysisStatus: "COMPLETE",
+        evaluatedAt: "2026-10-13T00:00:00Z",
+      });
+
+      expect(result.decision.status).toBe(expected);
+    },
+  );
+
+  it.each([
+    { severity: "P0" as const, expected: "NO-GO" as const },
+    { severity: "P1" as const, expected: "NO-GO" as const },
+    { severity: "P2" as const, expected: "GO_WITH_CONDITIONS" as const },
+    { severity: "P3" as const, expected: "GO_WITH_CONDITIONS" as const },
+  ])(
+    "applies the open-risk severity policy to $severity risks",
+    ({ severity, expected }) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        risks: [{
+          id: `RSK-${severity}`,
+          severity,
+          title: `Open ${severity} risk`,
+          status: "OPEN",
+        }],
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        analysisStatus: "COMPLETE",
+        evaluatedAt: "2026-10-13T00:00:00Z",
+      });
+
+      expect(result.decision.status).toBe(expected);
+    },
+  );
+
+  it("honors a valid, current, time-bounded risk acceptance", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      risks: [{
+        id: "RSK-ACCEPTED",
+        severity: "P1",
+        title: "Bounded accepted risk",
+        status: "ACCEPTED",
+        accepted_by: "security-owner",
+        accepted_at: "2026-10-10T00:00:00Z",
+        acceptance_expires_at: "2026-10-20T00:00:00Z",
+        acceptance_reason: "Temporary exposure is bounded by compensating controls.",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    });
+
+    expect(result.decision.status).toBe("GO");
+    expect(result.decision.openRisks).toEqual([]);
+  });
+
   it("blocks on an open P1 risk even when controls pass", () => {
     const pack = {
       ...basePack,
