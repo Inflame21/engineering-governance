@@ -2,7 +2,13 @@ import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositorySnap
 
 export const typescriptAdapter: RepositoryAnalyzerAdapter = {
   id: "typescript",
+  version: "0.1.0",
   languages: ["typescript", "javascript"],
+  capabilities: [
+    "typescript-api-path-detection",
+    "typescript-frontend-path-detection",
+    "typescript-test-path-detection",
+  ],
   supports: (snapshot) =>
     snapshot.files.some((file) => /\.(ts|tsx|js|jsx)$/.test(file)),
   async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
@@ -22,6 +28,11 @@ export const typescriptAdapter: RepositoryAnalyzerAdapter = {
       signals.add("tests:typescript");
     }
 
-    return { facts: {}, signals: [...signals].sort(), evidence: [] };
+    return {
+      facts: {},
+      signals: [...signals].sort(),
+      evidence: [],
+      supportedCapabilities: [...this.capabilities],
+    };
   },
 };
