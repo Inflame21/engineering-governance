@@ -7,44 +7,44 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
   languages: [],
   capabilities: ["manifest-dependency-detection", "framework-detection"],
   supports: (snapshot) =>
-    snapshot.files.includes("package.json") ||
-    snapshot.files.includes("pyproject.toml") ||
-    snapshot.files.includes("requirements.txt"),
+    snapshot.files.some((file) =>
+      /(^|\/)(package\.json|pyproject\.toml|requirements\.txt)$/.test(file),
+    ),
   async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
     const signals = new Set<string>();
     const frameworks = new Set<string>();
+    let inspectedManifestCount = 0;
 
-    const packageContent = snapshot.fileContents?.["package.json"];
-    if (packageContent) {
-      const packageJson = parsePackageJson(packageContent);
-      const packages: Array<[string, string, string]> = [
-        ["next", "nextjs", "framework:nextjs"],
-        ["react", "react", "framework:react"],
-        ["express", "express", "framework:express"],
-        ["@nestjs/core", "nestjs", "framework:nestjs"],
-        ["vite", "vite", "build:vite"],
-      ];
+    const packages: Array<[string, string, string]> = [
+      ["next", "nextjs", "framework:nextjs"],
+      ["react", "react", "framework:react"],
+      ["express", "express", "framework:express"],
+      ["@nestjs/core", "nestjs", "framework:nestjs"],
+      ["vite", "vite", "build:vite"],
+    ];
 
-      for (const [dependency, framework, signal] of packages) {
-        if (hasPackageDependency(packageJson, dependency)) {
-          frameworks.add(framework);
-          signals.add(signal);
+    for (const [manifestPath, content] of Object.entries(snapshot.fileContents ?? {})) {
+      const basename = manifestPath.split("/").at(-1);
+      if (basename === "package.json") {
+        inspectedManifestCount += 1;
+        const packageJson = parsePackageJson(content);
+        for (const [dependency, framework, signal] of packages) {
+          if (hasPackageDependency(packageJson, dependency)) {
+            frameworks.add(framework);
+            signals.add(signal);
+          }
+        }
+      } else if (basename === "pyproject.toml" || basename === "requirements.txt") {
+        inspectedManifestCount += 1;
+        if (hasPythonDependency(content, "fastapi")) {
+          frameworks.add("fastapi");
+          signals.add("framework:fastapi");
+        }
+        if (hasPythonDependency(content, "django")) {
+          frameworks.add("django");
+          signals.add("framework:django");
         }
       }
-    }
-
-    const pythonContent =
-      snapshot.fileContents?.["pyproject.toml"] ??
-      snapshot.fileContents?.["requirements.txt"];
-
-    if (hasPythonDependency(pythonContent, "fastapi")) {
-      frameworks.add("fastapi");
-      signals.add("framework:fastapi");
-    }
-
-    if (hasPythonDependency(pythonContent, "django")) {
-      frameworks.add("django");
-      signals.add("framework:django");
     }
 
     if (frameworks.size === 0) {
@@ -52,10 +52,12 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
         facts: {},
         signals: [],
         evidence: [],
-        executionStatus: "PARTIAL",
+        executionStatus: inspectedManifestCount > 0 ? "PARTIAL" : "FAILED",
         supportedCapabilities: ["manifest-dependency-detection"],
         unsupportedCapabilities: ["framework-detection"],
-        limitations: ["No recognized framework dependency was found in the supported root manifests."],
+        limitations: inspectedManifestCount > 0
+          ? ["Supported manifests were inspected, but no recognized framework dependency was found."]
+          : ["Manifest files were discovered but their contents were unavailable to the analyzer."],
       };
     }
 
@@ -66,7 +68,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
         id: "EVD-FRAMEWORK-MANIFEST",
         type: "E3_AUTOMATED_ANALYSIS",
         status: "VERIFIED",
-        description: "Framework identity was determined from declared project dependencies.",
+        description: `Framework identity was determined from ${inspectedManifestCount} project manifest(s).`,
         source: "framework-detection-adapter",
         freshness: "current",
         supports_controls: [],
