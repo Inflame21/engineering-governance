@@ -82,6 +82,31 @@ describe("CLI output", () => {
     expect(output).toContain("Evidence: EVD-ARCH-001");
   });
 
+  it("renders package-scoped facts for monorepos", () => {
+    const monorepo: RepositoryAnalysis = {
+      ...analysis,
+      facts: {
+        ...analysis.facts,
+        packages: [{
+          id: "package:services/api",
+          root: "services/api",
+          manifestPaths: ["services/api/pyproject.toml"],
+          sourceFiles: ["services/api/main.py"],
+          languages: ["python"],
+          frameworks: ["fastapi"],
+          packageManagers: ["uv"],
+          buildSystems: [],
+          infrastructureSystems: [],
+          testSystems: ["pytest"],
+        }],
+      },
+    };
+
+    const output = formatAnalysisResult(monorepo, context);
+    expect(output).toContain("Packages/workspaces: 1");
+    expect(output).toContain("services/api | languages: python | frameworks: fastapi | package managers: uv");
+  });
+
   it("renders verified architecture change-impact details", () => {
     const withImpact: RepositoryAnalysis = {
       ...analysis,
