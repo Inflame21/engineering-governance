@@ -16,6 +16,7 @@ const analysis = {
 
 const evaluation = {
   controls: [],
+  violations: [],
   decision: {
     status: "GO" as const,
     reason: "All applicable controls passed.",
@@ -30,6 +31,7 @@ describe("CLI output", () => {
     const output = formatHumanResult(analysis, evaluation);
     expect(output).toContain("Decision: GO");
     expect(output).toContain("fastapi");
+    expect(output).toContain("Open risks: 0");
   });
 
   it("renders machine-readable JSON", () => {
