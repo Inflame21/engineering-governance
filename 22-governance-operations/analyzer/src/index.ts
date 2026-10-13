@@ -3,6 +3,7 @@ export type {
   RepositoryAnalysis,
   RepositoryAnalyzerAdapter,
   RepositoryFacts,
+  RepositoryPackageFacts,
   RepositorySnapshot,
 } from "./types.js";
 
@@ -21,3 +22,12 @@ export type {
 
 export { fingerprintRepositorySnapshot } from "./fingerprint.js";
 export type { RepositorySnapshotFingerprint } from "./fingerprint.js";
+
+export { buildRepositorySystemGraph } from "./system-graph.js";
+export type {
+  RepositorySystemGraph,
+  SystemGraphEdge,
+  SystemGraphNode,
+  SystemGraphNodeType,
+  SystemGraphRelationshipType,
+} from "./system-graph.js";
