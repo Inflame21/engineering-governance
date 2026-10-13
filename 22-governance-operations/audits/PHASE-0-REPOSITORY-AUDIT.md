@@ -522,3 +522,12 @@ Observed repository integration result:
 At the time of this historical snapshot, GitHub compare reported **377 commits ahead, 0 behind, 77 changed files**, with merge base `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`. The PR head then was [`cbaade822b1341e534afde13a76d1aeaaad3c10a`](https://github.com/Inflame21/engineering-governance/commit/cbaade822b1341e534afde13a76d1aeaaad3c10a); CI run #38398216932 passed all three jobs. For current scope review, use [PR #1's live compare view](https://github.com/Inflame21/engineering-governance/compare/main...audit/phase-0-baseline).
 
 Phase 0 remains `IN_PROGRESS`. The outstanding blockers include the complete schema constraint/conditional-rule matrix, safe required-check enforcement evidence, the unsupported framework-detection investigation, and human review of branch scope/history.
+
+
+## 15. Schema constraint follow-up — 2026-10-13
+
+**Test changes:** commit [`6489c72`](https://github.com/Inflame21/engineering-governance/commit/6489c72a8d27aeb33d8f4e7e0a8c9060bdf184a6) adds targeted schema-shape assertions for representative primitive types, regexes, date-time formats, string/numeric bounds, uniqueness rules, object policies, and risk/exception conditional requirements in governance packs and architecture profiles. Commit [`2205102`](https://github.com/Inflame21/engineering-governance/commit/220510242522f10ab4ca3ecf30ce165d7155238b) adds actual loader-level invalid-input fixtures for governance-pack patterns, formats, bounds, nested additional properties, risk/exception conditional requirements, finding confidence/uniqueness, and architecture-profile constraints.
+
+**CI:** [run #38401267284](https://github.com/Inflame21/engineering-governance/actions/runs/38401267284) on head [`d308148`](https://github.com/Inflame21/engineering-governance/commit/d30814884eda295a0ab297b029e5c550510a1dec) completed with all three required jobs successful: `Verify engine`, `Verify analyzer`, and `Verify cli`. The first attempt at the conditional assertions failed because the test's expected list was not sorted; this was corrected in `6489c72` and the subsequent complete run passed.
+
+**Remaining limit:** this is meaningful additional coverage, not proof that every schema keyword/constraint has a paired valid/invalid runtime fixture. AUD-03 remains **PARTIAL/OPEN**. The full recursive constraint inventory, all condition branches and cross-field semantic behavior still require systematic coverage. The top-level governance-pack `additionalProperties` policy remains unresolved; no schema policy was changed.
