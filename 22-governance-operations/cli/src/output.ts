@@ -14,6 +14,17 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     `  Analyzer adapters: ${analysis.adapterResults.length}`,
   ];
 
+  if (analysis.changeScope) {
+    lines.push(
+      "",
+      `Changed-file scope: ${analysis.changeScope.status}`,
+      `  Base revision: ${analysis.changeScope.baseRef}`,
+      `  Changed files: ${analysis.changeScope.files.length}`,
+    );
+    if (analysis.changeScope.headRef) lines.push(`  Head revision: ${analysis.changeScope.headRef}`);
+    if (analysis.changeScope.reason) lines.push(`  Scope limitation: ${analysis.changeScope.reason}`);
+  }
+
   const incompleteAdapters = analysis.adapterResults.filter((item) => item.executionStatus !== "SUCCESS");
   if (incompleteAdapters.length > 0) {
     lines.push("", "Analyzer limitations:");
