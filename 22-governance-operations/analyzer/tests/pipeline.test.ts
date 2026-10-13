@@ -53,7 +53,7 @@ describe("repository analyzer pipeline", () => {
       item.adapterId === "framework-detection" && item.executionStatus === "FAILED",
     )).toBe(true);
     expect(context.analysisStatus).toBe("PARTIAL");
-    expect(context.analyzerLimitations.some((item) => item.includes("package.json:"))).toBe(true);
+    expect(context.analyzerLimitations?.some((item) => item.includes("package.json:"))).toBe(true);
   });
 
   it("keeps valid framework facts when another monorepo manifest is malformed", async () => {
