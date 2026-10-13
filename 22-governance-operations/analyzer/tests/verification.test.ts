@@ -100,6 +100,38 @@ describe("opt-in verification adapters", () => {
     });
   });
 
+
+  it("creates a blocking finding when TypeScript exits non-zero without diagnostics", async () => {
+    const report = await runVerificationAdapters({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/main.ts", "tsconfig.json"],
+      fileContents: { "tsconfig.json": '{"compilerOptions":{"strict":true}}' },
+    }, runner({
+      typescriptAvailable: true,
+      results: [{ exitCode: 2, stdout: "", stderr: "" }],
+    }));
+
+    expect(report.results[0]?.status).toBe("FAIL");
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]?.message).toContain("without diagnostics");
+  });
+
+  it("does not treat malformed Python verifier output as a pass", async () => {
+    const report = await runVerificationAdapters({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["main.py"],
+    }, runner({
+      python3Available: true,
+      results: [{ exitCode: 0, stdout: "not-json", stderr: "" }],
+    }));
+
+    expect(report.status).toBe("PARTIAL");
+    expect(report.results[0]?.status).toBe("ERROR");
+    expect(report.adapterResults[0]?.executionStatus).toBe("FAILED");
+  });
+
   it("does not invoke unrelated tools for repositories without matching source files", async () => {
     const report = await runVerificationAdapters({
       rootPath: "/repo",
