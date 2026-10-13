@@ -453,7 +453,7 @@ The following is the initial task register. A task is complete only when impleme
 - [x] **ARC-01:** Define component-to-role mappings.
 - [x] **ARC-02:** Implement Layered and Clean Architecture dependency checks.
 - [x] **ARC-03:** Report unknown components and unsupported analysis.
-- [ ] **ARC-04:** Test allowed dependencies and actual boundary violations.
+- [x] **ARC-04:** Test allowed dependencies and actual boundary violations.
 - [ ] **ARC-05:** Add Hexagonal and modular-boundary checks.
 
 ### Phase 6 — Language adapters
