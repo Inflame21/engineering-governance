@@ -173,6 +173,28 @@ describe("architecture profiles", () => {
   });
 
 
+  it("does not flag dependencies explicitly allowed by the selected profile", () => {
+    const allowedProfile: ArchitectureProfile = {
+      ...(cleanArchitectureExample as ArchitectureProfile),
+      boundaryRules: (cleanArchitectureExample as ArchitectureProfile).boundaryRules.map((rule) => ({
+        ...rule,
+        allowed: true,
+      })),
+    };
+    const result = verifyArchitectureProfile({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+      fileContents: {
+        "src/domain/user.ts": 'import { db } from "../infrastructure/db.js";',
+        "src/infrastructure/db.ts": "export const db = {};",
+      },
+    }, allowedProfile);
+
+    expect(result.status).toBe("COMPLETE");
+    expect(result.findings).toEqual([]);
+  });
+
   it("does not silently treat unresolved path aliases as external imports", () => {
     const result = verifyArchitectureProfile({
       rootPath: "/repo",
