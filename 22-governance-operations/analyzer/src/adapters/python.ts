@@ -2,7 +2,13 @@ import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositorySnap
 
 export const pythonAdapter: RepositoryAnalyzerAdapter = {
   id: "python",
+  version: "0.1.0",
   languages: ["python"],
+  capabilities: [
+    "python-api-path-detection",
+    "python-database-path-detection",
+    "python-test-path-detection",
+  ],
   supports: (snapshot) => snapshot.files.some((file) => file.endsWith(".py")),
   async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
     const files = snapshot.files;
@@ -18,6 +24,11 @@ export const pythonAdapter: RepositoryAnalyzerAdapter = {
       signals.add("tests:python");
     }
 
-    return { facts: {}, signals: [...signals].sort(), evidence: [] };
+    return {
+      facts: {},
+      signals: [...signals].sort(),
+      evidence: [],
+      supportedCapabilities: [...this.capabilities],
+    };
   },
 };
