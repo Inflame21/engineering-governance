@@ -243,6 +243,38 @@ describe("rule and control engine", () => {
     expect(result.decision.warnings.some((item) => item.message.includes("P0 controls cannot be waived"))).toBe(true);
   });
 
+
+  it("does not return unconditional GO when analysis is partial and no controls apply", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [],
+      evidence: [],
+    };
+    const result = evaluateGovernance(pack, {
+      signals: [],
+      analysisStatus: "PARTIAL",
+      unsupportedCapabilities: ["language-specific-analysis:go"],
+    });
+
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.warnings.some((item) => item.controlId === "ANALYSIS:COMPLETENESS")).toBe(true);
+  });
+
+  it("returns NO-GO when repository analysis failed", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [],
+      evidence: [],
+    };
+    const result = evaluateGovernance(pack, {
+      signals: [],
+      analysisStatus: "FAILED",
+    });
+
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.some((item) => item.controlId === "ANALYSIS:COMPLETENESS")).toBe(true);
+  });
+
   it("blocks on an open P1 risk even when controls pass", () => {
     const pack = {
       ...basePack,
