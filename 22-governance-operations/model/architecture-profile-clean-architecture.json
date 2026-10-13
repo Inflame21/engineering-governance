@@ -1,0 +1,27 @@
+{
+  "id": "clean-architecture",
+  "version": "1.0.0",
+  "name": "Clean Architecture",
+  "description": "An architecture profile emphasizing inward dependency direction and isolation of domain rules from frameworks and infrastructure.",
+  "styles": ["clean-architecture", "layered"],
+  "boundaryRules": [
+    {
+      "id": "ARCH-DOMAIN-INDEPENDENCE",
+      "description": "Domain code must not depend on transport, UI, database, or framework-specific infrastructure.",
+      "severity": "P1",
+      "sourcePattern": "domain",
+      "targetPattern": "transport|ui|infrastructure|framework",
+      "allowed": false
+    },
+    {
+      "id": "ARCH-APPLICATION-DOMAIN",
+      "description": "Application workflows may depend on domain abstractions but must not be coupled to delivery frameworks.",
+      "severity": "P1",
+      "sourcePattern": "application",
+      "targetPattern": "transport|ui|framework",
+      "allowed": false
+    }
+  ],
+  "requiredControls": ["ARCH-DEPENDENCY-DIRECTION", "ARCH-BOUNDARY-OWNERSHIP"],
+  "capabilities": ["dependency-graph-analysis", "layer-detection"]
+}
