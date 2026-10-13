@@ -160,10 +160,16 @@ export interface GovernancePack {
   debt?: GovernanceDebt[];
 }
 
+export type GovernanceAnalysisStatus = "COMPLETE" | "PARTIAL" | "FAILED";
+
 export interface GovernanceContext {
   /** Normalized facts emitted by any language/framework analyzer. */
   signals: string[];
   facts?: Record<string, unknown>;
+  /** Partial or failed analysis must not be treated as proof that controls do not apply. */
+  analysisStatus?: GovernanceAnalysisStatus;
+  unsupportedCapabilities?: string[];
+  analyzerLimitations?: string[];
 }
 
 export interface ControlEvaluation {
