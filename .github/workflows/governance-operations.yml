@@ -76,8 +76,9 @@ jobs:
           node dist/cli/src/index.js --version
 
           fixture="$(mktemp -d)"
-          mkdir -p "$fixture/.governance" "$fixture/backend/routers" "$fixture/backend/models" "$fixture/backend/tests" "$fixture/src" "$fixture/tests"
+          mkdir -p "$fixture/.governance/profiles" "$fixture/backend/routers" "$fixture/backend/models" "$fixture/backend/tests" "$fixture/src/domain" "$fixture/src/infrastructure" "$fixture/tests"
           cp ../model/example-governance-pack.json "$fixture/.governance/governance-pack.json"
+          cp ../model/architecture-profile-clean-architecture.json "$fixture/.governance/profiles/clean-architecture.json"
           printf '[project]\ndependencies = ["fastapi>=0.115"]\n' > "$fixture/pyproject.toml"
           printf '{"dependencies":{"react":"^19.0.0","vite":"^7.0.0"}}\n' > "$fixture/package.json"
           printf 'from fastapi import APIRouter\nrouter = APIRouter()\n' > "$fixture/backend/routers/users.py"
@@ -86,12 +87,16 @@ jobs:
           printf 'export default 1;\n' > "$fixture/src/App.tsx"
           printf 'export const api = true;\n' > "$fixture/src/api.ts"
           printf 'export const test = true;\n' > "$fixture/tests/App.test.tsx"
+          printf 'import { db } from "../infrastructure/db.js";\nexport const user = db;\n' > "$fixture/src/domain/user.ts"
+          printf 'export const db = {};\n' > "$fixture/src/infrastructure/db.ts"
 
           set +e
           node dist/cli/src/index.js analyze "$fixture" --json > "$fixture/analyze.json"
           analyze_status=$?
           node dist/cli/src/index.js check "$fixture" --json > "$fixture/check.json"
           check_status=$?
+          node dist/cli/src/index.js check "$fixture" --profile .governance/profiles/clean-architecture.json --json > "$fixture/architecture-check.json"
+          architecture_check_status=$?
           set -e
 
           if [ "$analyze_status" -gt 1 ]; then
@@ -104,20 +109,34 @@ jobs:
             cat "$fixture/check.json"
             exit "$check_status"
           fi
+          if [ "$architecture_check_status" -gt 2 ]; then
+            echo "CLI architecture check failed with exit code $architecture_check_status"
+            cat "$fixture/architecture-check.json"
+            exit "$architecture_check_status"
+          fi
 
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const analyze = JSON.parse(readFileSync(process.argv[1], "utf8"));
             const check = JSON.parse(readFileSync(process.argv[2], "utf8"));
+            const architectureCheck = JSON.parse(readFileSync(process.argv[3], "utf8"));
             if (!analyze.analysis || !analyze.context || !Array.isArray(analyze.analysis.adapterResults)) {
               throw new Error("Analyze command did not return the canonical analysis contract");
             }
             if (!check.analysis || !check.context || !check.evaluation?.decision?.status) {
               throw new Error("Check command did not return the canonical governance decision");
             }
+            if (!architectureCheck.analysis.findings.some((finding) => finding.category === "architecture-boundary")) {
+              throw new Error("Architecture profile did not detect the seeded forbidden dependency");
+            }
+            if (!architectureCheck.analysis.evidence.some((evidence) => evidence.id.startsWith("EVD-ARCH-"))) {
+              throw new Error("Architecture finding has no graph evidence provenance");
+            }
             console.log("CLI smoke test passed:", JSON.stringify({
               analysisStatus: analyze.context.analysisStatus,
               decision: check.evaluation.decision.status,
+              architectureDecision: architectureCheck.evaluation.decision.status,
+              architectureFindings: architectureCheck.analysis.findings.length,
               adapters: analyze.analysis.adapterResults.length
             }));
-          ' "$fixture/analyze.json" "$fixture/check.json"
+          ' "$fixture/analyze.json" "$fixture/check.json" "$fixture/architecture-check.json"
