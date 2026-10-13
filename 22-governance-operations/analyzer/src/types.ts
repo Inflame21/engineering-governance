@@ -1,4 +1,6 @@
-import type { GovernanceEvidence } from "../../engine/src/types.js";
+import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
+
+export type AnalyzerExecutionStatus = "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED";
 
 export interface RepositorySnapshot {
   rootPath: string;
@@ -18,10 +20,22 @@ export interface RepositoryFacts extends Record<string, unknown> {
 
 export type RepositoryEvidence = GovernanceEvidence;
 
+export interface RepositoryAdapterResult {
+  adapterId: string;
+  version: string;
+  executionStatus: AnalyzerExecutionStatus;
+  supportedCapabilities: string[];
+  unsupportedCapabilities: string[];
+  evidenceRefs: string[];
+  limitations: string[];
+}
+
 export interface RepositoryAnalysis {
   facts: RepositoryFacts;
   signals: string[];
   evidence: RepositoryEvidence[];
+  findings: GovernanceFinding[];
+  adapterResults: RepositoryAdapterResult[];
 }
 
 export interface RepositoryAdapterOutput {
@@ -29,10 +43,17 @@ export interface RepositoryAdapterOutput {
   facts?: Partial<RepositoryFacts>;
   signals: string[];
   evidence?: RepositoryEvidence[];
+  findings?: GovernanceFinding[];
+  executionStatus?: Exclude<AnalyzerExecutionStatus, "SKIPPED">;
+  supportedCapabilities?: string[];
+  unsupportedCapabilities?: string[];
+  limitations?: string[];
 }
 
 export interface RepositoryAnalyzerAdapter {
   readonly id: string;
+  readonly version: string;
+  readonly capabilities: readonly string[];
   readonly languages: readonly string[];
   readonly frameworks?: readonly string[];
   supports(snapshot: RepositorySnapshot): boolean;
