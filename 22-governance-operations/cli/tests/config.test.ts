@@ -48,6 +48,28 @@ describe("governance pack loader", () => {
     expect(pack.evidence[0]?.repository_fingerprint).toBe(`sha256:${"a".repeat(64)}`);
   });
 
+
+  it("validates freshness states and maximum evidence age policies", async () => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as {
+      controls: Array<Record<string, unknown>>;
+      evidence: Array<Record<string, unknown>>;
+    };
+    candidate.controls[0]!["max_evidence_age_seconds"] = 3600;
+    candidate.evidence[0]!["freshness"] = "current";
+
+    const pack = await loadGovernancePack(
+      "/repo",
+      "governance.json",
+      memoryFileSystem(JSON.stringify(candidate)),
+    );
+    expect(pack.controls[0]?.max_evidence_age_seconds).toBe(3600);
+
+    candidate.evidence[0]!["freshness"] = "brand-new";
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
   it("rejects a missing governance pack", async () => {
     await expect(
       loadGovernancePack("/repo", "governance.json", memoryFileSystem(undefined)),
