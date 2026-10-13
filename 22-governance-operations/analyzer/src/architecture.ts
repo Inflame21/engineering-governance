@@ -216,28 +216,6 @@ const sourceExtensions: Record<string, string> = {
 const graphableLanguages = new Set(["typescript", "javascript", "python"]);
 const resolutionExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
 
-export function validateArchitectureProfile(value: unknown): ArchitectureProfileValidation {
-  const validateSchema = getProfileValidator();
-  if (!validateSchema(value)) {
-    const errors = (validateSchema.errors ?? []).map((error) => {
-      const location = error.instancePath || "/";
-      return `${location} ${error.message ?? "is invalid"}`;
-    });
-    return { valid: false, errors };
-  }
-
-  const profile = value as ArchitectureProfile;
-  const ruleIds = new Set<string>();
-  const errors: string[] = [];
-
-  for (const rule of profile.boundaryRules) {
-    if (ruleIds.has(rule.id)) errors.push(`/boundaryRules contains duplicate rule id '${rule.id}'.`);
-    ruleIds.add(rule.id);
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
 export function architectureSignals(profile: ArchitectureProfile): string[] {
   return [
     ...new Set([
