@@ -25,6 +25,29 @@ describe("governance pack loader", () => {
     expect(pack.controls).toHaveLength(examplePack.controls.length);
   });
 
+
+  it("accepts structured provenance metadata on generated evidence", async () => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as {
+      evidence: Array<Record<string, unknown>>;
+    };
+    Object.assign(candidate.evidence[0]!, {
+      tool_version: "TypeScript 5.9.2",
+      generated_at: "2026-10-13T08:00:00.000Z",
+      repository_fingerprint: `sha256:${"a".repeat(64)}`,
+      duration_ms: 1200,
+      exit_code: 0,
+      command: ["tsc", "--noEmit"],
+    });
+
+    const pack = await loadGovernancePack(
+      "/repo",
+      "governance.json",
+      memoryFileSystem(JSON.stringify(candidate)),
+    );
+    expect(pack.evidence[0]?.tool_version).toBe("TypeScript 5.9.2");
+    expect(pack.evidence[0]?.repository_fingerprint).toBe(`sha256:${"a".repeat(64)}`);
+  });
+
   it("rejects a missing governance pack", async () => {
     await expect(
       loadGovernancePack("/repo", "governance.json", memoryFileSystem(undefined)),
