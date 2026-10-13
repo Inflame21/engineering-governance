@@ -232,15 +232,15 @@ The ordering prioritizes governance correctness and a reproducible build before 
 | AUD-F01 — Evidence can be bypassed by declared PASS | **Fixed in branch** | Evaluator now requires VERIFIED evidence; regression tests cover missing, UNVERIFIED, PARTIALLY_VERIFIED, NOT_APPLICABLE, and no-evidence cases. |
 | AUD-F02 — Decision/output contract mismatch | **Fixed in branch** | Open risks are part of the decision contract; P2/P3 open risks become conditional warnings; CLI output contract is typed. |
 | AUD-F03 — TypeScript source root boundaries | **Fixed in branch** | Analyzer and CLI compile with shared source roots; CI build confirms this configuration compiles. |
-| AUD-F04 — Schema/runtime type drift | **Open** | Requires canonical contract alignment and schema/semantic validation. |
+| AUD-F04 — Schema/runtime type drift | **Substantially aligned; final compatibility review open** | Schema validation is integrated; runtime types now include freshness, maximum evidence age, risk-acceptance, and exception metadata. Contract tests cover valid/invalid packs; continue auditing optional fields and compatibility. |
 | AUD-F05 — Analyzer facts overwrite each other | **Fixed in branch** | Repository facts now merge per known fact field; adapter outputs can be partial. Framework markers no longer classify package manifests as frameworks. |
-| AUD-F06 — No runnable CLI entry point | **Open** | Current CLI remains programmatic; no verified `governance check .` command. |
-| AUD-F07 — Governance pack schema validation absent | **Open** | Loader still parses JSON and casts it without schema validation. |
-| AUD-F08 — Runtime architecture profile validation is incomplete | **Open** | Full schema validation and semantic reference checks remain. |
-| AUD-F09 — Monorepo manifest detection is incomplete | **Open** | Nested manifest/component attribution is not implemented. |
+| AUD-F06 — No runnable CLI entry point | **Implemented and smoke-tested in CI** | Executable entry point, argument parsing, help/version/analyze/check commands, Node filesystem adapter, JSON/human output, and stable exit codes are present. The workflow executes a seeded repository through analyze/check and architecture checks. |
+| AUD-F07 — Governance pack schema validation absent | **Fixed in branch** | Loader validates the governance JSON Schema and semantic references before evaluation; malformed packs fail closed. |
+| AUD-F08 — Runtime architecture profile validation is incomplete | **Schema validation integrated; semantic review remains** | Architecture profiles use the JSON Schema validator and reject duplicate boundary-rule IDs. Continue reviewing profile/control references and schema/type compatibility. |
+| AUD-F09 — Monorepo manifest detection is partially addressed | **Nested manifest discovery works; package attribution remains open** | Framework and repository markers are discovered from nested manifests, but normalized facts are still flattened instead of preserving package/workspace ownership. |
 | AUD-F10 — No GitHub Actions workflow | **Fixed in branch** | Package-level workflow now runs type-check, tests, and build. |
-| AUD-F11 — No graph-backed architecture conformance | **Open** | Profiles still do not evaluate real dependency edges. |
-| AUD-F12 — Changed-file scope is not used for impact analysis | **Open** | Change-aware graph scope and blast-radius analysis remain. |
+| AUD-F11 — No graph-backed architecture conformance | **Implemented for supported source types, with explicit limits** | TypeScript/JavaScript and Python import edges carry source provenance; profile mappings evaluate forbidden dependencies and emit findings. Alias resolution, dynamic imports, and other language graph extraction remain unsupported and must stay unverified. |
+| AUD-F12 — Changed-file scope is not used for impact analysis | **Implemented for mapped graph dependencies; limited** | Verified Git scope now drives reverse-dependency impact analysis and reports changed/impacted files and components. Unverified scope, unmapped files, and incomplete source ingestion remain explicit limitations. |
 
 ### Additional defects found through execution and corrected
 
@@ -258,7 +258,7 @@ The ordering prioritizes governance correctness and a reproducible build before 
 - The passing workflow proves package type-checks, tests, and builds for the verified commit only.
 - The workflow installs dependencies with `npm install`; lockfiles are not committed yet, so dependency resolution is not fully reproducible.
 - The initial dependency audit reported **3 Vitest-related vulnerabilities (1 moderate, 2 critical)**. Vitest was upgraded to `^5.0.4`, the version suggested by npm audit. The verified commit now reports **0 vulnerabilities** across all three packages. No force-upgrade was used.
-- The CLI is not yet a complete executable tool, architecture conformance is not graph-backed, and schema validation is not integrated.
+- The CLI is executable and smoke-tested in CI. Schema validation and graph-backed architecture checks are implemented for the supported contract/languages, but broader monorepo package attribution, dependency locking, alias/dynamic import resolution, and runtime/production verification remain open.
 - No runtime or production approval is claimed.
 
-**Updated Phase 0 status:** source audit complete; package-level CI is now green on the verified commit; dependency-locking and the remaining findings above stay open.
+**Updated status (2026-10-13):** source audit is complete, the executable CLI and schema/profile validation are integrated, and the architecture graph now reports provenance-backed boundary findings plus change impact. The latest verified run [#265](https://github.com/Inflame21/engineering-governance/actions/runs/38365991649) passed type-checks, tests, builds, dependency audits, and the CLI smoke test for engine, analyzer, and CLI. Dependency locking and the remaining limitations above stay open. No runtime or production approval is claimed.
