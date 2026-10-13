@@ -109,6 +109,42 @@ describe("opt-in verification adapters", () => {
   });
 
 
+  it("preserves a failed TypeScript exit code when another project is unverified", async () => {
+    const results = [{ exitCode: 2, stdout: "apps/one/src/main.ts(3,1): error TS2322: Type 'string' is not assignable to type 'number'.", stderr: "" }];
+    const mixedAvailabilityRunner: VerificationToolRunner = {
+      async isAvailable(tool, _rootPath, workingDirectory) {
+        return tool === "typescript" && workingDirectory === "apps/one";
+      },
+      async getVersion() {
+        return "Version 5.9.2";
+      },
+      async run() {
+        const result = results.shift();
+        if (!result) throw new Error("No fake process result configured.");
+        return result;
+      },
+    };
+    const report = await runVerificationAdapters({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: [
+        "apps/one/tsconfig.json",
+        "apps/one/src/main.ts",
+        "apps/two/tsconfig.json",
+        "apps/two/src/main.ts",
+      ],
+      fileContents: {
+        "apps/one/tsconfig.json": '{"compilerOptions":{"strict":true}}',
+        "apps/two/tsconfig.json": '{"compilerOptions":{"strict":true}}',
+      },
+    }, mixedAvailabilityRunner);
+
+    expect(report.results[0]?.status).toBe("FAIL");
+    expect(report.results[0]?.limitations).toContain("TypeScript compiler unavailable for apps/two/tsconfig.json.");
+    expect(report.evidence[0]?.exit_code).toBe(1);
+    expect(report.evidence[0]?.status).toBe("PARTIALLY_VERIFIED");
+  });
+
   it("creates a blocking finding when TypeScript exits non-zero without diagnostics", async () => {
     const report = await runVerificationAdapters({
       rootPath: "/repo",
