@@ -5,6 +5,7 @@ import { defaultAnalyzerAdapters } from "./adapters/registry.js";
 import { toGovernanceContext } from "./normalize.js";
 import { verifyArchitectureProfile } from "./architecture.js";
 import { fingerprintRepositorySnapshot } from "./fingerprint.js";
+import { buildRepositorySystemGraph } from "./system-graph.js";
 import type { ArchitectureProfile } from "./architecture.js";
 import type {
   RepositoryAdapterResult,
@@ -148,6 +149,17 @@ export async function analyzeRepository(
   const architecture = architectureProfile
     ? verifyArchitectureProfile(snapshot, architectureProfile)
     : undefined;
+  const systemGraph = buildRepositorySystemGraph(snapshot);
+
+  adapterResults.push({
+    adapterId: "system-graph",
+    version: "0.1.0",
+    executionStatus: systemGraph.status === "PARTIAL" ? "PARTIAL" : "SUCCESS",
+    supportedCapabilities: ["system-graph:package", "system-graph:api", "system-graph:database", "system-graph:event"],
+    unsupportedCapabilities: systemGraph.status === "PARTIAL" ? ["system-graph:source-coverage"] : [],
+    evidenceRefs: systemGraph.evidence.map((item) => item.id),
+    limitations: systemGraph.limitations,
+  });
 
   if (architecture) {
     findings.push(...architecture.findings);
@@ -165,7 +177,7 @@ export async function analyzeRepository(
   const analysis: RepositoryAnalysis = {
     facts: mergeRepositoryFacts(baseFacts, outputs),
     signals: merged.signals,
-    evidence: [...(merged.evidence ?? []), ...(architecture?.evidence ?? [])].map((item) => ({
+    evidence: [...(merged.evidence ?? []), ...(architecture?.evidence ?? []), ...systemGraph.evidence].map((item) => ({
       ...item,
       generated_at: item.generated_at ?? generatedAt,
       repository_fingerprint: item.repository_fingerprint ?? snapshotFingerprint.digest,
@@ -173,6 +185,7 @@ export async function analyzeRepository(
     findings,
     adapterResults,
     ...(architecture ? { architecture } : {}),
+    systemGraph,
     ...(snapshot.changeScope ? { changeScope: snapshot.changeScope } : {}),
     snapshotFingerprint,
   };
