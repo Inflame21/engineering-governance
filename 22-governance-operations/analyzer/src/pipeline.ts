@@ -166,6 +166,7 @@ export async function analyzeRepository(
     findings,
     adapterResults,
     ...(architecture ? { architecture } : {}),
+    ...(snapshot.changeScope ? { changeScope: snapshot.changeScope } : {}),
   };
 
   // Validate that the normalization path is executable and deterministic.
