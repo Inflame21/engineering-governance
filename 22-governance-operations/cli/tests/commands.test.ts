@@ -90,7 +90,7 @@ describe("analyze command", () => {
 
     expect(result.analysis.verification?.results[0]?.status).toBe("PASS");
     expect(result.analysis.evidence.some((item) => item.id === "EVD-PYTHON-SYNTAX")).toBe(true);
-    expect(result.evaluation.decision.status).toBe("GO");
+    expect(result.evaluation.decision.status).toBe("GO_WITH_CONDITIONS");
   });
 
   it("blocks production when an opt-in verification tool finds a syntax error", async () => {
@@ -167,7 +167,8 @@ describe("analyze command", () => {
       governancePack: pack,
     });
 
-    expect(result).toContain("Decision: GO");
+    expect(result).toContain("Decision: GO WITH CONDITIONS");
+    expect(result).toContain("CHANGE-SCOPE:NOT-REQUESTED");
     expect(result).toContain("fastapi");
   });
 });
