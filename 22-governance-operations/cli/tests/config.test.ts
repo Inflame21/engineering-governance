@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { loadGovernancePack } from "../src/config.js";
+import { loadArchitectureProfile, loadGovernancePack } from "../src/config.js";
+import cleanArchitecture from "../../model/architecture-profile-clean-architecture.json" with { type: "json" };
 import examplePack from "../../model/example-governance-pack.json" with { type: "json" };
 
-function memoryFileSystem(content: string | undefined) {
+function memoryFileSystem(content: string | undefined, profileContent?: string) {
   return {
     async readTextFile(_rootPath: string, path: string) {
-      return path === "governance.json" ? content : undefined;
+      if (path === "governance.json") return content;
+      if (path === "architecture.json") return profileContent;
+      return undefined;
     },
   };
 }
@@ -52,5 +55,29 @@ describe("governance pack loader", () => {
     await expect(
       loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(invalid))),
     ).rejects.toThrow("semantic validation failed");
+  });
+});
+
+
+describe("architecture profile loader", () => {
+  it("loads a valid profile with explicit component mappings", async () => {
+    const profile = await loadArchitectureProfile(
+      "/repo",
+      "architecture.json",
+      memoryFileSystem(undefined, JSON.stringify(cleanArchitecture)),
+    );
+
+    expect(profile.id).toBe("clean-architecture");
+    expect(profile.componentMappings?.domain).toContain("src/domain/**");
+  });
+
+  it("rejects an invalid architecture profile", async () => {
+    await expect(
+      loadArchitectureProfile(
+        "/repo",
+        "architecture.json",
+        memoryFileSystem(undefined, JSON.stringify({ id: "invalid" })),
+      ),
+    ).rejects.toThrow("Architecture profile validation failed");
   });
 });
