@@ -2,6 +2,7 @@ name: Governance Operations Verification
 
 on:
   push:
+    branches: [main]
     paths:
       - "22-governance-operations/**"
       - ".github/workflows/governance-operations.yml"
