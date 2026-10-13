@@ -1,4 +1,5 @@
 import { evaluateControl } from "./evaluator.js";
+import { validateGovernancePackSemantics } from "./validation.js";
 import type {
   ControlEvaluation,
   GovernanceContext,
@@ -294,6 +295,17 @@ export function evaluateGovernance(
   pack: GovernancePack,
   context: GovernanceContext,
 ): GovernanceEvaluation {
+  // Keep the engine safe when called directly, bypassing CLI pack loading.
+  // Duplicate IDs make evidence lookup ambiguous and must never be evaluated.
+  const duplicateIdIssues = validateGovernancePackSemantics(pack, context.evaluatedAt)
+    .filter((issue) => issue.code === "DUPLICATE_ID");
+  if (duplicateIdIssues.length > 0) {
+    const details = duplicateIdIssues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Governance pack semantic validation failed: ${details}`);
+  }
+
   const controls = pack.controls.map((control) =>
     evaluateControl(control, pack.evidence, context),
   );
