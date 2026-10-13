@@ -3,7 +3,9 @@ import { hasPackageDependency, hasPythonDependency, parsePackageJson } from "../
 
 export const frameworkAdapter: RepositoryAnalyzerAdapter = {
   id: "framework-detection",
+  version: "0.1.0",
   languages: [],
+  capabilities: ["manifest-dependency-detection", "framework-detection"],
   supports: (snapshot) =>
     snapshot.files.includes("package.json") ||
     snapshot.files.includes("pyproject.toml") ||
@@ -45,7 +47,15 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
       signals.add("framework:django");
     }
 
-    if (frameworks.size === 0) return { facts: {}, signals: [], evidence: [] };
+    if (frameworks.size === 0) {
+      return {
+        facts: {},
+        signals: [],
+        evidence: [],
+        supportedCapabilities: ["manifest-dependency-detection", "framework-detection"],
+        limitations: ["No recognized framework dependency was found in the supported root manifests."],
+      };
+    }
 
     return {
       facts: { frameworks: [...frameworks] },
@@ -59,6 +69,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
         freshness: "current",
         supports_controls: [],
       }],
+      supportedCapabilities: ["manifest-dependency-detection", "framework-detection"],
     };
   },
 };
