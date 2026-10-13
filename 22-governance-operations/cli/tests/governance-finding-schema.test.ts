@@ -51,6 +51,31 @@ describe("normalized finding contract", () => {
     expect(validateGovernancePack.errors).toBeNull();
   });
 
+
+  it("rejects accepted risks without approval metadata and expiry", () => {
+    const candidate = cloneExamplePack();
+    const risks = candidate["risks"] as Array<Record<string, unknown>>;
+    risks[0]!["status"] = "ACCEPTED";
+    delete risks[0]!["accepted_by"];
+    delete risks[0]!["accepted_at"];
+    delete risks[0]!["acceptance_expires_at"];
+    delete risks[0]!["acceptance_reason"];
+
+    expect(validateGovernancePack(candidate)).toBe(false);
+  });
+
+  it("rejects approved exceptions without scope and approval provenance", () => {
+    const candidate = cloneExamplePack();
+    candidate["exceptions"] = [{
+      id: "EXC-1",
+      status: "APPROVED",
+      control: "SEC-AUTH-001",
+      reason: "Temporary exception.",
+    }];
+
+    expect(validateGovernancePack(candidate)).toBe(false);
+  });
+
   it("rejects finding confidence outside the zero-to-one range", () => {
     const candidate = cloneExamplePack();
     candidate["findings"] = [{
