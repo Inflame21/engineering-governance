@@ -62,11 +62,23 @@ export interface ArchitectureComponentEdge {
   evidenceRef: string;
 }
 
+export interface ArchitectureChangeImpact {
+  status: "NOT_REQUESTED" | "VERIFIED" | "PARTIAL" | "UNVERIFIED";
+  changedFiles: string[];
+  changedComponents: string[];
+  impactedFiles: string[];
+  impactedComponents: string[];
+  unmappedChangedFiles: string[];
+  unresolvedChangedFiles: string[];
+  limitations: string[];
+}
+
 export interface ArchitectureDependencyGraph {
   nodes: ArchitectureGraphNode[];
   edges: ArchitectureGraphEdge[];
   components: ArchitectureGraphComponent[];
   componentEdges: ArchitectureComponentEdge[];
+  changeImpact: ArchitectureChangeImpact;
   unresolvedRelativeImports: Array<{ file: string; line: number; specifier: string }>;
   uninspectedSourceFiles: string[];
   unsupportedLanguages: string[];
@@ -483,6 +495,98 @@ export function buildArchitectureDependencyGraph(
     }
   }
 
+  const normalizedChangedFiles = [...new Set(
+    (snapshot.changeScope?.status === "VERIFIED"
+      ? snapshot.changeScope.files
+      : snapshot.changedFiles)
+      .map((file) => file.replaceAll("\\\\", "/").replace(/^\.\\//, "")),
+  )].sort();
+  const changeImpactLimitations: string[] = [];
+  let changeImpactStatus: ArchitectureChangeImpact["status"] = "NOT_REQUESTED";
+  const changedComponents = new Set<string>();
+  const impactedFileSet = new Set<string>();
+  const unresolvedChangedFiles: string[] = [];
+  const unmappedChangedFiles: string[] = [];
+
+  if (snapshot.changeScope?.status === "UNVERIFIED") {
+    changeImpactStatus = "UNVERIFIED";
+    changeImpactLimitations.push(
+      snapshot.changeScope.reason ?? "Changed-file scope could not be verified against Git.",
+    );
+  } else if (normalizedChangedFiles.length > 0) {
+    changeImpactStatus = snapshot.changeScope?.status === "VERIFIED" ? "VERIFIED" : "UNVERIFIED";
+    if (changeImpactStatus === "UNVERIFIED") {
+      changeImpactLimitations.push("Changed files were supplied without a verified Git change scope.");
+    }
+
+    const reverseFileDependencies = new Map<string, Set<string>>();
+    for (const edge of edges) {
+      const source = edge.sourceId.slice("FILE:".length);
+      const target = edge.targetId.slice("FILE:".length);
+      const dependents = reverseFileDependencies.get(target) ?? new Set<string>();
+      dependents.add(source);
+      reverseFileDependencies.set(target, dependents);
+    }
+
+    const queue: string[] = [];
+    for (const changedFile of normalizedChangedFiles) {
+      if (!fileSet.has(changedFile)) {
+        // Only source files represented by this graph affect architecture impact.
+        if (languageForFile(changedFile)) unresolvedChangedFiles.push(changedFile);
+        continue;
+      }
+      impactedFileSet.add(changedFile);
+      queue.push(changedFile);
+      const node = nodeByPath.get(changedFile);
+      if (!node || node.roles.length === 0) unmappedChangedFiles.push(changedFile);
+      for (const role of node?.roles ?? []) changedComponents.add(`COMP:${role}`);
+    }
+
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+      const changedDependency = queue[cursor]!;
+      for (const dependent of reverseFileDependencies.get(changedDependency) ?? []) {
+        if (impactedFileSet.has(dependent)) continue;
+        impactedFileSet.add(dependent);
+        queue.push(dependent);
+      }
+    }
+
+    if (unresolvedChangedFiles.length > 0) {
+      changeImpactStatus = "PARTIAL";
+      changeImpactLimitations.push(
+        `Changed source file(s) were not present in the inspected snapshot: ${unresolvedChangedFiles.join(", ")}.`,
+      );
+    }
+    if (unmappedChangedFiles.length > 0) {
+      changeImpactStatus = "PARTIAL";
+      changeImpactLimitations.push(
+        `Changed source file(s) have no architecture role mapping: ${unmappedChangedFiles.join(", ")}.`,
+      );
+    }
+    if (graphableLanguages.size > 0 && uninspectedSourceFiles.length > 0) {
+      changeImpactStatus = changeImpactStatus === "PARTIAL" ? "PARTIAL" : "PARTIAL";
+      changeImpactLimitations.push(
+        "Some source files were not inspected, so reverse-dependency impact may be incomplete.",
+      );
+    }
+  }
+
+  const impactedComponents = new Set<string>();
+  for (const file of impactedFileSet) {
+    for (const role of nodeByPath.get(file)?.roles ?? []) impactedComponents.add(`COMP:${role}`);
+  }
+
+  const changeImpact: ArchitectureChangeImpact = {
+    status: changeImpactStatus,
+    changedFiles: normalizedChangedFiles,
+    changedComponents: [...changedComponents].sort(),
+    impactedFiles: [...impactedFileSet].sort(),
+    impactedComponents: [...impactedComponents].sort(),
+    unmappedChangedFiles: [...new Set(unmappedChangedFiles)].sort(),
+    unresolvedChangedFiles: [...new Set(unresolvedChangedFiles)].sort(),
+    limitations: [...new Set(changeImpactLimitations)].sort(),
+  };
+
   return {
     nodes,
     edges: edges.sort((a, b) =>
@@ -496,6 +600,7 @@ export function buildArchitectureDependencyGraph(
       a.targetComponentId.localeCompare(b.targetComponentId) ||
       a.sourceFile.localeCompare(b.sourceFile),
     ),
+    changeImpact,
     unresolvedRelativeImports: unresolvedRelativeImports.sort((a, b) =>
       a.file.localeCompare(b.file) || a.line - b.line,
     ),
