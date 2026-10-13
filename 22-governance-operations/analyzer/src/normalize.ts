@@ -62,5 +62,6 @@ export function toGovernanceContext(
     analysisStatus,
     unsupportedCapabilities: [...new Set(unsupportedCapabilities)].sort(),
     analyzerLimitations: [...new Set(analyzerLimitations)].sort(),
+    evaluatedAt: new Date().toISOString(),
   };
 }
