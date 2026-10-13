@@ -1,9 +1,27 @@
 import { describe, expect, it } from "vitest";
-import Ajv2020 from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
+import { createRequire } from "node:module";
 import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
 import examplePack from "../../model/example-governance-pack.json" with { type: "json" };
 
+interface SchemaValidationError {
+  instancePath: string;
+  message?: string;
+}
+
+interface SchemaValidator {
+  (data: unknown): boolean;
+  errors: SchemaValidationError[] | null;
+}
+
+interface AjvInstance {
+  compile(schema: unknown): SchemaValidator;
+}
+
+type AjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => AjvInstance;
+
+const require = createRequire(import.meta.url);
+const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
+const addFormats = require("ajv-formats") as (ajv: AjvInstance) => void;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validateGovernancePack = ajv.compile(governanceSchema);
@@ -34,7 +52,7 @@ describe("governance model schema", () => {
     delete evidence[0]!["source"];
 
     expect(validateGovernancePack(candidate)).toBe(false);
-    expect(validateGovernancePack.errors?.some((error) => error.instancePath === "/evidence/0")).toBe(true);
+    expect(validateGovernancePack.errors?.some((error: SchemaValidationError) => error.instancePath === "/evidence/0")).toBe(true);
   });
 
   it("rejects invalid control status values", () => {
