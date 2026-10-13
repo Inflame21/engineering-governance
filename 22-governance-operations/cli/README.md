@@ -1,6 +1,6 @@
 # Governance CLI
 
-The CLI is the local-first entry point for repository analysis and governance decisions. It is currently a development preview; do not treat its result as production approval until the required analyzers and architecture checks are implemented and verified.
+The CLI is the local-first entry point for repository analysis and governance decisions. It is a development preview: the current engine, analyzer, CLI, Clean Architecture profile, and Hexagonal Architecture profile are covered by CI, but remaining analyzers, dynamic-resolution coverage, and production runtime checks are not complete. Do not treat a result as production approval.
 
 ## Build
 
@@ -27,7 +27,7 @@ node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/exa
 node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/example-governance-pack.json --json
 ```
 
-The `--pack` and `--profile` paths are relative to the repository being assessed. By default, `check` looks for `.governance/governance-pack.json` inside that repository. The optional `--profile` flag loads a validated architecture profile and inspects source dependencies against its component mappings and boundary rules. The optional `--base origin/main` flag computes changed files from the merge base between that Git revision and `HEAD`, then includes staged/unstaged tracked changes and non-ignored untracked files from the working tree. If `--base` is omitted or the requested scope cannot be verified, the governance decision is conditional rather than silently treated as a complete change review.
+The `--pack` and `--profile` paths are relative to the repository being assessed. By default, `check` looks for `.governance/governance-pack.json` inside that repository. The optional `--profile` flag loads a validated architecture profile and inspects source dependencies against its component mappings and boundary rules. The repository includes Clean Architecture and Hexagonal Architecture profiles; component mappings must be reviewed for the target repository before enforcing either profile. The optional `--base origin/main` flag computes changed files from the merge base between that Git revision and `HEAD`, then includes staged/unstaged tracked changes and non-ignored untracked files from the working tree. If `--base` is omitted or the requested scope cannot be verified, the governance decision is conditional rather than silently treated as a complete change review.
 
 For the repository containing this CLI, the example pack path is relative to the repository root, so use:
 
