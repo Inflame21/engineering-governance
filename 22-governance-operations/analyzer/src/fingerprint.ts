@@ -26,9 +26,12 @@ export function fingerprintRepositorySnapshot(
   snapshot: RepositorySnapshot,
 ): RepositorySnapshotFingerprint {
   const files = [...new Set(snapshot.files.map((file) => file.replaceAll("\\", "/")))].sort();
-  const contents = snapshot.fileContents ?? {};
+  const contents = new Map(
+    Object.entries(snapshot.fileContents ?? {}).map(([file, value]) => [file.replaceAll("\\", "/"), value]),
+  );
+  const fileSet = new Set(files);
   const sourceFiles = files.filter((file) => sourceExtensions.has(file.slice(file.lastIndexOf(".")).toLowerCase()));
-  const inspectedSourceFiles = sourceFiles.filter((file) => contents[file] !== undefined);
+  const inspectedSourceFiles = sourceFiles.filter((file) => contents.has(file));
   const limitations = [...(snapshot.contentLimitations ?? [])];
   if (inspectedSourceFiles.length < sourceFiles.length && limitations.length === 0) {
     limitations.push("Some source files were not ingested; the fingerprint covers paths and available content only.");
@@ -39,7 +42,7 @@ export function fingerprintRepositorySnapshot(
   for (const file of files) {
     hash.update(file);
     hash.update("\0");
-    const content = contents[file];
+    const content = contents.get(file);
     if (content === undefined) {
       hash.update("<content-not-ingested>");
     } else {
@@ -52,7 +55,7 @@ export function fingerprintRepositorySnapshot(
     algorithm: "sha256",
     digest: `sha256:${hash.digest("hex")}`,
     fileCount: files.length,
-    ingestedContentFileCount: Object.keys(contents).filter((file) => files.includes(file)).length,
+    ingestedContentFileCount: [...contents.keys()].filter((file) => fileSet.has(file)).length,
     sourceFileCount: sourceFiles.length,
     inspectedSourceFileCount: inspectedSourceFiles.length,
     sourceContentStatus: inspectedSourceFiles.length === sourceFiles.length && limitations.length === 0
