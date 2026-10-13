@@ -2,7 +2,15 @@ import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositoryEvid
 
 export const genericRepositoryAdapter: RepositoryAnalyzerAdapter = {
   id: "generic-repository",
+  version: "0.1.0",
   languages: [],
+  capabilities: [
+    "repository-structure",
+    "ci-detection",
+    "container-detection",
+    "migration-detection",
+    "test-presence-detection",
+  ],
   supports: () => true,
   async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
     const files = new Set(snapshot.files);
@@ -37,6 +45,11 @@ export const genericRepositoryAdapter: RepositoryAnalyzerAdapter = {
       });
     }
 
-    return { facts: {}, signals: [...signals].sort(), evidence };
+    return {
+      facts: {},
+      signals: [...signals].sort(),
+      evidence,
+      supportedCapabilities: ["repository-structure", "ci-detection", "container-detection", "migration-detection", "test-presence-detection"],
+    };
   },
 };
