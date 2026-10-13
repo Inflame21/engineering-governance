@@ -267,9 +267,10 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
     }
   }
 
-  const packageForFile = (file: string) => packages
-    .filter((item) => item.root === "." || file === item.root || file.startsWith(`${item.root}/`))
-    .sort((left, right) => right.root.length - left.root.length)[0];
+  const orderedPackages = [...packages].sort((left, right) => right.root.length - left.root.length);
+  const packageForFile = (file: string) => orderedPackages.find(
+    (item) => item.root === "." || file === item.root || file.startsWith(`${item.root}/`),
+  );
 
   const sourceFiles = snapshot.files
     .filter((file) => /\.(py|ts|tsx|js|jsx|mjs|cjs)$/.test(file))
