@@ -182,6 +182,10 @@ export interface GovernanceContext {
   analyzerLimitations?: string[];
   /** Findings emitted by repository analyzers; unresolved high-severity findings affect the decision. */
   findings?: GovernanceFinding[];
+  /** Optional Git diff verification; UNVERIFIED scope must be surfaced in the decision. */
+  changeScopeStatus?: "VERIFIED" | "UNVERIFIED";
+  changeScopeReason?: string;
+  changedFiles?: string[];
   /** ISO-8601 timestamp supplied by the caller so exception evaluation is reproducible. */
   evaluatedAt?: string;
 }
