@@ -1,6 +1,7 @@
 export type Severity = "P0" | "P1" | "P2" | "P3";
 export type ControlStatus = "PASS" | "FAIL" | "WARN" | "NOT_APPLICABLE" | "UNVERIFIED";
 export type EvidenceStatus = "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
+export type EvidenceFreshness = "current" | "stale" | "expired" | "unknown";
 export type FailureDecision = "NO-GO" | "GO_WITH_CONDITIONS" | "REVIEW_REQUIRED" | "NONE";
 
 export type GovernanceChangeType =
@@ -54,6 +55,7 @@ export interface GovernanceControl {
   status?: ControlStatus;
   applies_when?: string | string[];
   required_evidence?: string[];
+  max_evidence_age_seconds?: number;
   failure_decision?: FailureDecision;
   message?: string;
 }
@@ -64,7 +66,7 @@ export interface GovernanceEvidence {
   status: EvidenceStatus;
   description: string;
   source: string;
-  freshness: string;
+  freshness: EvidenceFreshness;
   supports_controls: string[];
   tool_version?: string;
   generated_at?: string;
