@@ -606,13 +606,13 @@ Only after the audit should code changes be approved.
 
 The following status reflects code and automated evidence on `audit/phase-0-baseline`; it does not indicate production approval.
 
-- **Latest verified CI:** [Workflow run #327](https://github.com/Inflame21/engineering-governance/actions/runs/38368252962) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
+- **Latest verified CI:** [Workflow run #335](https://github.com/Inflame21/engineering-governance/actions/runs/38368575027) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
 - **Phase 0:** Source audit and defect register complete. Dependency lockfiles and reproducible dependency resolution remain open.
 - **Phase 1:** Canonical governance/profile schemas are integrated with runtime loading; semantic reference checks and contract tests are present. Compatibility review remains ongoing as schemas evolve.
 - **Phase 2:** Evidence-driven status, unknown applicability, risk acceptance, exception scope/expiry, and deterministic decisions are implemented. Automated tests cover all severity × failure-policy combinations, all open-risk severities, evidence freshness/age, and scoped/expired exceptions; new policy branches must extend this matrix.
 - **Phase 3:** Executable `check`, `analyze`, `help`, and `version` commands, safe Node filesystem access, validated configuration, human/JSON reports, exit codes, and CI smoke tests are implemented.
 - **Phase 4:** Provenance-backed file/component dependency graphs, normalized findings, reverse-dependency change impact, package-scoped facts, cross-package import edges, and a typed system graph for repository/package/service/API/database/event relationships are implemented. Deterministic TypeScript/Python fixtures prove traceable boundary findings and graph relationships. Runtime topology, dynamic route/event names, and component attribution beyond manifest roots remain open.
-- **Phase 5:** Layered/Clean Architecture and Hexagonal Architecture profiles detect seeded forbidden dependencies for TypeScript/JavaScript and Python, including allowed-direction regression tests. A modular-boundary example detects cross-feature, shared-kernel, and direct-infrastructure dependencies. Dynamic module discovery and broader language/alias resolution remain open.
+- **Phase 5:** Clean, Hexagonal, and modular-example profiles are schema-validated and tested. Boundary checks cover forbidden dependencies, allowed directions, and scoped allow-rules that suppress only matching edges. Dynamic module discovery and broader language/alias resolution remain open.
 - **Phase 6 onward:** Real verification adapters are limited to TypeScript type-checking and Python syntax checks; broader security/test/contract tools and durable audit storage remain future work.
 
 A task checkbox is checked only where implementation and automated verification evidence exist. Any unsupported or ambiguous analysis must remain visible as a limitation. The current branch and PR remain unmerged until reviewed.
