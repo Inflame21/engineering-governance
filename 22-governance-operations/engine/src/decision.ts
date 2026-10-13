@@ -204,9 +204,9 @@ export function deriveDecision(
         ? "NO-GO"
         : "GO_WITH_CONDITIONS",
     message:
-      risk.status === "OPEN"
-        ? risk.title
-        : `Risk ${risk.id} has an invalid acceptance and is treated as open.`,
+      pack.risks.some((sourceRisk) => sourceRisk.id === risk.id && sourceRisk.status === "ACCEPTED")
+        ? `Risk ${risk.id} has an invalid or expired acceptance and is treated as open.`
+        : risk.title,
     missingEvidence: [],
     missingSignals: [],
   }));
