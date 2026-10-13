@@ -464,7 +464,7 @@ export async function runVerificationAdapters(
             ...(toolVersion ? { toolVersion } : {}),
             findings: toolFindings,
             limitations: [
-              ...(status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : []),
+              ...(status === "ERROR" ? ["Python syntax runner returned malformed output or output inconsistent with its exit code."] : []),
               ...(uninspectedPythonFiles.length > 0 ? [`Source content was not ingested for: ${uninspectedPythonFiles.slice(0, 10).join(", ")}.`] : []),
             ],
           });
@@ -479,7 +479,7 @@ export async function runVerificationAdapters(
             ],
             evidenceRefs: [evidenceId],
             limitations: [
-              ...(status === "ERROR" ? ["Python syntax runner returned invalid JSON or an invalid result shape."] : []),
+              ...(status === "ERROR" ? ["Python syntax runner returned malformed output or output inconsistent with its exit code."] : []),
               ...(uninspectedPythonFiles.length > 0 ? [`Source content was not ingested for: ${uninspectedPythonFiles.slice(0, 10).join(", ")}.`] : []),
             ],
           });
