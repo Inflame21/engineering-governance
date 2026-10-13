@@ -19,8 +19,11 @@ export function hasPackageDependency(
   return false;
 }
 
+/** Detect a package name in common requirements.txt and pyproject.toml declarations. */
 export function hasPythonDependency(content: string | undefined, packageName: string): boolean {
   if (!content) return false;
   const escaped = packageName.replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|[\\s=<>~!])${escaped}(?:[\\s=<>~!]|$)`, "im").test(content);
+  // Quotes are accepted because pyproject.toml commonly declares dependencies
+  // as strings, e.g. dependencies = ["fastapi>=0.115"].
+  return new RegExp(`(?:^|[\\s"'=<>~!])${escaped}(?:[\\s"'=<>~!]|$)`, "im").test(content);
 }
