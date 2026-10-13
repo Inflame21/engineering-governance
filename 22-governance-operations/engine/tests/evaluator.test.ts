@@ -44,6 +44,18 @@ const controlDecisionCases = (["P0", "P1", "P2", "P3"] as const).flatMap((severi
 );
 
 describe("rule and control engine", () => {
+  it("rejects duplicate IDs when the engine is called directly without CLI pack validation", () => {
+    const duplicateEvidencePack: GovernancePack = {
+      ...basePack,
+      evidence: [
+        ...basePack.evidence,
+        { ...basePack.evidence[0]!, description: "Conflicting duplicate evidence." },
+      ],
+    };
+
+    expect(() => evaluateGovernance(duplicateEvidencePack, applicableContext))
+      .toThrow(/Duplicate ID 'EVD-AUTH' in evidence/);
+  });
   it("evaluates one control identically for multiple implementation languages", () => {
     for (const language of ["typescript", "python", "go", "java", "rust"]) {
       const result = evaluateGovernance(basePack, {
