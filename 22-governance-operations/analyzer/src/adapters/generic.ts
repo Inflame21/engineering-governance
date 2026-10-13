@@ -1,4 +1,4 @@
-import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
+import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositoryEvidence, RepositorySnapshot } from "../types.js";
 
 export const genericRepositoryAdapter: RepositoryAnalyzerAdapter = {
   id: "generic-repository",
@@ -7,7 +7,7 @@ export const genericRepositoryAdapter: RepositoryAnalyzerAdapter = {
   async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
     const files = new Set(snapshot.files);
     const signals = new Set<string>();
-    const evidence = [];
+    const evidence: RepositoryEvidence[] = [];
 
     if ([...files].some((file) => /(^|\/)\.github\/workflows\/.*\.ya?ml$/.test(file))) {
       signals.add("ci:configured");
@@ -29,7 +29,7 @@ export const genericRepositoryAdapter: RepositoryAnalyzerAdapter = {
       evidence.push({
         id: "EVD-REPO-STRUCTURE",
         type: "E2_INSPECTION",
-        status: "VERIFIED" as const,
+        status: "VERIFIED",
         description: "Repository structure was inspected for governance-relevant engineering capabilities.",
         source: "generic-repository-adapter",
         freshness: "current",
