@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
-import type { RepositorySnapshot } from "../../analyzer/src/types.js";
+import type { RepositoryChangeScope, RepositorySnapshot } from "../../analyzer/src/types.js";
 
 export interface FileSystemPort {
   listFiles(rootPath: string): Promise<string[]>;
@@ -114,6 +114,7 @@ export async function loadRepositorySnapshot(
   rootPath: string,
   fs: FileSystemPort,
   changedFiles: readonly string[] = [],
+  changeScope?: RepositoryChangeScope,
 ): Promise<RepositorySnapshot> {
   const files = (await fs.listFiles(rootPath))
     .map(normalizedRelativePath)
@@ -174,8 +175,9 @@ export async function loadRepositorySnapshot(
   return {
     rootPath: path.resolve(rootPath),
     files,
-    changedFiles: changedFiles.map(normalizedRelativePath),
+    changedFiles: (changeScope?.files ?? [...changedFiles]).map(normalizedRelativePath),
     fileContents,
     ...(contentLimitations.length > 0 ? { contentLimitations } : {}),
+    ...(changeScope ? { changeScope } : {}),
   };
 }
