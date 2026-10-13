@@ -428,7 +428,7 @@ The following is the initial task register. A task is complete only when impleme
 - [x] **ENG-03:** Define severity-specific blocking and risk-acceptance rules.
 - [x] **ENG-04:** Formalize final decision conditions.
 - [x] **ENG-05:** Define expired, invalid, and out-of-scope exception behavior.
-- [ ] **ENG-06:** Test the complete decision matrix.
+- [x] **ENG-06:** Test the complete decision matrix.
 
 ### Phase 3 — CLI
 
@@ -606,10 +606,10 @@ Only after the audit should code changes be approved.
 
 The following status reflects code and automated evidence on `audit/phase-0-baseline`; it does not indicate production approval.
 
-- **Latest verified CI:** [Workflow run #293](https://github.com/Inflame21/engineering-governance/actions/runs/38366980718) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
+- **Latest verified CI:** [Workflow run #296](https://github.com/Inflame21/engineering-governance/actions/runs/38367133120) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
 - **Phase 0:** Source audit and defect register complete. Dependency lockfiles and reproducible dependency resolution remain open.
 - **Phase 1:** Canonical governance/profile schemas are integrated with runtime loading; semantic reference checks and contract tests are present. Compatibility review remains ongoing as schemas evolve.
-- **Phase 2:** Evidence-driven status, unknown applicability, risk acceptance, exception scope/expiry, and deterministic decisions are implemented. The full decision matrix still needs exhaustive boundary-case coverage.
+- **Phase 2:** Evidence-driven status, unknown applicability, risk acceptance, exception scope/expiry, and deterministic decisions are implemented. Automated tests cover all severity × failure-policy combinations, all open-risk severities, evidence freshness/age, and scoped/expired exceptions; new policy branches must extend this matrix.
 - **Phase 3:** Executable `check`, `analyze`, `help`, and `version` commands, safe Node filesystem access, validated configuration, human/JSON reports, exit codes, and CI smoke tests are implemented.
 - **Phase 4:** Provenance-backed file/component dependency graphs, normalized findings, reverse-dependency change impact, package-scoped facts, and cross-package import edges are implemented for the supported graph extractors. Service/API/database/event relationships and component attribution beyond manifest roots remain open.
 - **Phase 5:** Layered/Clean Architecture profile evaluation detects seeded forbidden dependencies for TypeScript/JavaScript and Python. Allowed-edge regression coverage and broader language/alias resolution remain open.
