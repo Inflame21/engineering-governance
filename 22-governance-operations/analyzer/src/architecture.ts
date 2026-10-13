@@ -52,6 +52,7 @@ export interface ArchitectureDependencyGraph {
   nodes: ArchitectureGraphNode[];
   edges: ArchitectureGraphEdge[];
   unresolvedRelativeImports: Array<{ file: string; line: number; specifier: string }>;
+  uninspectedSourceFiles: string[];
   unsupportedLanguages: string[];
 }
 
@@ -322,6 +323,12 @@ export function buildArchitectureDependencyGraph(
     }
   }
 
+  const uninspectedSourceFiles = sourceFiles
+    .filter((file) => {
+      const language = languageForFile(file);
+      return Boolean(language && graphableLanguages.has(language) && sourceContent[file] === undefined);
+    })
+    .sort();
   const unsupportedLanguages = [...new Set(
     sourceFiles
       .map((file) => languageForFile(file))
@@ -338,6 +345,7 @@ export function buildArchitectureDependencyGraph(
     unresolvedRelativeImports: unresolvedRelativeImports.sort((a, b) =>
       a.file.localeCompare(b.file) || a.line - b.line,
     ),
+    uninspectedSourceFiles,
     unsupportedLanguages,
   };
 }
@@ -366,6 +374,16 @@ export function verifyArchitectureProfile(
   if (graph.unsupportedLanguages.length > 0) {
     limitations.push(`Dependency graph extraction is not implemented for: ${graph.unsupportedLanguages.join(", ")}.`);
     unsupportedCapabilities.push(...graph.unsupportedLanguages.map((language) => `architecture:dependency-graph:${language}`));
+  }
+
+  if (graph.uninspectedSourceFiles.length > 0) {
+    limitations.push(`${graph.uninspectedSourceFiles.length} source file(s) were not inspected for dependencies.`);
+    unsupportedCapabilities.push("architecture:source-content");
+  }
+
+  if (snapshot.contentLimitations?.length) {
+    limitations.push(...snapshot.contentLimitations);
+    unsupportedCapabilities.push("repository:content-limits");
   }
 
   if (graph.unresolvedRelativeImports.length > 0) {
