@@ -14,6 +14,18 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     `  Analyzer adapters: ${analysis.adapterResults.length}`,
   ];
 
+  if (analysis.snapshotFingerprint) {
+    lines.push(
+      "",
+      `Snapshot fingerprint: ${analysis.snapshotFingerprint.digest}`,
+      `  Files inventoried: ${analysis.snapshotFingerprint.fileCount}`,
+      `  Source content coverage: ${analysis.snapshotFingerprint.inspectedSourceFiles}/${analysis.snapshotFingerprint.sourceFileCount} (${analysis.snapshotFingerprint.sourceContentStatus})`,
+    );
+    for (const limitation of analysis.snapshotFingerprint.limitations) {
+      lines.push(`  Fingerprint limitation: ${limitation}`);
+    }
+  }
+
   if (analysis.changeScope) {
     lines.push(
       "",
