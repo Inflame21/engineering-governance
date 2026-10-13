@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { formatHumanResult, formatJsonResult } from "../src/output.js";
+import type { GovernanceEvaluation } from "../../engine/src/types.js";
+import type { RepositoryAnalysis } from "../../analyzer/src/types.js";
 
-const analysis = {
+const analysis: RepositoryAnalysis = {
   facts: {
     languages: ["python"],
     frameworks: ["fastapi"],
@@ -14,11 +16,11 @@ const analysis = {
   evidence: [],
 };
 
-const evaluation = {
+const evaluation: GovernanceEvaluation = {
   controls: [],
   violations: [],
   decision: {
-    status: "GO" as const,
+    status: "GO",
     reason: "All applicable controls passed.",
     blockingViolations: [],
     warnings: [],
