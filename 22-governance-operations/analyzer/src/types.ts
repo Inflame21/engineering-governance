@@ -1,3 +1,5 @@
+import type { GovernanceEvidence } from "../../engine/src/types.js";
+
 export interface RepositorySnapshot {
   rootPath: string;
   files: readonly string[];
@@ -14,15 +16,7 @@ export interface RepositoryFacts extends Record<string, unknown> {
   testSystems: string[];
 }
 
-export interface RepositoryEvidence {
-  id: string;
-  type: string;
-  status: "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
-  description: string;
-  source: string;
-  freshness: string;
-  supports_controls: string[];
-}
+export type RepositoryEvidence = GovernanceEvidence;
 
 export interface RepositoryAnalysis {
   facts: RepositoryFacts;
