@@ -467,7 +467,7 @@ PR #1 reports 364 commits and 76 changed files against `main`; the compare endpo
 
 ### Disposition
 
-The structural field/requiredness/enum checks and a targeted schema-constraint inventory are now automated. CI for the latest follow-up must be checked before claiming these new assertions pass. Keep AUD-03 **open/partial** until the complete constraint/conditional matrix and representative runtime validation fixtures are covered or explicitly recorded as accepted design limitations. Phase 0 remains `IN_PROGRESS`.
+The structural field/requiredness/enum checks and a targeted schema-constraint inventory are now automated. CI run [#38401267284](https://github.com/Inflame21/engineering-governance/actions/runs/38401267284) subsequently passed all three jobs for the schema-constraint follow-up recorded in §15. Keep AUD-03 **open/partial** until the complete constraint/conditional matrix and representative runtime validation fixtures are covered or explicitly recorded as accepted design limitations. Phase 0 remains `IN_PROGRESS`.
 
 
 ## 12. CI toolchain version capture — 2026-10-13
@@ -531,3 +531,18 @@ Phase 0 remains `IN_PROGRESS`. The outstanding blockers include the complete sch
 **CI:** [run #38401267284](https://github.com/Inflame21/engineering-governance/actions/runs/38401267284) on head [`d308148`](https://github.com/Inflame21/engineering-governance/commit/d30814884eda295a0ab297b029e5c550510a1dec) completed with all three required jobs successful: `Verify engine`, `Verify analyzer`, and `Verify cli`. The first attempt at the conditional assertions failed because the test's expected list was not sorted; this was corrected in `6489c72` and the subsequent complete run passed.
 
 **Remaining limit:** this is meaningful additional coverage, not proof that every schema keyword/constraint has a paired valid/invalid runtime fixture. AUD-03 remains **PARTIAL/OPEN**. The full recursive constraint inventory, all condition branches and cross-field semantic behavior still require systematic coverage. The top-level governance-pack `additionalProperties` policy remains unresolved; no schema policy was changed.
+
+
+## 16. Framework-detection limitation and required-check probe constraints — 2026-10-13
+
+### Framework detection
+
+The framework adapter is registered and runs when supported manifest files are present. Its current dependency detector recognizes Next.js, React, Express, NestJS, and Vite from `package.json`, and FastAPI/Django from `pyproject.toml` or `requirements.txt`. It deliberately reports `PARTIAL` with unsupported capability `framework-detection` when readable manifests contain no recognized framework dependency; this avoids treating an unrecognized ecosystem as proof that no framework is present. The repository's own package manifests do not establish a supported application framework, so the smoke test's `PARTIAL` outcome is consistent with current adapter scope rather than proof the adapter failed to execute.
+
+**Required follow-up:** either expand framework/package-manager recognition with explicit supported-framework fixtures and adapter tests, or keep unknown/unrecognized frameworks as a documented partial result. Do not change the smoke test to expect a clean/success result until that support decision is implemented and verified. Any test that currently expects `PARTIAL` should then be revised to assert the intended capability-specific behavior rather than freeze the old status forever.
+
+### AUD-08 safe required-check enforcement probe
+
+A read-only lookup of `.github/workflows/governance-operations.yml` on `main` returned 404; the workflow is introduced by PR #1. A temporary PR created from `main` therefore cannot simply inherit this workflow and deliberately fail one of its required job contexts. A probe based on the audit branch would carry the entire large feature history and is not an isolated test. The audit has **not** run a failing-check probe and has not changed any ruleset.
+
+**Safe next approach:** first design a temporary probe PR based on `main` that adds a uniquely identifiable test workflow and emits an intentionally failing status context without changing the required ruleset. Before creating it, verify how the active ruleset associates required contexts with check names/apps and how duplicate job names would be handled. Do not merge the probe, do not change ruleset configuration, and close only the temporary probe PR after capturing the observed merge-blocking evidence. If the connector cannot inspect the required check's source/app association, pause and request an administrator-assisted read rather than guessing. AUD-08 remains open until a failed required check is observed to block merge (or a documented platform limitation is accepted by the policy owner).
