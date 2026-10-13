@@ -192,7 +192,7 @@ describe("analyze command", () => {
       governancePack: pack,
     });
 
-    expect(result).toContain("Decision: GO WITH CONDITIONS");
+    expect(result).toContain("Decision: GO_WITH_CONDITIONS");
     expect(result).toContain("CHANGE-SCOPE:NOT-REQUESTED");
     expect(result).toContain("fastapi");
   });
