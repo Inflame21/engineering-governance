@@ -4,6 +4,7 @@ import type { ArchitectureProfile } from "../../analyzer/src/architecture.js";
 import { validateGovernancePackSemantics } from "../../engine/src/validation.js";
 import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
 import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
+import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
 
 export interface GovernanceConfig {
   governancePackPath: string;
@@ -36,6 +37,7 @@ const addFormats = require("ajv-formats") as (ajv: AjvInstance) => void;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validateSchema = ajv.compile(governanceSchema);
+const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
 const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
 
 function formatSchemaErrors(errors: readonly SchemaError[]): string {
