@@ -122,6 +122,7 @@ describe("opt-in verification adapters", () => {
       rootPath: "/repo",
       changedFiles: [],
       files: ["main.py"],
+      fileContents: { "main.py": "print('ok')" },
     }, runner({
       python3Available: true,
       results: [{ exitCode: 0, stdout: "not-json", stderr: "" }],
@@ -130,6 +131,24 @@ describe("opt-in verification adapters", () => {
     expect(report.status).toBe("PARTIAL");
     expect(report.results[0]?.status).toBe("ERROR");
     expect(report.adapterResults[0]?.executionStatus).toBe("FAILED");
+  });
+
+
+  it("does not parse Python files that were excluded by source-content limits", async () => {
+    const report = await runVerificationAdapters({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["main.py", "other.py"],
+      fileContents: { "main.py": "print('ok')" },
+      contentLimitations: ["Source ingestion budget reached before other.py."],
+    }, runner({
+      python3Available: true,
+      results: [{ exitCode: 0, stdout: JSON.stringify({ errors: [] }), stderr: "" }],
+    }));
+
+    expect(report.results[0]?.status).toBe("UNVERIFIED");
+    expect(report.adapterResults[0]?.executionStatus).toBe("PARTIAL");
+    expect(report.results[0]?.limitations.join(" ")).toContain("other.py");
   });
 
   it("does not invoke unrelated tools for repositories without matching source files", async () => {
