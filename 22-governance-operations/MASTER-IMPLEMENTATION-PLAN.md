@@ -606,7 +606,7 @@ Only after the audit should code changes be approved.
 
 The following status reflects code and automated evidence on `audit/phase-0-baseline`; it does not indicate production approval.
 
-- **Latest verified CI:** [Workflow run #265](https://github.com/Inflame21/engineering-governance/actions/runs/38365991649) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
+- **Latest verified CI:** [Workflow run #293](https://github.com/Inflame21/engineering-governance/actions/runs/38366980718) passed type-check, tests, builds, dependency audits, and executable-CLI smoke tests for engine, analyzer, and CLI.
 - **Phase 0:** Source audit and defect register complete. Dependency lockfiles and reproducible dependency resolution remain open.
 - **Phase 1:** Canonical governance/profile schemas are integrated with runtime loading; semantic reference checks and contract tests are present. Compatibility review remains ongoing as schemas evolve.
 - **Phase 2:** Evidence-driven status, unknown applicability, risk acceptance, exception scope/expiry, and deterministic decisions are implemented. The full decision matrix still needs exhaustive boundary-case coverage.
