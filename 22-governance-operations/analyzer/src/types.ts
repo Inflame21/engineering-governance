@@ -2,6 +2,7 @@ import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/typ
 import type { ArchitectureVerificationResult } from "./architecture.js";
 import type { VerificationReport } from "./verification.js";
 import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
+import type { RepositorySystemGraph } from "./system-graph.js";
 
 export type AnalyzerExecutionStatus = "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED";
 
@@ -66,6 +67,7 @@ export interface RepositoryAnalysis {
   findings: GovernanceFinding[];
   adapterResults: RepositoryAdapterResult[];
   architecture?: ArchitectureVerificationResult;
+  systemGraph?: RepositorySystemGraph;
   verification?: VerificationReport;
   changeScope?: RepositoryChangeScope;
   snapshotFingerprint?: RepositorySnapshotFingerprint;
