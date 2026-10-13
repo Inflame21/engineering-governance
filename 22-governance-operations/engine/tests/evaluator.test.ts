@@ -6,7 +6,12 @@ const basePack: GovernancePack = {
   version: "1.0.0",
   project: { id: "test", name: "Test", repository: "example/test", environment: "production" },
   change: { id: "CHG-1", type: "feature", title: "Test change", risk_class: "B", files: ["src/example.ts"] },
-  standards: [],
+  standards: [{
+    id: "SEC-007",
+    title: "Security Engineering",
+    version: "1.0.0",
+    source: "07-security/07-security-engineering-standard.md",
+  }],
   controls: [{
     id: "SEC-AUTH-001",
     standard: "SEC-007",
@@ -56,6 +61,16 @@ describe("rule and control engine", () => {
     expect(() => evaluateGovernance(duplicateEvidencePack, applicableContext))
       .toThrow(/Duplicate ID 'EVD-AUTH' in evidence/);
   });
+
+  it("rejects invalid semantic cross-references when the engine is called directly", () => {
+    const invalidPack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, required_evidence: ["EVD-MISSING"] }],
+    };
+
+    expect(() => evaluateGovernance(invalidPack, applicableContext))
+      .toThrow(/requires unknown evidence 'EVD-MISSING'/);
+  });
   it("evaluates one control identically for multiple implementation languages", () => {
     for (const language of ["typescript", "python", "go", "java", "rust"]) {
       const result = evaluateGovernance(basePack, {
@@ -102,7 +117,7 @@ describe("rule and control engine", () => {
     const pack: GovernancePack = {
       ...basePack,
       controls: [{ ...basePack.controls[0]!, status: "PASS" }],
-      evidence: [],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
     };
     const result = evaluateGovernance(pack, applicableContext);
 
@@ -144,6 +159,68 @@ describe("rule and control engine", () => {
       expect(result.decision.status).toBe("NO-GO");
     },
   );
+
+  it("does not accept a legacy stale freshness label", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      evidence: [{ ...basePack.evidence[0]!, freshness: "stale" }],
+    }, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it.each(["not-a-timestamp", "2026-10-14T00:00:00.000Z"])(
+    "does not accept invalid or future evidence timestamps: %s",
+    (generatedAt) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{ ...basePack.controls[0]!, max_evidence_age_seconds: 3_600 }],
+        evidence: [{
+          ...basePack.evidence[0]!,
+          generated_at: generatedAt,
+        }],
+      };
+
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        evaluatedAt: "2026-10-13T00:00:00.000Z",
+      });
+
+      expect(result.controls[0]?.status).toBe("UNVERIFIED");
+      expect(result.decision.status).toBe("NO-GO");
+    },
+  );
+
+  it("does not let selected evidence override contradictory linked evidence", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      evidence: [
+        ...basePack.evidence,
+        {
+          id: "EVD-AUTH-FAILED",
+          type: "E3_AUTOMATED_ANALYSIS",
+          status: "PARTIALLY_VERIFIED",
+          description: "A second authorization check did not complete.",
+          source: "test",
+          freshness: "current",
+          supports_controls: ["SEC-AUTH-001"],
+        },
+      ],
+    };
+
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingEvidence).toContain("EVD-AUTH-FAILED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
 
   it("requires a valid timestamp when a control defines a maximum evidence age", () => {
     const pack: GovernancePack = {
@@ -198,7 +275,7 @@ describe("rule and control engine", () => {
   });
 
 
-  it("treats accepted risks without valid time-bounded approval as open", () => {
+  it("rejects an accepted risk without auditable acceptance metadata before evaluation", () => {
     const pack: GovernancePack = {
       ...basePack,
       risks: [{
@@ -208,21 +285,17 @@ describe("rule and control engine", () => {
         status: "ACCEPTED",
       }],
     };
-    const result = evaluateGovernance(pack, {
+    expect(() => evaluateGovernance(pack, {
       ...applicableContext,
       evaluatedAt: "2026-10-13T00:00:00Z",
-    });
-
-    expect(result.decision.status).toBe("NO-GO");
-    expect(result.decision.openRisks[0]?.status).toBe("OPEN");
-    expect(result.decision.blockingViolations[0]?.message).toContain("invalid or expired acceptance");
+    })).toThrow("must include accepted_by");
   });
 
   it("honors only current, scoped, approved exceptions for non-P0 controls", () => {
     const pack: GovernancePack = {
       ...basePack,
       controls: [{ ...basePack.controls[0]!, severity: "P1" }],
-      evidence: [],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
       exceptions: [{
         id: "EXC-1",
         status: "APPROVED",
@@ -249,10 +322,10 @@ describe("rule and control engine", () => {
     expect(result.decision.warnings.some((item) => item.controlId === "EXCEPTION:EXC-1")).toBe(true);
   });
 
-  it("does not apply expired or out-of-scope exceptions", () => {
+  it("does not apply expired exceptions and rejects out-of-scope approved exceptions", () => {
     const baseException = {
       id: "EXC-2",
-      status: "APPROVED" as const,
+      status: "EXPIRED" as const,
       control: "SEC-AUTH-001",
       reason: "Temporary exception.",
       project_id: "test",
@@ -266,7 +339,7 @@ describe("rule and control engine", () => {
     const expiredPack: GovernancePack = {
       ...basePack,
       controls: [{ ...basePack.controls[0]!, severity: "P1" }],
-      evidence: [],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
       exceptions: [baseException],
     };
     const expiredResult = evaluateGovernance(expiredPack, {
@@ -280,22 +353,21 @@ describe("rule and control engine", () => {
       exceptions: [{
         ...baseException,
         id: "EXC-3",
+        status: "APPROVED",
         project_id: "different-project",
         expires_at: "2026-10-20T00:00:00Z",
       }],
     };
-    const outOfScopeResult = evaluateGovernance(outOfScopePack, {
+    expect(() => evaluateGovernance(outOfScopePack, {
       ...applicableContext,
       evaluatedAt: "2026-10-13T00:00:00Z",
-    });
-    expect(outOfScopeResult.decision.status).toBe("NO-GO");
-    expect(outOfScopeResult.decision.warnings.some((item) => item.message.includes("outside the current project/change scope"))).toBe(true);
+    })).toThrow("outside the current project/change scope");
   });
 
   it("never lets an exception waive a P0 control", () => {
     const pack: GovernancePack = {
       ...basePack,
-      evidence: [],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
       exceptions: [{
         id: "EXC-P0",
         status: "APPROVED",
@@ -426,7 +498,7 @@ describe("rule and control engine", () => {
           status: "FAIL",
           failure_decision: failureDecision,
         }],
-        evidence: [],
+        evidence: basePack.evidence,
       };
       const result = evaluateGovernance(pack, {
         ...applicableContext,
@@ -455,7 +527,7 @@ describe("rule and control engine", () => {
           status: "FAIL",
           failure_decision: failureDecision,
         }],
-        evidence: [],
+        evidence: basePack.evidence,
       };
       const result = evaluateGovernance(pack, {
         ...applicableContext,

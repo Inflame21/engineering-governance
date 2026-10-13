@@ -296,11 +296,11 @@ export function evaluateGovernance(
   context: GovernanceContext,
 ): GovernanceEvaluation {
   // Keep the engine safe when called directly, bypassing CLI pack loading.
-  // Duplicate IDs make evidence lookup ambiguous and must never be evaluated.
-  const duplicateIdIssues = validateGovernancePackSemantics(pack, context.evaluatedAt)
-    .filter((issue) => issue.code === "DUPLICATE_ID");
-  if (duplicateIdIssues.length > 0) {
-    const details = duplicateIdIssues
+  // A semantic error makes any derived decision ambiguous, so no invalid pack
+  // may reach evaluation through this public API.
+  const semanticIssues = validateGovernancePackSemantics(pack, context.evaluatedAt);
+  if (semanticIssues.length > 0) {
+    const details = semanticIssues
       .map((issue) => `${issue.path}: ${issue.message}`)
       .join("; ");
     throw new Error(`Governance pack semantic validation failed: ${details}`);

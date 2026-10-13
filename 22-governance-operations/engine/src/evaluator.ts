@@ -49,7 +49,12 @@ function evidenceIsUsable(
   item: GovernanceEvidence,
   evaluatedAt?: string,
 ): boolean {
-  if (item.status !== "VERIFIED" || (item.freshness_status !== undefined && item.freshness_status !== "current")) return false;
+  const legacyFreshness = item.freshness.trim().toLowerCase();
+  if (
+    item.status !== "VERIFIED" ||
+    (item.freshness_status !== undefined && item.freshness_status !== "current") ||
+    (item.freshness_status === undefined && ["stale", "expired", "unknown"].includes(legacyFreshness))
+  ) return false;
 
   const maxAgeSeconds = control.max_evidence_age_seconds;
   if (maxAgeSeconds === undefined) return true;
@@ -70,31 +75,38 @@ function evidenceForControl(
 ): { missing: string[]; supporting: string[] } {
   const required = control.required_evidence ?? [];
   const byId = new Map(evidence.map((item) => [item.id, item]));
-  const missing: string[] = [];
-  const supporting: string[] = [];
+  const missing = new Set<string>();
+  const supporting = new Set<string>();
 
   // When a control does not enumerate evidence IDs, require evidence explicitly
   // linked to the control rather than treating an empty list as proof of success.
+  const explicitlyLinked = evidence.filter((item) => item.supports_controls.includes(control.id));
   const evidenceIds = required.length > 0
     ? required
-    : evidence
-        .filter((item) => item.supports_controls.includes(control.id))
-        .map((item) => item.id);
+    : explicitlyLinked.map((item) => item.id);
 
   if (evidenceIds.length === 0) {
-    return { missing: [`EVIDENCE_REQUIRED:${control.id}`], supporting };
+    return { missing: [`EVIDENCE_REQUIRED:${control.id}`], supporting: [] };
   }
 
   for (const evidenceId of evidenceIds) {
     const item = byId.get(evidenceId);
     if (!item || !evidenceIsUsable(control, item, evaluatedAt)) {
-      missing.push(evidenceId);
+      missing.add(evidenceId);
       continue;
     }
-    supporting.push(evidenceId);
+    supporting.add(evidenceId);
   }
 
-  return { missing, supporting };
+  // A control cannot be passed from a selected subset of its evidence while a
+  // separate record explicitly linked to that same control is stale, partial,
+  // unverified, or otherwise unusable.  The model has no assertion scope that
+  // could safely prove the records address different checks, so fail closed.
+  for (const item of explicitlyLinked) {
+    if (!evidenceIsUsable(control, item, evaluatedAt)) missing.add(item.id);
+  }
+
+  return { missing: [...missing].sort(), supporting: [...supporting].sort() };
 }
 
 export function evaluateControl(
