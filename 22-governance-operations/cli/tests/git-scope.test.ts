@@ -1,11 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { loadGitChangeScope, type GitCommandRunner } from "../src/git-scope.js";
 
-function successfulGitRunner(): GitCommandRunner {
+const roots: string[] = [];
+async function createRoot(): Promise<string> {
+  const root = await mkdtemp(path.join(os.tmpdir(), "governance-git-scope-"));
+  roots.push(root);
+  return root;
+}
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+function successfulGitRunner(root: string): GitCommandRunner {
   return {
     async run(args) {
       if (args[0] === "rev-parse" && args[1] === "--show-toplevel") {
-        return { exitCode: 0, stdout: "/repo\n", stderr: "" };
+        return { exitCode: 0, stdout: `${root}\n`, stderr: "" };
       }
       if (args[0] === "rev-parse" && args.includes("origin/main^{commit}")) {
         return { exitCode: 0, stdout: "base-sha\n", stderr: "" };
@@ -23,7 +36,8 @@ function successfulGitRunner(): GitCommandRunner {
 
 describe("Git change-scope adapter", () => {
   it("returns normalized changed files and commit provenance", async () => {
-    const result = await loadGitChangeScope("/repo", "origin/main", successfulGitRunner());
+    const root = await createRoot();
+    const result = await loadGitChangeScope(root, "origin/main", successfulGitRunner(root));
 
     expect(result).toEqual({
       status: "VERIFIED",
@@ -47,11 +61,10 @@ describe("Git change-scope adapter", () => {
   });
 
   it("does not claim a diff when the requested scan root is not the Git top level", async () => {
-    const result = await loadGitChangeScope("/repo/service", "origin/main", {
-      async run() {
-        return { exitCode: 0, stdout: "/repo\n", stderr: "" };
-      },
-    });
+    const root = await createRoot();
+    const subdirectory = path.join(root, "service");
+    await mkdir(subdirectory);
+    const result = await loadGitChangeScope(subdirectory, "origin/main", successfulGitRunner(root));
 
     expect(result.status).toBe("UNVERIFIED");
     expect(result.reason).toContain("Git top-level directory");
