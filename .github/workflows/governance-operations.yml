@@ -143,3 +143,33 @@ jobs:
               adapters: analyze.analysis.adapterResults.length
             }));
           ' "$fixture/analyze.json" "$fixture/check.json" "$fixture/architecture-check.json"
+
+          # Invalid input must fail with the documented execution/argument error code.
+          set +e
+          node dist/cli/src/index.js check "$fixture" --unknown-option > "$fixture/invalid-args.stdout" 2> "$fixture/invalid-args.stderr"
+          invalid_args_status=$?
+          node dist/cli/src/index.js check "$fixture" --pack .governance/missing-pack.json > "$fixture/missing-pack.stdout" 2> "$fixture/missing-pack.stderr"
+          missing_pack_status=$?
+          set -e
+
+          if [ "$invalid_args_status" -ne 3 ]; then
+            echo "Invalid CLI arguments returned $invalid_args_status; expected 3"
+            cat "$fixture/invalid-args.stderr"
+            exit 1
+          fi
+          if [ "$missing_pack_status" -ne 3 ]; then
+            echo "Missing governance pack returned $missing_pack_status; expected 3"
+            cat "$fixture/missing-pack.stderr"
+            exit 1
+          fi
+          if ! grep -q "Unknown option: --unknown-option" "$fixture/invalid-args.stderr"; then
+            echo "Invalid-argument failure did not provide the expected diagnostic"
+            cat "$fixture/invalid-args.stderr"
+            exit 1
+          fi
+          if ! grep -q "Governance CLI error:" "$fixture/missing-pack.stderr"; then
+            echo "Missing-pack failure did not provide the expected CLI diagnostic"
+            cat "$fixture/missing-pack.stderr"
+            exit 1
+          fi
+          echo "CLI failure-path exit-code smoke tests passed: invalid_args=$invalid_args_status missing_pack=$missing_pack_status"
