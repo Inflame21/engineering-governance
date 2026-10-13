@@ -1,7 +1,5 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
-import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
 import type { RepositorySnapshot } from "./types.js";
 
 export interface ArchitectureBoundaryRule {
@@ -67,32 +65,127 @@ export interface ArchitectureVerificationResult {
   unsupportedCapabilities: string[];
 }
 
-interface SchemaError {
-  instancePath?: string;
-  message?: string;
-}
+const allowedProfileProperties = new Set([
+  "id",
+  "version",
+  "name",
+  "description",
+  "styles",
+  "boundaryRules",
+  "requiredControls",
+  "capabilities",
+  "componentMappings",
+  "metadata",
+]);
 
-interface SchemaValidator {
-  (value: unknown): boolean;
-  errors: SchemaError[] | null;
-}
-
-interface AjvInstance {
-  compile(schema: unknown): SchemaValidator;
-}
-
-type AjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => AjvInstance;
-
-const require = createRequire(import.meta.url);
-let cachedProfileValidator: SchemaValidator | undefined;
-
-function getProfileValidator(): SchemaValidator {
-  if (!cachedProfileValidator) {
-    const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
-    const ajv = new Ajv2020({ allErrors: true, strict: true });
-    cachedProfileValidator = ajv.compile(architectureProfileSchema);
+export function validateArchitectureProfile(value: unknown): ArchitectureProfileValidation {
+  const errors: string[] = [];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { valid: false, errors: ["Architecture profile must be a JSON object."] };
   }
-  return cachedProfileValidator;
+
+  const profile = value as Record<string, unknown>;
+  for (const property of Object.keys(profile)) {
+    if (!allowedProfileProperties.has(property)) {
+      errors.push(`/${property} is not an allowed profile property.`);
+    }
+  }
+
+  if (typeof profile.id !== "string" || !/^[a-z][a-z0-9-]*$/.test(profile.id)) {
+    errors.push("/id must be a lowercase identifier.");
+  }
+  if (typeof profile.version !== "string" || !/^\\d+\\.\\d+\\.\\d+$/.test(profile.version)) {
+    errors.push("/version must use semantic version format X.Y.Z.");
+  }
+  if (typeof profile.name !== "string" || profile.name.trim().length === 0) {
+    errors.push("/name must be a non-empty string.");
+  }
+  if (
+    profile.description !== undefined &&
+    (typeof profile.description !== "string")
+  ) {
+    errors.push("/description must be a string.");
+  }
+
+  const validateStringArray = (key: string, required: boolean): void => {
+    const candidate = profile[key];
+    if (candidate === undefined && !required) return;
+    if (
+      !Array.isArray(candidate) ||
+      candidate.some((item) => typeof item !== "string" || item.trim().length === 0)
+    ) {
+      errors.push(`/${key} must be an array of non-empty strings.`);
+      return;
+    }
+    if (new Set(candidate).size !== candidate.length) {
+      errors.push(`/${key} must not contain duplicates.`);
+    }
+  };
+
+  validateStringArray("styles", true);
+  validateStringArray("requiredControls", true);
+  validateStringArray("capabilities", false);
+
+  if (!Array.isArray(profile.boundaryRules)) {
+    errors.push("/boundaryRules must be an array.");
+  } else {
+    const ruleIds = new Set<string>();
+    const allowedRuleProperties = new Set([
+      "id", "description", "severity", "sourcePattern", "targetPattern", "allowed",
+    ]);
+    profile.boundaryRules.forEach((candidate, index) => {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+        errors.push(`/boundaryRules/${index} must be an object.`);
+        return;
+      }
+      const rule = candidate as Record<string, unknown>;
+      for (const property of Object.keys(rule)) {
+        if (!allowedRuleProperties.has(property)) {
+          errors.push(`/boundaryRules/${index}/${property} is not allowed.`);
+        }
+      }
+      if (typeof rule.id !== "string" || !/^[A-Z0-9][A-Z0-9-]*$/.test(rule.id)) {
+        errors.push(`/boundaryRules/${index}/id must be an uppercase rule identifier.`);
+      } else if (ruleIds.has(rule.id)) {
+        errors.push(`/boundaryRules contains duplicate rule id '${rule.id}'.`);
+      } else {
+        ruleIds.add(rule.id);
+      }
+      if (typeof rule.description !== "string" || rule.description.trim().length === 0) {
+        errors.push(`/boundaryRules/${index}/description must be a non-empty string.`);
+      }
+      if (!["P0", "P1", "P2", "P3"].includes(String(rule.severity))) {
+        errors.push(`/boundaryRules/${index}/severity must be P0, P1, P2, or P3.`);
+      }
+      for (const key of ["sourcePattern", "targetPattern"] as const) {
+        if (rule[key] !== undefined && (typeof rule[key] !== "string" || rule[key].trim().length === 0)) {
+          errors.push(`/boundaryRules/${index}/${key} must be a non-empty string when provided.`);
+        }
+      }
+      if (rule.allowed !== undefined && typeof rule.allowed !== "boolean") {
+        errors.push(`/boundaryRules/${index}/allowed must be a boolean when provided.`);
+      }
+    });
+  }
+
+  if (profile.componentMappings !== undefined) {
+    if (!profile.componentMappings || typeof profile.componentMappings !== "object" || Array.isArray(profile.componentMappings)) {
+      errors.push("/componentMappings must be an object mapping roles to path-pattern arrays.");
+    } else {
+      for (const [role, patterns] of Object.entries(profile.componentMappings as Record<string, unknown>)) {
+        if (!role.trim() || !Array.isArray(patterns) || patterns.length === 0 ||
+          patterns.some((pattern) => typeof pattern !== "string" || pattern.trim().length === 0)) {
+          errors.push(`/componentMappings/${role} must be a non-empty array of path patterns.`);
+        }
+      }
+    }
+  }
+
+  if (profile.metadata !== undefined && (!profile.metadata || typeof profile.metadata !== "object" || Array.isArray(profile.metadata))) {
+    errors.push("/metadata must be an object when provided.");
+  }
+
+  return { valid: errors.length === 0, errors };
 }
 
 const sourceExtensions: Record<string, string> = {
