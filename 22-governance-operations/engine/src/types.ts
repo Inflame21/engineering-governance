@@ -66,6 +66,12 @@ export interface GovernanceEvidence {
   source: string;
   freshness: string;
   supports_controls: string[];
+  tool_version?: string;
+  generated_at?: string;
+  repository_fingerprint?: string;
+  duration_ms?: number;
+  exit_code?: number;
+  command?: string[];
 }
 
 export interface GovernanceRisk {
