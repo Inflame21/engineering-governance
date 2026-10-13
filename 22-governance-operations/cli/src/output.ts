@@ -35,6 +35,8 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     );
     if (analysis.changeScope.headRef) lines.push(`  Head revision: ${analysis.changeScope.headRef}`);
     if (analysis.changeScope.reason) lines.push(`  Scope limitation: ${analysis.changeScope.reason}`);
+  } else {
+    lines.push("", "Changed-file scope: NOT REQUESTED", "  Pass --base <git-ref> to verify the declared change scope.");
   }
 
   const incompleteAdapters = analysis.adapterResults.filter((item) => item.executionStatus !== "SUCCESS");
