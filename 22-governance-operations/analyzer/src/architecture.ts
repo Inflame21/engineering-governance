@@ -54,6 +54,7 @@ export interface ArchitectureDependencyGraph {
   unresolvedRelativeImports: Array<{ file: string; line: number; specifier: string }>;
   uninspectedSourceFiles: string[];
   unsupportedLanguages: string[];
+  unavailableSourceFiles: string[];
 }
 
 export interface ArchitectureVerificationResult {
