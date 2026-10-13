@@ -300,6 +300,31 @@ export function evaluateGovernance(
 
   const decision = deriveDecision(pack, controls, context);
 
+  // Incomplete analysis must remain visible even when no control references the
+  // capability the analyzer could not verify.
+  if (context.analysisStatus && context.analysisStatus !== "COMPLETE") {
+    const failed = context.analysisStatus === "FAILED";
+    const analysisViolation: GovernanceViolation = {
+      controlId: "ANALYSIS:COMPLETENESS",
+      severity: failed ? "P0" : "P1",
+      decision: failed ? "NO-GO" : "GO_WITH_CONDITIONS",
+      message: failed
+        ? "Repository analysis failed; a production decision cannot be supported."
+        : "Repository analysis is partial; unsupported or skipped checks require explicit review.",
+      missingEvidence: [],
+      missingSignals: context.unsupportedCapabilities ?? [],
+    };
+
+    if (failed) {
+      decision.status = "NO-GO";
+      decision.blockingViolations.push(analysisViolation);
+    } else {
+      if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+      decision.warnings.push(analysisViolation);
+    }
+    decision.reason = `${decision.reason} Analysis status: ${context.analysisStatus}.`;
+  }
+
   return {
     controls,
     violations: [...decision.blockingViolations, ...decision.warnings],
