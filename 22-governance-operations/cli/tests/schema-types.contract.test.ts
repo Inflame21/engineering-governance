@@ -301,20 +301,20 @@ describe("JSON Schema constraint inventory", () => {
     expect(schemaNode(riskAccepted, "if.properties.status").const).toBe("ACCEPTED");
     expect([...(riskAccepted.then as { required: string[] }).required].sort()).toEqual([
       "accepted_at", "accepted_by", "acceptance_expires_at", "acceptance_reason",
-    ]);
+    ].sort());
 
     const exceptionRequested = schemaNode(governanceSchema, "$defs.exception.allOf.0");
     expect(schemaNode(exceptionRequested, "if.properties.status").const).toBe("REQUESTED");
     expect([...(exceptionRequested.then as { required: string[] }).required].sort()).toEqual([
       "change_id", "control", "project_id", "reason", "requested_at", "requested_by",
-    ]);
+    ].sort());
 
     const exceptionApproved = schemaNode(governanceSchema, "$defs.exception.allOf.1");
     expect(schemaNode(exceptionApproved, "if.properties.status").const).toBe("APPROVED");
     expect([...(exceptionApproved.then as { required: string[] }).required].sort()).toEqual([
       "approved_at", "approved_by", "change_id", "control", "expires_at", "project_id",
       "reason", "requested_at", "requested_by",
-    ]);
+    ].sort());
   });
 
   it("keeps architecture-profile array, pattern, and numeric constraints explicit", () => {
