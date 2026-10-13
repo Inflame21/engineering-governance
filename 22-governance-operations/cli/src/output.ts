@@ -50,7 +50,7 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
   if (analysis.verification) {
     lines.push("", `Tool verification: ${analysis.verification.status}`);
     for (const result of analysis.verification.results) {
-      lines.push(`  [${result.status}] ${result.tool}: ${result.summary}`);
+      lines.push(`  [${result.status}] ${result.tool}${result.toolVersion ? ` (${result.toolVersion})` : ""}: ${result.summary}`);
       for (const limitation of result.limitations) lines.push(`    Limitation: ${limitation}`);
     }
   }
