@@ -94,6 +94,7 @@ export interface GovernanceDecision {
   reason: string;
   blockingViolations: GovernanceViolation[];
   warnings: GovernanceViolation[];
+  openRisks: GovernanceRisk[];
 }
 
 export interface GovernanceEvaluation {
