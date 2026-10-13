@@ -6,6 +6,7 @@ function runner(options: {
   python3Available?: boolean;
   pythonAvailable?: boolean;
   results?: Array<{ exitCode: number; stdout: string; stderr: string }>;
+  version?: string;
 } = {}): VerificationToolRunner {
   const results = [...(options.results ?? [])];
   return {
@@ -13,6 +14,9 @@ function runner(options: {
       if (tool === "typescript") return options.typescriptAvailable ?? false;
       if (tool === "python3") return options.python3Available ?? false;
       return options.pythonAvailable ?? false;
+    },
+    async getVersion() {
+      return options.version;
     },
     async run() {
       const result = results.shift();
@@ -31,12 +35,16 @@ describe("opt-in verification adapters", () => {
       fileContents: { "app/main.py": "print('hello')" },
     }, runner({
       python3Available: true,
+      version: "Python 3.12.0",
       results: [{ exitCode: 0, stdout: JSON.stringify({ errors: [] }), stderr: "" }],
     }));
 
     expect(report.status).toBe("COMPLETE");
     expect(report.results[0]).toMatchObject({ tool: "python", status: "PASS", evidenceId: "EVD-PYTHON-SYNTAX" });
     expect(report.evidence[0]?.status).toBe("VERIFIED");
+    expect(report.evidence[0]?.tool_version).toBe("Python 3.12.0");
+    expect(report.evidence[0]?.repository_fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(report.evidence[0]?.generated_at).toBeTruthy();
     expect(report.findings).toEqual([]);
   });
 
