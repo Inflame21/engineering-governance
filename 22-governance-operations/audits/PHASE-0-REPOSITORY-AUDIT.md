@@ -436,3 +436,33 @@ PR #1 reports 364 commits and 76 changed files against `main`; the compare endpo
 ### 10.8 Recommendation
 
 **`CONTINUE AUDIT`.** CI is green on the tested SHA and the engine defect found in this pass is fixed, but P0 items AUD-08 (enforcement) and AUD-03 (schema/type comparison) remain unevidenced, and PR scope needs a human decision. Do not close issue #2 or mark Phase 0 complete.
+
+
+## 11. Schema/TypeScript contract comparison — 2026-10-13
+
+**Status:** AUD-03 improved but remains **PARTIALLY VERIFIED**. This section records a structural contract test added after the Section 10 pass; it does not close all schema-constraint parity work.
+
+### Evidence
+
+- Contract test: [`cli/tests/schema-types.contract.test.ts`](https://github.com/Inflame21/engineering-governance/blob/audit/phase-0-baseline/22-governance-operations/cli/tests/schema-types.contract.test.ts)
+- Test commit: [`9884a1a9f77f71d7575d9c628ec4e5e515b35078`](https://github.com/Inflame21/engineering-governance/commit/9884a1a9f77f71d7575d9c628ec4e5e515b35078)
+- CI run: [#38397574762](https://github.com/Inflame21/engineering-governance/actions/runs/38397574762) — `Verify engine`, `Verify analyzer`, and `Verify cli` all succeeded. CLI type-check, tests, build, E2E contract tests, and smoke test succeeded.
+
+### Comparison results
+
+- Governance pack and entity field names are checked against the TypeScript interfaces: pack, project, change, standard, control, evidence, risk, decision, exception, debt, and finding.
+- Required/optional field parity is checked for those entities.
+- Architecture profile and boundary-rule field names and required/optional parity are checked.
+- Thirteen governance enum sets are checked against the corresponding TypeScript unions and schema enums.
+- Compile-time assertions ensure the field-presence maps are exhaustive for their TypeScript interfaces; runtime assertions compare them with the imported schema.
+
+### Remaining limits
+
+1. This test does **not** exhaustively compare every JSON Schema primitive type, regex, date-time format, string/numeric bound, array uniqueness rule, or nested conditional constraint to an explicit TypeScript-side expectation. TypeScript interfaces cannot express many of these restrictions; the JSON Schema and AJV validation remain authoritative at the input boundary.
+2. The schema currently does not set `additionalProperties: false` at the top-level governance-pack object, while nested entity definitions generally do. That may be intentional extensibility, but the policy is not documented or tested as an explicit decision. Do not change it without deciding whether top-level extensions are supported.
+3. Status-dependent risk/exception requirements are enforced by JSON Schema and semantic validation rather than by the plain TypeScript interfaces. The current contract test confirms the schema's conditional rules exist, but does not compare every condition branch to the semantic validator.
+4. A complete constraint-by-constraint matrix, including deliberate invalid/valid fixtures for each schema rule and the corresponding runtime validation behavior, remains outstanding.
+
+### Disposition
+
+The structural field/requiredness/enum drift checks are now automated and pass CI. Keep AUD-03 **open/partial** until the remaining constraint and conditional-rule matrix is reviewed and either covered by tests or explicitly recorded as an accepted design limitation. Phase 0 remains `IN_PROGRESS`.
