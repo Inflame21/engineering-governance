@@ -132,6 +132,9 @@ jobs:
             if (!architectureCheck.analysis.evidence.some((evidence) => evidence.id.startsWith("EVD-ARCH-"))) {
               throw new Error("Architecture finding has no graph evidence provenance");
             }
+            if (architectureCheck.evaluation.decision.status !== "NO-GO") {
+              throw new Error("A P1 architecture boundary violation did not block production approval");
+            }
             console.log("CLI smoke test passed:", JSON.stringify({
               analysisStatus: analyze.context.analysisStatus,
               decision: check.evaluation.decision.status,
