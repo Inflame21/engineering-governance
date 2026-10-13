@@ -46,9 +46,27 @@ export interface ArchitectureGraphEdge {
   confidence: number;
 }
 
+export interface ArchitectureGraphComponent {
+  id: string;
+  role: string;
+  files: string[];
+}
+
+export interface ArchitectureComponentEdge {
+  id: string;
+  sourceComponentId: string;
+  targetComponentId: string;
+  sourceFile: string;
+  targetFile: string;
+  sourceLocation: { file: string; line: number };
+  evidenceRef: string;
+}
+
 export interface ArchitectureDependencyGraph {
   nodes: ArchitectureGraphNode[];
   edges: ArchitectureGraphEdge[];
+  components: ArchitectureGraphComponent[];
+  componentEdges: ArchitectureComponentEdge[];
   unresolvedRelativeImports: Array<{ file: string; line: number; specifier: string }>;
   uninspectedSourceFiles: string[];
   unsupportedLanguages: string[];
@@ -430,12 +448,53 @@ export function buildArchitectureDependencyGraph(
       .filter((language): language is string => Boolean(language) && !graphableLanguages.has(language!)),
   )].sort();
 
+  const componentFiles = new Map<string, string[]>();
+  for (const node of nodes) {
+    for (const role of node.roles) {
+      const filesForRole = componentFiles.get(role) ?? [];
+      filesForRole.push(node.path);
+      componentFiles.set(role, filesForRole);
+    }
+  }
+  const components: ArchitectureGraphComponent[] = [...componentFiles.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([role, filesForRole]) => ({
+      id: `COMP:${role}`,
+      role,
+      files: [...filesForRole].sort(),
+    }));
+  const nodeByPath = new Map(nodes.map((node) => [node.path, node]));
+  const componentEdges: ArchitectureComponentEdge[] = [];
+  for (const edge of edges) {
+    const source = nodeByPath.get(edge.sourceId.slice("FILE:".length));
+    const target = nodeByPath.get(edge.targetId.slice("FILE:".length));
+    for (const sourceRole of source?.roles ?? []) {
+      for (const targetRole of target?.roles ?? []) {
+        componentEdges.push({
+          id: `COMPEDGE:${stableId(`${sourceRole}:${targetRole}:${edge.id}`)}`,
+          sourceComponentId: `COMP:${sourceRole}`,
+          targetComponentId: `COMP:${targetRole}`,
+          sourceFile: source?.path ?? "",
+          targetFile: target?.path ?? "",
+          sourceLocation: edge.sourceLocation,
+          evidenceRef: edge.evidenceRef,
+        });
+      }
+    }
+  }
+
   return {
     nodes,
     edges: edges.sort((a, b) =>
       a.sourceId.localeCompare(b.sourceId) ||
       a.sourceLocation.line - b.sourceLocation.line ||
       a.targetId.localeCompare(b.targetId),
+    ),
+    components,
+    componentEdges: componentEdges.sort((a, b) =>
+      a.sourceComponentId.localeCompare(b.sourceComponentId) ||
+      a.targetComponentId.localeCompare(b.targetComponentId) ||
+      a.sourceFile.localeCompare(b.sourceFile),
     ),
     unresolvedRelativeImports: unresolvedRelativeImports.sort((a, b) =>
       a.file.localeCompare(b.file) || a.line - b.line,
