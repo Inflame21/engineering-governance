@@ -325,6 +325,34 @@ export function evaluateGovernance(
     decision.reason = `${decision.reason} Analysis status: ${context.analysisStatus}.`;
   }
 
+  const findingsById = new Map<string, NonNullable<GovernancePack["findings"]>[number]>();
+  for (const finding of [...(pack.findings ?? []), ...(context.findings ?? [])]) {
+    // Findings are only closed by an explicit RESOLVED state. A local "accepted"
+    // or "suppressed" label is not, by itself, an approved risk exception.
+    if (finding.status !== "RESOLVED") findingsById.set(finding.id, finding);
+  }
+  for (const finding of findingsById.values()) {
+    const blocking = finding.severity === "P0" || finding.severity === "P1";
+    const violation: GovernanceViolation = {
+      controlId: `FINDING:${finding.id}`,
+      severity: finding.severity,
+      decision: blocking ? "NO-GO" : "GO_WITH_CONDITIONS",
+      message: `[${finding.rule_id}] ${finding.message}`,
+      missingEvidence: finding.evidence_refs,
+      missingSignals: [],
+    };
+    if (blocking) {
+      decision.status = "NO-GO";
+      decision.blockingViolations.push(violation);
+    } else {
+      if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+      decision.warnings.push(violation);
+    }
+  }
+  if (findingsById.size > 0) {
+    decision.reason = `${decision.reason} ${findingsById.size} unresolved finding(s) require remediation or governed acceptance.`;
+  }
+
   return {
     controls,
     violations: [...decision.blockingViolations, ...decision.warnings],
