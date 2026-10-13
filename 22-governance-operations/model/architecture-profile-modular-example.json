@@ -1,0 +1,57 @@
+{
+  "id": "modular-architecture-example",
+  "version": "1.0.0",
+  "name": "Modular Architecture Example (Orders and Billing)",
+  "description": "Example policy for independently owned feature modules. Replace the sample module mappings and rules with the repository's actual module boundaries.",
+  "styles": ["modular", "feature-modules"],
+  "boundaryRules": [
+    {
+      "id": "MOD-001",
+      "description": "The Orders feature must not import the Billing feature directly.",
+      "severity": "P1",
+      "sourcePattern": "feature-orders",
+      "targetPattern": "feature-billing",
+      "allowed": false
+    },
+    {
+      "id": "MOD-002",
+      "description": "The Billing feature must not import the Orders feature directly.",
+      "severity": "P1",
+      "sourcePattern": "feature-billing",
+      "targetPattern": "feature-orders",
+      "allowed": false
+    },
+    {
+      "id": "MOD-003",
+      "description": "The shared kernel must not depend on feature modules.",
+      "severity": "P1",
+      "sourcePattern": "shared-kernel",
+      "targetPattern": "feature-orders|feature-billing",
+      "allowed": false
+    },
+    {
+      "id": "MOD-004",
+      "description": "Feature modules must depend on infrastructure ports, not infrastructure implementations.",
+      "severity": "P1",
+      "sourcePattern": "feature-orders|feature-billing",
+      "targetPattern": "infrastructure",
+      "allowed": false
+    }
+  ],
+  "requiredControls": [],
+  "componentMappings": {
+    "feature-orders": ["src/modules/orders/**"],
+    "feature-billing": ["src/modules/billing/**"],
+    "shared-kernel": ["src/shared/**"],
+    "infrastructure": ["src/infrastructure/**"]
+  },
+  "metadata": {
+    "profileType": "architecture",
+    "template": true,
+    "status": "implemented",
+    "limitations": [
+      "This is an illustrative two-module profile, not a universal module detector.",
+      "Replace the sample module names, globs, and allowed dependencies before enforcing it."
+    ]
+  }
+}
