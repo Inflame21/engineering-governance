@@ -246,12 +246,12 @@ function schemaNode(root: unknown, dottedPath: string): Record<string, unknown> 
 describe("JSON Schema constraint inventory", () => {
   it("keeps primitive types, formats, patterns, bounds, uniqueness, and object policies explicit", () => {
     const contracts: Array<[string, Record<string, unknown>]> = [
-      ["properties.version", { type: "string", pattern: "^\\\\d+\\\\.\\\\d+\\\\.\\\\d+$" }],
+      ["properties.version", { type: "string", pattern: "^\\d+\\.\\d+\\.\\d+$" }],
       ["$defs.project.properties.id", { type: "string", pattern: "^[a-z0-9][a-z0-9._-]*$" }],
       ["$defs.project.properties.name", { type: "string", minLength: 1 }],
       ["$defs.change.properties.id", { type: "string", pattern: "^CHG-[0-9A-Z-]+$" }],
       ["$defs.change.properties.title", { type: "string", minLength: 1 }],
-      ["$defs.standard.properties.id", { type: "string", pattern: "^[A-Z]{2,6}-\\\\d{3}$" }],
+      ["$defs.standard.properties.id", { type: "string", pattern: "^[A-Z]{2,6}-\\d{3}$" }],
       ["$defs.control.properties.id", { type: "string", pattern: "^[A-Z0-9-]+$" }],
       ["$defs.control.properties.max_evidence_age_seconds", { type: "integer", minimum: 0 }],
       ["$defs.evidence.properties.id", { type: "string", pattern: "^EVD-[0-9A-Z-]+$" }],
@@ -293,7 +293,7 @@ describe("JSON Schema constraint inventory", () => {
     expect(schemaNode(governanceSchema, "$defs.project").additionalProperties).toBe(false);
     expect(schemaNode(governanceSchema, "$defs.control").additionalProperties).toBe(false);
     expect(schemaNode(governanceSchema, "$defs.evidence").additionalProperties).toBe(false);
-    expect(schemaNode(architectureProfileSchema, "").additionalProperties).toBe(false);
+    expect((architectureProfileSchema as unknown as Record<string, unknown>).additionalProperties).toBe(false);
   });
 
   it("keeps status-dependent risk and exception requirements explicit", () => {
@@ -320,7 +320,7 @@ describe("JSON Schema constraint inventory", () => {
   it("keeps architecture-profile array, pattern, and numeric constraints explicit", () => {
     const contracts: Array<[string, Record<string, unknown>]> = [
       ["properties.id", { type: "string", pattern: "^[a-z][a-z0-9-]*$" }],
-      ["properties.version", { type: "string", pattern: "^\\\\d+\\\\.\\\\d+\\\\.\\\\d+$" }],
+      ["properties.version", { type: "string", pattern: "^\\d+\\.\\d+\\.\\d+$" }],
       ["properties.styles", { type: "array", minItems: 1, uniqueItems: true }],
       ["properties.styles.items", { type: "string", minLength: 1 }],
       ["properties.boundaryRules.items.properties.id", { type: "string", minLength: 1, pattern: "^[A-Z0-9][A-Z0-9-]*$" }],
