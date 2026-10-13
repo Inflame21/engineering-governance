@@ -209,3 +209,46 @@ The current audit did not obtain authoritative evidence for all active workflows
 - [ ] Findings dispositioned with evidence and an updated implementation sequence.
 
 **Current conclusion:** Phase 0 remains `IN_PROGRESS`. The repository has substantial foundations; runtime verification and evidence-backed acceptance are the gating items.
+
+
+## 7. Follow-up verification — package scripts, dependencies, and CI evidence
+
+**Follow-up date:** 2026-10-13  
+**Branch inspected:** `audit/phase-0-baseline`
+
+### Package scripts verified from manifests
+
+| Package | Scripts confirmed | Runtime dependencies | Development dependencies |
+|---|---|---|---|
+| `engine` | `check`: `tsc -p tsconfig.json --noEmit`; `test`: `vitest run`; `build`: `tsc -p tsconfig.json` | None declared | TypeScript `^5.9.2`, Vitest `^5.0.4` |
+| `analyzer` | Same `check`, `test`, and `build` commands | Empty dependency object | TypeScript `^5.9.2`, Vitest `^5.0.4`, `@types/node ^22.15.30` |
+| `cli` | Same `check`, `test`, and `build`; `start` and `governance` run `node dist/cli/src/index.js` | `ajv ^8.17.1`, `ajv-formats ^3.0.1` | TypeScript `^5.9.2`, Vitest `^5.0.4`, `@types/node ^22.15.30` |
+
+Manifest links:
+- [Engine package.json](https://github.com/Inflame21/engineering-governance/blob/audit/phase-0-baseline/22-governance-operations/engine/package.json)
+- [Analyzer package.json](https://github.com/Inflame21/engineering-governance/blob/audit/phase-0-baseline/22-governance-operations/analyzer/package.json)
+- [CLI package.json](https://github.com/Inflame21/engineering-governance/blob/audit/phase-0-baseline/22-governance-operations/cli/package.json)
+
+All three TypeScript configurations enable `strict`, `noUncheckedIndexedAccess`, and `exactOptionalPropertyTypes`. The analyzer and CLI also enable JSON module resolution and include the upstream engine/analyzer source in their compilation scope.
+
+### Dependency/install strategy observations
+
+- No root `package.json`, root `package-lock.json`, `pnpm-workspace.yaml`, or root `bun.lock` was found at the inspected paths on this branch.
+- Each package has its own `package.json`. The CLI README instructs users to run `npm install` and `npm run build` from the CLI directory.
+- No package-level lockfile was confirmed during this follow-up. Without committed lockfiles, version ranges can resolve to different dependency graphs over time; reproducible dependency installation remains an open finding.
+- Do not run `npm run check` or `npm test` from the repository root: the verified scripts are package-local.
+
+### Existing CI run evidence
+
+GitHub Actions run [#38368575027](https://github.com/Inflame21/engineering-governance/actions/runs/38368575027) completed successfully for the PR merge commit `7593746d2f98fdb962bf64d436717ebf018bed85` on 2026-10-13. Its engine, analyzer, and CLI jobs report successful dependency installation, dependency vulnerability reporting, type-check, tests, and builds. The CLI job's executable smoke test passed; the engine/analyzer smoke-test steps were skipped.
+
+**Scope caveat:** This CI evidence is tied to that pull-request merge commit, not automatically to every later commit on `audit/phase-0-baseline`. It is valid evidence for the exact SHA above only. Re-run CI against the final audited commit before closing AUD-01. CI passing does not complete the adversarial security, branch-ruleset alignment, or production-approval gates.
+
+### Updated disposition
+
+- **AUD-01:** Partially satisfied by successful CI evidence on the recorded PR merge SHA; still open for exact-SHA alignment and lockfile/reproducibility assessment.
+- **AUD-07:** CLI smoke test passed on the recorded PR merge SHA; full exit-code matrix remains unverified by the evidence inspected here.
+- **AUD-08:** A successful workflow run is confirmed, but active workflow definitions and exact required status-check/ruleset alignment remain to be verified.
+- **Dependency reproducibility:** Keep open until package lockfile strategy is explicitly chosen and CI installs dependencies reproducibly.
+
+No production approval is granted by this follow-up.
