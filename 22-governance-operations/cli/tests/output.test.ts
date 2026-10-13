@@ -82,6 +82,45 @@ describe("CLI output", () => {
     expect(output).toContain("Evidence: EVD-ARCH-001");
   });
 
+  it("renders verified architecture change-impact details", () => {
+    const withImpact: RepositoryAnalysis = {
+      ...analysis,
+      architecture: {
+        profileId: "clean-architecture",
+        status: "COMPLETE",
+        graph: {
+          nodes: [],
+          edges: [],
+          components: [],
+          componentEdges: [],
+          changeImpact: {
+            status: "VERIFIED",
+            changedFiles: ["src/infrastructure/db.ts"],
+            changedComponents: ["COMP:infrastructure"],
+            impactedFiles: ["src/domain/user.ts", "src/infrastructure/db.ts"],
+            impactedComponents: ["COMP:domain", "COMP:infrastructure"],
+            unmappedChangedFiles: [],
+            unresolvedChangedFiles: [],
+            limitations: [],
+          },
+          unresolvedRelativeImports: [],
+          uninspectedSourceFiles: [],
+          unsupportedLanguages: [],
+        },
+        evidence: [],
+        findings: [],
+        limitations: [],
+        supportedCapabilities: [],
+        unsupportedCapabilities: [],
+      },
+    };
+
+    const output = formatAnalysisResult(withImpact, context);
+    expect(output).toContain("Change impact: VERIFIED");
+    expect(output).toContain("Changed components: COMP:infrastructure");
+    expect(output).toContain("Impacted components: COMP:domain, COMP:infrastructure");
+  });
+
   it("renders machine-readable JSON", () => {
     const output = formatJsonResult(analysis, evaluation, context);
     const parsed = JSON.parse(output) as {
