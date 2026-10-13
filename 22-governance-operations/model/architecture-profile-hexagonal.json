@@ -1,0 +1,64 @@
+{
+  "id": "hexagonal-architecture",
+  "version": "1.0.0",
+  "name": "Hexagonal Architecture (Ports and Adapters)",
+  "description": "Enforces dependency direction around the application core and separates inbound from outbound adapters.",
+  "styles": ["hexagonal", "ports-and-adapters"],
+  "boundaryRules": [
+    {
+      "id": "HEX-001",
+      "description": "The domain, application core, and ports must not depend on inbound or outbound adapters.",
+      "severity": "P1",
+      "sourcePattern": "domain|application|ports",
+      "targetPattern": "inbound-adapters|outbound-adapters",
+      "allowed": false
+    },
+    {
+      "id": "HEX-002",
+      "description": "Inbound adapters must not depend directly on outbound adapters.",
+      "severity": "P1",
+      "sourcePattern": "inbound-adapters",
+      "targetPattern": "outbound-adapters",
+      "allowed": false
+    }
+  ],
+  "requiredControls": [],
+  "componentMappings": {
+    "domain": [
+      "src/domain/**",
+      "domain/**",
+      "app/domain/**"
+    ],
+    "application": [
+      "src/application/**",
+      "src/core/**",
+      "application/**"
+    ],
+    "ports": [
+      "src/ports/**",
+      "src/interfaces/**",
+      "ports/**"
+    ],
+    "inbound-adapters": [
+      "src/adapters/inbound/**",
+      "src/inbound/**",
+      "src/api/**",
+      "src/controllers/**"
+    ],
+    "outbound-adapters": [
+      "src/adapters/outbound/**",
+      "src/outbound/**",
+      "src/infrastructure/**",
+      "src/repositories/**",
+      "src/gateways/**"
+    ]
+  },
+  "metadata": {
+    "profileType": "architecture",
+    "status": "implemented",
+    "limitations": [
+      "Component mappings are repository-specific and should be reviewed before enforcing this profile.",
+      "Dependency extraction currently covers TypeScript/JavaScript and Python static imports; alias and dynamic imports may remain unresolved."
+    ]
+  }
+}
