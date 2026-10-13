@@ -208,6 +208,7 @@ export interface GovernanceViolation {
   message: string;
   missingEvidence: string[];
   missingSignals: string[];
+  evidenceRefs?: string[];
 }
 
 export interface GovernanceDecision {
