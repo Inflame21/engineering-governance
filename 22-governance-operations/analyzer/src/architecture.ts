@@ -123,6 +123,9 @@ export function validateArchitectureProfile(value: unknown): ArchitectureProfile
   };
 
   validateStringArray("styles", true);
+  if (Array.isArray(profile.styles) && profile.styles.length === 0) {
+    errors.push("/styles must contain at least one architecture style.");
+  }
   validateStringArray("requiredControls", true);
   validateStringArray("capabilities", false);
 
@@ -173,9 +176,14 @@ export function validateArchitectureProfile(value: unknown): ArchitectureProfile
       errors.push("/componentMappings must be an object mapping roles to path-pattern arrays.");
     } else {
       for (const [role, patterns] of Object.entries(profile.componentMappings as Record<string, unknown>)) {
-        if (!role.trim() || !Array.isArray(patterns) || patterns.length === 0 ||
+        if (!/^[a-z][a-z0-9-]*$/.test(role)) {
+          errors.push(`/componentMappings/${role} must use a lowercase role identifier.`);
+        }
+        if (!Array.isArray(patterns) || patterns.length === 0 ||
           patterns.some((pattern) => typeof pattern !== "string" || pattern.trim().length === 0)) {
           errors.push(`/componentMappings/${role} must be a non-empty array of path patterns.`);
+        } else if (new Set(patterns).size !== patterns.length) {
+          errors.push(`/componentMappings/${role} must not contain duplicate path patterns.`);
         }
       }
     }
