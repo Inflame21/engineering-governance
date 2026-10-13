@@ -45,7 +45,7 @@ describe("repository adapters", () => {
     expect(result.facts?.frameworks).toEqual(["fastapi", "react", "vite"]);
     expect(result.signals).toContain("framework:fastapi");
     expect(result.signals).toContain("framework:react");
-    expect(result.executionStatus).toBeUndefined();
+    expect(result.executionStatus).toBe("SUCCESS");
   });
 
   it("detects Python API and database capabilities", async () => {
