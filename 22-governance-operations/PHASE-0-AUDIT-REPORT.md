@@ -223,9 +223,9 @@ The ordering prioritizes governance correctness and a reproducible build before 
 
 ## 7. Remediation and Verification Update
 
-**Verified commit:** `90f6f8feb4afd2dde03562bfb48faf0b974b310c`  
-**Workflow run:** [Governance Operations Verification #34](https://github.com/Inflame21/engineering-governance/actions/runs/38359828800)  
-**Result:** `success` — all three package jobs completed type-check, tests, and build successfully on Node.js 22 / npm 10.9.9.
+**Verified commit:** `4fde99c18fd0631445faddad96b67b856e2e2008`  
+**Workflow run:** [Governance Operations Verification #46](https://github.com/Inflame21/engineering-governance/actions/runs/38360103606)  
+**Result:** `success` — all three package jobs completed dependency audit, type-check, tests, and build successfully on Node.js 22 / npm 10.9.9.
 
 | Finding | Current branch status | Evidence / remaining work |
 |---|---|---|
@@ -251,12 +251,13 @@ The ordering prioritizes governance correctness and a reproducible build before 
 - Go projects are recognized from `go.mod`.
 - Python dependency detection now handles quoted `pyproject.toml` declarations.
 - TypeScript frontend detection recognizes conventional `App.tsx`, `main.tsx`, and `index.tsx` entry files; tests now use representative paths.
+- Vitest was upgraded to a patched release after CI surfaced dependency advisories; the subsequent npm audit reports zero vulnerabilities.
 
 ### Remaining verification limits
 
 - The passing workflow proves package type-checks, tests, and builds for the verified commit only.
 - The workflow installs dependencies with `npm install`; lockfiles are not committed yet, so dependency resolution is not fully reproducible.
-- Dependency installation reported **3 vulnerabilities (1 moderate, 2 critical)**. Their advisories and affected dependency paths have not yet been inspected; do not run `npm audit fix --force` without assessing compatibility.
+- The initial dependency audit reported **3 Vitest-related vulnerabilities (1 moderate, 2 critical)**. Vitest was upgraded to `^5.0.4`, the version suggested by npm audit. The verified commit now reports **0 vulnerabilities** across all three packages. No force-upgrade was used.
 - The CLI is not yet a complete executable tool, architecture conformance is not graph-backed, and schema validation is not integrated.
 - No runtime or production approval is claimed.
 
