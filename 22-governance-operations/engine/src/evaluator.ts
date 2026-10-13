@@ -44,9 +44,29 @@ export function isControlApplicable(
   return resolveControlApplicability(control, context).status === "APPLICABLE";
 }
 
+function evidenceIsUsable(
+  control: GovernanceControl,
+  item: GovernanceEvidence,
+  evaluatedAt?: string,
+): boolean {
+  if (item.status !== "VERIFIED" || item.freshness !== "current") return false;
+
+  const maxAgeSeconds = control.max_evidence_age_seconds;
+  if (maxAgeSeconds === undefined) return true;
+  if (!item.generated_at) return false;
+
+  const generatedAt = Date.parse(item.generated_at);
+  const assessmentTime = evaluatedAt ? Date.parse(evaluatedAt) : Date.now();
+  if (!Number.isFinite(generatedAt) || !Number.isFinite(assessmentTime)) return false;
+
+  const ageSeconds = (assessmentTime - generatedAt) / 1_000;
+  return ageSeconds >= 0 && ageSeconds <= maxAgeSeconds;
+}
+
 function evidenceForControl(
   control: GovernanceControl,
   evidence: GovernanceEvidence[],
+  evaluatedAt?: string,
 ): { missing: string[]; supporting: string[] } {
   const required = control.required_evidence ?? [];
   const byId = new Map(evidence.map((item) => [item.id, item]));
@@ -67,7 +87,7 @@ function evidenceForControl(
 
   for (const evidenceId of evidenceIds) {
     const item = byId.get(evidenceId);
-    if (!item || item.status !== "VERIFIED") {
+    if (!item || !evidenceIsUsable(control, item, evaluatedAt)) {
       missing.push(evidenceId);
       continue;
     }
@@ -100,7 +120,7 @@ export function evaluateControl(
     };
   }
 
-  const { missing, supporting } = evidenceForControl(control, evidence);
+  const { missing, supporting } = evidenceForControl(control, evidence, context.evaluatedAt);
 
   if (applicability.status === "UNVERIFIED") {
     return {
@@ -142,7 +162,7 @@ export function evaluateControl(
   } else if (control.status === "NOT_APPLICABLE") {
     reason = "Control is marked NOT_APPLICABLE but its applicability conditions are satisfied; verification is required.";
   } else if (missing.length > 0) {
-    reason = `Required evidence is missing, partial, unverified, or not applicable: ${missing.join(", ")}.`;
+    reason = `Required evidence is missing, stale, partial, unverified, or not applicable: ${missing.join(", ")}.`;
   } else {
     reason = `Verified evidence satisfies control ${control.id}.`;
   }
