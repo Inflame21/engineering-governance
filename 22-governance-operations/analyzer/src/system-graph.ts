@@ -220,13 +220,19 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
     const firstSegment = projectPackage.root.split("/")[0] ?? "";
     if (projectPackage.root !== "." && ["services", "service", "backend", "workers", "worker"].includes(firstSegment)) {
       const serviceId = `SERVICE:${stableId(projectPackage.root)}`;
+      const serviceEvidence = addEvidence(
+        `EVD-SYSTEM-SERVICE-${stableId(projectPackage.root)}`,
+        "PARTIALLY_VERIFIED",
+        `Service identity was inferred from the package path '${projectPackage.root}'; runtime deployment topology was not inspected.`,
+        projectPackage.manifestPaths[0] ?? "repository-snapshot",
+      );
       addNode({
         id: serviceId,
         type: "SERVICE",
         name: path.posix.basename(projectPackage.root),
         packageId: projectPackage.id,
         confidence: 0.85,
-        evidenceRefs: [packageEvidence],
+        evidenceRefs: [serviceEvidence],
       });
       addEdge({
         id: `SYS-EDGE-${stableId(`contains-service:${serviceId}`)}`,
@@ -234,7 +240,7 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
         sourceId: "REPO:ROOT",
         targetId: serviceId,
         confidence: 0.85,
-        evidenceRefs: [packageEvidence],
+        evidenceRefs: [serviceEvidence],
       });
       addEdge({
         id: `SYS-EDGE-${stableId(`service-package:${serviceId}:${projectPackage.id}`)}`,
@@ -242,7 +248,7 @@ export function buildRepositorySystemGraph(snapshot: RepositorySnapshot): Reposi
         sourceId: serviceId,
         targetId: projectPackage.id,
         confidence: 0.85,
-        evidenceRefs: [packageEvidence],
+        evidenceRefs: [serviceEvidence, packageEvidence],
       });
     }
 
