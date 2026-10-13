@@ -125,4 +125,39 @@ describe("architecture profile loader", () => {
       ),
     ).rejects.toThrow("Architecture profile validation failed");
   });
+
+  it.each([
+    {
+      name: "a duplicate boundary-rule identifier",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [...cleanArchitecture.boundaryRules, { ...cleanArchitecture.boundaryRules[0]! }],
+      },
+      diagnostic: "duplicate rule id",
+    },
+    {
+      name: "an invalid component-mapping role",
+      profile: {
+        ...cleanArchitecture,
+        componentMappings: { "Domain Layer": ["src/domain/**"] },
+      },
+      diagnostic: "lowercase role identifier",
+    },
+    {
+      name: "duplicate component-mapping patterns",
+      profile: {
+        ...cleanArchitecture,
+        componentMappings: { domain: ["src/domain/**", "src/domain/**"] },
+      },
+      diagnostic: "must not contain duplicate path patterns",
+    },
+  ])("rejects $name through the CLI profile loader", async ({ profile, diagnostic }) => {
+    await expect(
+      loadArchitectureProfile(
+        "/repo",
+        "architecture.json",
+        memoryFileSystem(undefined, JSON.stringify(profile)),
+      ),
+    ).rejects.toThrow(diagnostic);
+  });
 });

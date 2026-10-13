@@ -43,8 +43,26 @@ function resolveConfinedPath(rootPath: string, relativePath: string): string {
   return target;
 }
 
-/** Node filesystem adapter. Symlinks are not traversed during repository discovery. */
-export const nodeFileSystem: FileSystemPort = {
+export interface NodeFileSystemLimits {
+  maxFiles?: number;
+  maxTextFileBytes?: number;
+}
+
+/**
+ * Create a filesystem adapter confined to its supplied repository root.
+ * Symlinks are never traversed during discovery or text reads.
+ */
+export function createNodeFileSystem(limits: NodeFileSystemLimits = {}): FileSystemPort {
+  const maxFiles = limits.maxFiles ?? MAX_FILES;
+  const maxTextFileBytes = limits.maxTextFileBytes ?? MAX_TEXT_FILE_BYTES;
+  if (!Number.isSafeInteger(maxFiles) || maxFiles <= 0) {
+    throw new Error("maxFiles must be a positive safe integer.");
+  }
+  if (!Number.isSafeInteger(maxTextFileBytes) || maxTextFileBytes <= 0) {
+    throw new Error("maxTextFileBytes must be a positive safe integer.");
+  }
+
+  return {
   async listFiles(rootPath: string): Promise<string[]> {
     const root = await realpath(rootPath);
     const rootInfo = await lstat(root);
@@ -68,8 +86,8 @@ export const nodeFileSystem: FileSystemPort = {
 
         if (entry.isFile()) {
           files.push(relativePath);
-          if (files.length > MAX_FILES) {
-            throw new Error(`Repository scan exceeded the ${MAX_FILES.toLocaleString()} file limit.`);
+          if (files.length > maxFiles) {
+            throw new Error(`Repository scan exceeded the ${maxFiles.toLocaleString()} file limit.`);
           }
         }
       }
@@ -101,14 +119,18 @@ export const nodeFileSystem: FileSystemPort = {
     ) {
       throw new Error(`Resolved file escapes repository root: ${relativePath}`);
     }
-    if (targetInfo.size > MAX_TEXT_FILE_BYTES) {
-      throw new Error(`Refusing to read ${relativePath}: file exceeds ${MAX_TEXT_FILE_BYTES} bytes.`);
+    if (targetInfo.size > maxTextFileBytes) {
+      throw new Error(`Refusing to read ${relativePath}: file exceeds ${maxTextFileBytes} bytes.`);
     }
 
     const content = await readFile(target, "utf8");
     return content;
   },
-};
+  };
+}
+
+/** Default CLI filesystem adapter with production-safe discovery limits. */
+export const nodeFileSystem: FileSystemPort = createNodeFileSystem();
 
 export async function loadRepositorySnapshot(
   rootPath: string,
@@ -148,7 +170,15 @@ export async function loadRepositorySnapshot(
       break;
     }
 
-    const content = await fs.readTextFile(rootPath, relativePath);
+    let content: string | undefined;
+    try {
+      content = await fs.readTextFile(rootPath, relativePath);
+    } catch (error) {
+      contentLimitations.push(
+        `Unable to read content for ${relativePath}; dependent analysis may be incomplete (${error instanceof Error ? error.message : String(error)}).`,
+      );
+      continue;
+    }
     if (content === undefined) {
       if (isSource || manifestPathSet.has(relativePath)) {
         contentLimitations.push(

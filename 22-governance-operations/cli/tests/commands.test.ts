@@ -6,7 +6,12 @@ const pack: GovernancePack = {
   version: "1.0.0",
   project: { id: "demo", name: "Demo", repository: "demo/repo", environment: "production" },
   change: { id: "CHG-1", type: "feature", title: "API change", risk_class: "B", files: ["main.py"] },
-  standards: [],
+  standards: [{
+    id: "API-006",
+    title: "API Governance",
+    version: "1.0.0",
+    source: "06-api/06-api-governance-standard.md",
+  }],
   controls: [{
     id: "API-001",
     standard: "API-006",

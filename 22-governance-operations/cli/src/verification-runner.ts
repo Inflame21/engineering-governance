@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access } from "node:fs/promises";
+import { access, realpath } from "node:fs/promises";
 import path from "node:path";
 import type {
   VerificationProcessResult,
@@ -8,6 +8,36 @@ import type {
 } from "../../analyzer/src/verification.js";
 
 const EXECUTION_BUFFER_BYTES = 2_000_000;
+
+function assertAllowlistedTool(tool: string): asserts tool is VerificationToolName {
+  if (tool !== "typescript" && tool !== "python3" && tool !== "python") {
+    throw new Error(`Verification tool is not allowlisted: ${tool}`);
+  }
+}
+
+async function resolveConfinedWorkingDirectory(rootPath: string, workingDirectory: string): Promise<string> {
+  const root = await realpath(rootPath);
+  const candidate = path.resolve(root, workingDirectory);
+  const lexicalRelative = path.relative(root, candidate);
+  if (
+    lexicalRelative === ".." ||
+    lexicalRelative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(lexicalRelative)
+  ) {
+    throw new Error(`Verification working directory escapes repository root: ${workingDirectory}`);
+  }
+
+  const canonicalCandidate = await realpath(candidate);
+  const canonicalRelative = path.relative(root, canonicalCandidate);
+  if (
+    canonicalRelative === ".." ||
+    canonicalRelative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(canonicalRelative)
+  ) {
+    throw new Error(`Verification working directory resolves outside repository root: ${workingDirectory}`);
+  }
+  return canonicalCandidate;
+}
 
 function runExecutable(
   executable: string,
@@ -55,8 +85,8 @@ function runExecutable(
 }
 
 async function findTypeScriptCompiler(rootPath: string, workingDirectory: string): Promise<string | undefined> {
-  const root = path.resolve(rootPath);
-  let directory = path.resolve(root, workingDirectory);
+  const root = await realpath(rootPath);
+  let directory = await resolveConfinedWorkingDirectory(root, workingDirectory);
 
   while (directory === root || directory.startsWith(`${root}${path.sep}`)) {
     const candidate = path.join(directory, "node_modules", "typescript", "bin", "tsc");
@@ -78,12 +108,14 @@ async function findTypeScriptCompiler(rootPath: string, workingDirectory: string
  */
 export const nodeVerificationToolRunner: VerificationToolRunner = {
   async isAvailable(tool: VerificationToolName, rootPath: string, workingDirectory: string): Promise<boolean> {
+    assertAllowlistedTool(tool);
     if (tool === "typescript") {
       return Boolean(await findTypeScriptCompiler(rootPath, workingDirectory));
     }
 
     try {
-      const result = await runExecutable(tool, ["--version"], rootPath, 5_000);
+      const cwd = await resolveConfinedWorkingDirectory(rootPath, workingDirectory);
+      const result = await runExecutable(tool, ["--version"], cwd, 5_000);
       return result.exitCode === 0;
     } catch {
       return false;
@@ -95,6 +127,7 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
     rootPath: string,
     workingDirectory: string,
   ): Promise<string | undefined> {
+    assertAllowlistedTool(tool);
     try {
       if (tool === "typescript") {
         const compiler = await findTypeScriptCompiler(rootPath, workingDirectory);
@@ -102,12 +135,17 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
         const result = await runExecutable(
           process.execPath,
           [compiler, "--version"],
-          path.resolve(rootPath, workingDirectory),
+          await resolveConfinedWorkingDirectory(rootPath, workingDirectory),
           5_000,
         );
         return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
       }
-      const result = await runExecutable(tool, ["--version"], path.resolve(rootPath, workingDirectory), 5_000);
+      const result = await runExecutable(
+        tool,
+        ["--version"],
+        await resolveConfinedWorkingDirectory(rootPath, workingDirectory),
+        5_000,
+      );
       return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
     } catch {
       return undefined;
@@ -121,17 +159,19 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
     workingDirectory: string,
     timeoutMs: number,
   ): Promise<VerificationProcessResult> {
+    assertAllowlistedTool(tool);
+    const cwd = await resolveConfinedWorkingDirectory(rootPath, workingDirectory);
     if (tool === "typescript") {
       const compiler = await findTypeScriptCompiler(rootPath, workingDirectory);
       if (!compiler) throw new Error(`Local TypeScript compiler was not found for ${workingDirectory}.`);
       return runExecutable(
         process.execPath,
         [compiler, ...args],
-        path.resolve(rootPath, workingDirectory),
+        cwd,
         timeoutMs,
       );
     }
 
-    return runExecutable(tool, args, path.resolve(rootPath, workingDirectory), timeoutMs);
+    return runExecutable(tool, args, cwd, timeoutMs);
   },
 };

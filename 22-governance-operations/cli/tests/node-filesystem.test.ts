@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { nodeFileSystem } from "../src/filesystem.js";
+import { createNodeFileSystem, nodeFileSystem } from "../src/filesystem.js";
 
 const temporaryRoots: string[] = [];
 
@@ -39,9 +39,11 @@ describe("Node filesystem adapter", () => {
     const root = await createRoot();
     const outside = await createRoot();
     await writeFile(path.join(outside, "secret.txt"), "secret");
-    await symlink(outside, path.join(root, "external-link"), "dir");
+    await symlink(outside, path.join(root, "external-link"), process.platform === "win32" ? "junction" : "dir");
 
     await expect(nodeFileSystem.listFiles(root)).resolves.toEqual([]);
+    await expect(nodeFileSystem.readTextFile(root, "external-link/secret.txt"))
+      .rejects.toThrow("Resolved file escapes repository root");
   });
 
   it("loads only regular files within the configured size limit", async () => {
@@ -52,5 +54,16 @@ describe("Node filesystem adapter", () => {
       .resolves.toBe('{"name":"example"}');
     await expect(nodeFileSystem.readTextFile(root, "missing.json"))
       .resolves.toBeUndefined();
+  });
+
+  it("enforces file-count and text-size limits before unbounded discovery or reads", async () => {
+    const root = await createRoot();
+    await writeFile(path.join(root, "one.txt"), "one");
+    await writeFile(path.join(root, "two.txt"), "two");
+    await writeFile(path.join(root, "large.txt"), "too large");
+    const bounded = createNodeFileSystem({ maxFiles: 2, maxTextFileBytes: 4 });
+
+    await expect(bounded.listFiles(root)).rejects.toThrow("2 file limit");
+    await expect(bounded.readTextFile(root, "large.txt")).rejects.toThrow("exceeds 4 bytes");
   });
 });

@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import type { GovernancePack } from "../../engine/src/types.js";
-import type { ArchitectureProfile } from "../../analyzer/src/architecture.js";
+import { validateArchitectureProfile, type ArchitectureProfile } from "../../analyzer/src/architecture.js";
 import { validateGovernancePackSemantics } from "../../engine/src/validation.js";
 import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
 import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
@@ -106,12 +106,9 @@ export async function loadArchitectureProfile(
   }
 
   const profile = parsed as ArchitectureProfile;
-  const seenRuleIds = new Set<string>();
-  for (const rule of profile.boundaryRules) {
-    if (seenRuleIds.has(rule.id)) {
-      throw new Error(`Architecture profile validation failed: duplicate boundary rule id '${rule.id}'.`);
-    }
-    seenRuleIds.add(rule.id);
+  const semanticValidation = validateArchitectureProfile(profile);
+  if (!semanticValidation.valid) {
+    throw new Error(`Architecture profile validation failed: ${semanticValidation.errors.join("; ")}`);
   }
 
   return profile;

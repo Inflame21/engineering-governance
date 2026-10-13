@@ -34,6 +34,22 @@ describe("repository snapshot loader", () => {
     expect(snapshot.contentLimitations?.some((item) => item.includes("src/main.ts"))).toBe(true);
   });
 
+  it("preserves an injected filesystem read failure as an explicit partial-analysis limitation", async () => {
+    const snapshot = await loadRepositorySnapshot("/repo", {
+      async listFiles() {
+        return ["src/main.ts", "package.json"];
+      },
+      async readTextFile(_root, relativePath) {
+        if (relativePath === "package.json") return '{"dependencies":{"react":"^19.0.0"}}';
+        throw new Error("EACCES: permission denied");
+      },
+    });
+
+    expect(snapshot.fileContents?.["package.json"]).toBeTruthy();
+    expect(snapshot.fileContents?.["src/main.ts"]).toBeUndefined();
+    expect(snapshot.contentLimitations?.join(" ")).toContain("EACCES");
+  });
+
   it("loads paths and manifest contents through an injected filesystem port", async () => {
     const snapshot = await loadRepositorySnapshot("/repo", {
       async listFiles() {

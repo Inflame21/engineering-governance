@@ -158,6 +158,7 @@ describe("CLI output", () => {
             unresolvedChangedFiles: [],
             limitations: [],
           },
+          ambiguousRoleMappings: [],
           unresolvedRelativeImports: [],
           uninspectedSourceFiles: [],
           unsupportedLanguages: [],
