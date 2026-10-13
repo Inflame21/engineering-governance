@@ -113,4 +113,80 @@ describe("built governance CLI", () => {
     expect(parsed.context.analysisStatus).toBe("PARTIAL");
     expect(parsed.context.unsupportedCapabilities).toContain("language-specific-analysis:go");
   });
+
+  const invalidGovernanceInputs: Array<[string, (root: string) => Promise<string[]>, string]> = [
+    ["a schema-invalid pack", async (root) => {
+      const { project: _project, ...withoutProject } = pack();
+      await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(withoutProject));
+      return [];
+    }, "required property 'project'"],
+    ["a pack with a dangling standard reference", async (root) => {
+      const dangling = {
+        ...pack(),
+        controls: [{ id: "C-1", standard: "NO-SUCH-STD", title: "t", severity: "P1", applies_when: [], required_evidence: [] }],
+      };
+      await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(dangling));
+      return [];
+    }, "NO-SUCH-STD"],
+    ["a pack with duplicate evidence IDs", async (root) => {
+      const item = { id: "EVD-1", type: "E3_AUTOMATED_ANALYSIS", status: "VERIFIED", description: "d", source: "s", freshness: "current", supports_controls: [] };
+      await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify({ ...pack(), evidence: [item, item] }));
+      return [];
+    }, "EVD-1"],
+    ["a missing governance pack", async (root) => {
+      await rm(path.join(root, ".governance", "governance-pack.json"));
+      return [];
+    }, "Governance CLI error:"],
+    ["a malformed architecture profile", async (root) => {
+      await mkdir(path.join(root, ".governance", "profiles"), { recursive: true });
+      await writeFile(path.join(root, ".governance", "profiles", "bad.json"), '{"unexpected":true}');
+      return ["--profile", ".governance/profiles/bad.json"];
+    }, "Architecture profile validation failed"],
+    ["a missing architecture profile", async () => ["--profile", ".governance/profiles/absent.json"], "Governance CLI error:"],
+    ["a profile path that escapes the repository", async () => ["--profile", "../outside.json"], "Governance CLI error:"],
+  ];
+
+  it.each(invalidGovernanceInputs)(
+    "exits 3 with a diagnostic and no decision output for %s in human and JSON modes",
+    async (_label, arrange, diagnostic) => {
+      const root = await createRoot("governance-cli-invalid-");
+      await mkdir(path.join(root, ".governance"), { recursive: true });
+      await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(pack()));
+      const extraArgs = await arrange(root);
+
+      for (const mode of [[], ["--json"]]) {
+        const result = await runCli(["check", root, ...extraArgs, ...mode]);
+        expect(result.exitCode).toBe(3);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toContain("Governance CLI error:");
+        expect(result.stderr).toContain(diagnostic);
+      }
+    },
+  );
+
+  it("exits 3 when the repository root is a file, in human and JSON modes", async () => {
+    const root = await createRoot("governance-cli-rootfile-");
+    const file = path.join(root, "not-a-directory.txt");
+    await writeFile(file, "x");
+
+    for (const mode of [[], ["--json"]]) {
+      const result = await runCli(["analyze", file, ...mode]);
+      expect(result.exitCode).toBe(3);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("not a directory");
+    }
+  });
+
+  it("renders the same NO-GO decision in human and JSON output", async () => {
+    const root = await createCompleteFixture();
+    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(pack(true)));
+
+    const human = await runCli(["check", root]);
+    const json = await runCli(["check", root, "--json"]);
+
+    expect(human.exitCode).toBe(2);
+    expect(json.exitCode).toBe(2);
+    expect(human.stdout).toContain("Decision: NO-GO");
+    expect(JSON.parse(json.stdout).evaluation.decision.status).toBe("NO-GO");
+  });
 });

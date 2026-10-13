@@ -343,3 +343,33 @@ describe("architecture profiles", () => {
     ]);
   });
 });
+
+describe("architecture fail-closed edge cases", () => {
+  it("keeps verification partial when a relative import targets a file that is not in the snapshot", () => {
+    const result = verifyArchitectureProfile({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["src/domain/user.ts"],
+      fileContents: { "src/domain/user.ts": 'import { db } from "../infrastructure/missing";' },
+    }, cleanArchitectureExample as ArchitectureProfile);
+
+    expect(result.status).toBe("PARTIAL");
+    expect(result.findings).toHaveLength(0);
+    expect(result.graph.unresolvedRelativeImports).toContainEqual({
+      file: "src/domain/user.ts",
+      line: 1,
+      specifier: "../infrastructure/missing",
+    });
+  });
+
+  it.each([
+    ["null", null],
+    ["an array", []],
+    ["a string", "profile"],
+    ["a numeric id", { ...cleanArchitecture, id: 7 }],
+    ["an invalid rule severity", { ...cleanArchitecture, boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, severity: "CRITICAL" }] }],
+    ["a non-string source pattern", { ...cleanArchitecture, boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, sourcePattern: 3 }] }],
+  ])("rejects a profile that is %s", (_label, candidate) => {
+    expect(validateArchitectureProfile(candidate as never).valid).toBe(false);
+  });
+});

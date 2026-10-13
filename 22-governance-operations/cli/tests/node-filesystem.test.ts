@@ -66,4 +66,37 @@ describe("Node filesystem adapter", () => {
     await expect(bounded.listFiles(root)).rejects.toThrow("2 file limit");
     await expect(bounded.readTextFile(root, "large.txt")).rejects.toThrow("exceeds 4 bytes");
   });
+
+  it("rejects a repository root that does not exist or is not a directory", async () => {
+    const root = await createRoot();
+    await writeFile(path.join(root, "file.txt"), "not a directory");
+
+    await expect(nodeFileSystem.listFiles(path.join(root, "missing"))).rejects.toThrow();
+    await expect(nodeFileSystem.listFiles(path.join(root, "file.txt"))).rejects.toThrow("not a directory");
+  });
+
+  it("does not list or read a file symlink that points outside the repository", async (context) => {
+    const root = await createRoot();
+    const outside = await createRoot();
+    await writeFile(path.join(outside, "secret.txt"), "secret");
+    try {
+      await symlink(path.join(outside, "secret.txt"), path.join(root, "link.txt"), "file");
+    } catch (error) {
+      // shortcut: Windows needs symlink privilege; CI (Linux) exercises this case.
+      if ((error as NodeJS.ErrnoException).code === "EPERM") return context.skip();
+      throw error;
+    }
+
+    await expect(nodeFileSystem.listFiles(root)).resolves.toEqual([]);
+    await expect(nodeFileSystem.readTextFile(root, "link.txt")).rejects.toThrow();
+  });
+
+  it("treats file names containing shell metacharacters as literal data", async () => {
+    const root = await createRoot();
+    const name = "a;b$(id)`x`&c.ts";
+    await writeFile(path.join(root, name), "export {};");
+
+    await expect(nodeFileSystem.listFiles(root)).resolves.toEqual([name]);
+    await expect(nodeFileSystem.readTextFile(root, name)).resolves.toBe("export {};");
+  });
 });
