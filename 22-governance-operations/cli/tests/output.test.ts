@@ -26,7 +26,6 @@ const context = {
   evaluatedAt: "2026-10-13T00:00:00Z",
 };
 
-const context = { signals: analysis.signals, analysisStatus: "COMPLETE" as const, unsupportedCapabilities: [], analyzerLimitations: [] };
 
 const evaluation: GovernanceEvaluation = {
   controls: [],
