@@ -52,7 +52,9 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
         facts: {},
         signals: [],
         evidence: [],
-        supportedCapabilities: ["manifest-dependency-detection", "framework-detection"],
+        executionStatus: "PARTIAL",
+        supportedCapabilities: ["manifest-dependency-detection"],
+        unsupportedCapabilities: ["framework-detection"],
         limitations: ["No recognized framework dependency was found in the supported root manifests."],
       };
     }
