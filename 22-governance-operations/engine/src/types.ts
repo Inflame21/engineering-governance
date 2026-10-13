@@ -77,6 +77,7 @@ export interface GovernanceRisk {
   owner?: string;
   accepted_by?: string;
   accepted_at?: string;
+  acceptance_expires_at?: string;
   acceptance_reason?: string;
 }
 
