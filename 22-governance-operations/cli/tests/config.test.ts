@@ -55,7 +55,7 @@ describe("governance pack loader", () => {
       evidence: Array<Record<string, unknown>>;
     };
     candidate.controls[0]!["max_evidence_age_seconds"] = 3600;
-    candidate.evidence[0]!["freshness"] = "current";
+    candidate.evidence[0]!["freshness_status"] = "current";
 
     const pack = await loadGovernancePack(
       "/repo",
@@ -64,7 +64,7 @@ describe("governance pack loader", () => {
     );
     expect(pack.controls[0]?.max_evidence_age_seconds).toBe(3600);
 
-    candidate.evidence[0]!["freshness"] = "brand-new";
+    candidate.evidence[0]!["freshness_status"] = "brand-new";
     await expect(
       loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
     ).rejects.toThrow("schema validation failed");
