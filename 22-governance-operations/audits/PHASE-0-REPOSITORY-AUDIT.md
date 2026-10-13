@@ -272,9 +272,9 @@ The active `main` ruleset requires the exact corresponding check contexts:
 The check-runs API for audit-branch SHA `59381c69fca7587bfa08353cca4f48aeb2300d7f` reports all three checks completed with conclusion `success`:
 - [Verify cli](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243744314)
 - [Verify analyzer](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243744155)
-- [Verify engine](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243744314)
+- [Verify engine](https://github.com/Inflame21/engineering-governance/actions/runs/38381785937/job/115243743655)
 
-**Evidence scope:** this verifies emitted check names and successful results for the exact audit-branch SHA above. It does not prove that a deliberately failing check blocks merging; that enforcement test remains outstanding.
+**Evidence scope:** this verifies emitted check names and successful results for the exact audit-branch SHA above, which preceded this documentation-only follow-up commit. The follow-up commit is `c20266090e788450cb7d7e951fdd30c3343e779a`; its check-runs endpoint had not yet returned checks at the time of this edit. It does not prove that a deliberately failing check blocks merging; that enforcement test remains outstanding.
 
 ### Active ruleset settings observed through the API
 
@@ -296,7 +296,7 @@ This confirms dependency-version drift between the base branch and audit branch.
 
 ### Updated disposition
 
-- **AUD-01:** CI evidence now exists for the current audit-branch SHA `59381c69fca7587bfa08353cca4f48aeb2300d7f`; reproducible dependency resolution remains open.
+- **AUD-01:** CI evidence exists for audit-branch SHA `59381c69fca7587bfa08353cca4f48aeb2300d7f`; CI must also pass on the documentation follow-up commit `c20266090e788450cb7d7e951fdd30c3343e779a`. Reproducible dependency resolution remains open.
 - **AUD-07:** The current workflow's CLI smoke test is present and the CLI check passed, but the complete documented exit-code/error matrix remains unverified.
 - **AUD-08:** Active workflow and exact required check-name alignment are verified. Enforcement against a deliberately failing check remains unverified. The strict up-to-date policy is disabled and should be an explicit governance decision.
 - **Ruleset administration:** Active ruleset and administrator bypass are API-verified. No ruleset settings were changed during this audit.
