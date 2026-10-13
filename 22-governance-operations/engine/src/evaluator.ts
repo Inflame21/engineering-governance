@@ -49,7 +49,7 @@ function evidenceIsUsable(
   item: GovernanceEvidence,
   evaluatedAt?: string,
 ): boolean {
-  if (item.status !== "VERIFIED" || item.freshness !== "current") return false;
+  if (item.status !== "VERIFIED" || (item.freshness_status !== undefined && item.freshness_status !== "current")) return false;
 
   const maxAgeSeconds = control.max_evidence_age_seconds;
   if (maxAgeSeconds === undefined) return true;
