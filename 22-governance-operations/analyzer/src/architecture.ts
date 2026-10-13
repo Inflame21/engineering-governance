@@ -1,4 +1,5 @@
 import path from "node:path";
+import { detectRepositoryFacts } from "./detector.js";
 import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
 import type { RepositorySnapshot } from "./types.js";
 
@@ -34,6 +35,8 @@ export interface ArchitectureGraphNode {
   path: string;
   language: string;
   roles: string[];
+  packageId?: string;
+  packageRoot?: string;
 }
 
 export interface ArchitectureGraphEdge {
@@ -73,11 +76,22 @@ export interface ArchitectureChangeImpact {
   limitations: string[];
 }
 
+export interface ArchitecturePackageEdge {
+  id: string;
+  sourcePackageId: string;
+  targetPackageId: string;
+  sourceFile: string;
+  targetFile: string;
+  sourceLocation: { file: string; line: number };
+  evidenceRef: string;
+}
+
 export interface ArchitectureDependencyGraph {
   nodes: ArchitectureGraphNode[];
   edges: ArchitectureGraphEdge[];
   components: ArchitectureGraphComponent[];
   componentEdges: ArchitectureComponentEdge[];
+  packageEdges: ArchitecturePackageEdge[];
   changeImpact: ArchitectureChangeImpact;
   unresolvedRelativeImports: Array<{ file: string; line: number; specifier: string }>;
   uninspectedSourceFiles: string[];
@@ -389,12 +403,20 @@ export function buildArchitectureDependencyGraph(
   const fileSet = new Set(sourceFiles);
   const sourceContent = snapshot.fileContents ?? {};
   const topLevelModules = new Set(sourceFiles.map((file) => file.split("/")[0]?.replace(/\.py$/, "") ?? ""));
-  const nodes: ArchitectureGraphNode[] = sourceFiles.map((file) => ({
-    id: `FILE:${file}`,
-    path: file,
-    language: languageForFile(file) ?? "unknown",
-    roles: mapRoles(file, profile?.componentMappings),
-  }));
+  const packageFacts = detectRepositoryFacts(snapshot).packages ?? [];
+  const packageForFile = (file: string) => packageFacts
+    .filter((item) => item.root === "." || file === item.root || file.startsWith(`${item.root}/`))
+    .sort((left, right) => right.root.length - left.root.length)[0];
+  const nodes: ArchitectureGraphNode[] = sourceFiles.map((file) => {
+    const projectPackage = packageForFile(file);
+    return {
+      id: `FILE:${file}`,
+      path: file,
+      language: languageForFile(file) ?? "unknown",
+      roles: mapRoles(file, profile?.componentMappings),
+      ...(projectPackage ? { packageId: projectPackage.id, packageRoot: projectPackage.root } : {}),
+    };
+  });
   const nodeIds = new Set(nodes.map((node) => node.path));
   const edges: ArchitectureGraphEdge[] = [];
   const unresolvedRelativeImports: ArchitectureDependencyGraph["unresolvedRelativeImports"] = [];
@@ -576,6 +598,22 @@ export function buildArchitectureDependencyGraph(
     for (const role of nodeByPath.get(file)?.roles ?? []) impactedComponents.add(`COMP:${role}`);
   }
 
+  const packageEdges: ArchitecturePackageEdge[] = [];
+  for (const edge of edges) {
+    const source = nodeByPath.get(edge.sourceId.slice("FILE:".length));
+    const target = nodeByPath.get(edge.targetId.slice("FILE:".length));
+    if (!source?.packageId || !target?.packageId || source.packageId === target.packageId) continue;
+    packageEdges.push({
+      id: `PKGEDGE:${stableId(`${source.packageId}:${target.packageId}:${edge.id}`)}`,
+      sourcePackageId: source.packageId,
+      targetPackageId: target.packageId,
+      sourceFile: source.path,
+      targetFile: target.path,
+      sourceLocation: edge.sourceLocation,
+      evidenceRef: edge.evidenceRef,
+    });
+  }
+
   const changeImpact: ArchitectureChangeImpact = {
     status: changeImpactStatus,
     changedFiles: normalizedChangedFiles,
@@ -598,6 +636,11 @@ export function buildArchitectureDependencyGraph(
     componentEdges: componentEdges.sort((a, b) =>
       a.sourceComponentId.localeCompare(b.sourceComponentId) ||
       a.targetComponentId.localeCompare(b.targetComponentId) ||
+      a.sourceFile.localeCompare(b.sourceFile),
+    ),
+    packageEdges: packageEdges.sort((a, b) =>
+      a.sourcePackageId.localeCompare(b.sourcePackageId) ||
+      a.targetPackageId.localeCompare(b.targetPackageId) ||
       a.sourceFile.localeCompare(b.sourceFile),
     ),
     changeImpact,
