@@ -3,9 +3,41 @@ export type ControlStatus = "PASS" | "FAIL" | "WARN" | "NOT_APPLICABLE" | "UNVER
 export type EvidenceStatus = "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
 export type FailureDecision = "NO-GO" | "GO_WITH_CONDITIONS" | "REVIEW_REQUIRED" | "NONE";
 
+export type GovernanceChangeType =
+  | "feature"
+  | "bugfix"
+  | "refactor"
+  | "security"
+  | "database"
+  | "infrastructure"
+  | "configuration"
+  | "release"
+  | "emergency";
+
+export type GovernanceEvidenceType =
+  | "E1_DIRECT_VERIFICATION"
+  | "E2_INSPECTION"
+  | "E3_AUTOMATED_ANALYSIS"
+  | "E4_OPERATIONAL"
+  | "E5_DOCUMENTARY"
+  | "E6_ASSERTION";
+
+export type GovernanceDecisionType = "READINESS" | "REVIEW" | "RELEASE" | "PRODUCTION";
+export type GovernanceDecisionRecordStatus =
+  | "READY"
+  | "READY_WITH_CONDITIONS"
+  | "NOT_READY"
+  | "APPROVE"
+  | "APPROVE_WITH_CONDITIONS"
+  | "REQUEST_CHANGES"
+  | "REJECT"
+  | "GO"
+  | "GO_WITH_CONDITIONS"
+  | "NO-GO";
+
 export interface GovernanceChange {
   id: string;
-  type: string;
+  type: GovernanceChangeType;
   title: string;
   description?: string;
   author?: string;
@@ -18,6 +50,7 @@ export interface GovernanceControl {
   standard: string;
   title: string;
   severity: Severity;
+  /** A declaration is not proof; the evaluator derives the effective status from evidence. */
   status?: ControlStatus;
   applies_when?: string | string[];
   required_evidence?: string[];
@@ -27,7 +60,7 @@ export interface GovernanceControl {
 
 export interface GovernanceEvidence {
   id: string;
-  type: string;
+  type: GovernanceEvidenceType;
   status: EvidenceStatus;
   description: string;
   source: string;
@@ -51,17 +84,50 @@ export interface GovernanceStandard {
   source: string;
 }
 
+export interface GovernanceDecisionRecord {
+  id: string;
+  type: GovernanceDecisionType;
+  status: GovernanceDecisionRecordStatus;
+  reason?: string;
+  evidence?: string[];
+  owner?: string;
+  timestamp?: string;
+}
+
+export interface GovernanceException {
+  id: string;
+  status: "REQUESTED" | "APPROVED" | "REJECTED" | "EXPIRED" | "CLOSED";
+  control?: string;
+  reason?: string;
+  expires_at?: string;
+}
+
+export interface GovernanceDebt {
+  id: string;
+  severity: Severity;
+  status: "OPEN" | "PLANNED" | "IN_PROGRESS" | "ACCEPTED" | "RESOLVED";
+  title?: string;
+  owner?: string;
+}
+
+export interface GovernanceProject {
+  id: string;
+  name: string;
+  repository: string;
+  environment: string;
+}
+
 export interface GovernancePack {
   version: string;
-  project: { id: string; name: string; repository: string; environment: string };
+  project: GovernanceProject;
   change: GovernanceChange;
   standards: GovernanceStandard[];
   controls: GovernanceControl[];
   evidence: GovernanceEvidence[];
   risks: GovernanceRisk[];
-  decisions: Array<Record<string, unknown>>;
-  exceptions?: Array<Record<string, unknown>>;
-  debt?: Array<Record<string, unknown>>;
+  decisions: GovernanceDecisionRecord[];
+  exceptions?: GovernanceException[];
+  debt?: GovernanceDebt[];
 }
 
 export interface GovernanceContext {
