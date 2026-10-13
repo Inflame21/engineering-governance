@@ -4,7 +4,7 @@
 **Audited ref:** `main` at commit `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`  
 **Audit branch:** `audit/phase-0-baseline`  
 **Audit date:** 2026-10-13  
-**Status:** Source inspection completed for the initial executable foundation; build/test execution remains unverified.
+**Status:** Initial source audit completed. Subsequent remediation and GitHub Actions verification are recorded in Section 7.
 
 ## 1. Executive Summary
 
@@ -27,7 +27,7 @@ Inspected the recursive Git tree and the following areas:
 
 The GitHub tree contains 109 entries at the audited commit. No root `package.json`, workspace manifest, or `.github/workflows/` directory was present in the inspected tree.
 
-**Execution limitation:** Source files were inspected through GitHub repository access, but a local checkout with dependencies was not available in this audit execution. Therefore, build, type-check, test, and runtime outcomes have not been represented as passed or failed. Static TypeScript inconsistencies are identified below and must be confirmed with the compiler.
+**Initial execution limitation:** The source audit began through GitHub repository access without a local checkout. A verification workflow was then added and executed on GitHub Actions. Its successful results and remaining limitations are recorded in Section 7. No runtime or production verification is implied.
 
 ## 3. Prioritized Defect Register
 
@@ -213,9 +213,51 @@ The ordering prioritizes governance correctness and a reproducible build before 
 - [x] Initial prioritized defect register created.
 - [x] Governance-engine fail-open path identified.
 - [x] Package, schema, CLI, architecture, and CI gaps recorded.
-- [ ] Engine/analyzer/CLI builds executed and results recorded.
-- [ ] Engine/analyzer/CLI test suites executed and results recorded.
-- [ ] Actual TypeScript diagnostics captured.
-- [ ] Reproducible local/workspace build path established.
+- [x] Engine/analyzer/CLI builds executed and results recorded in GitHub Actions.
+- [x] Engine/analyzer/CLI test suites executed and results recorded in GitHub Actions.
+- [x] Actual TypeScript diagnostics captured during the initial failing runs; corrected issues were rechecked.
+- [ ] Reproducible dependency installation is established; package-level CI works, but lockfiles are not yet committed.
 
 **Phase 0 is source-audit complete but not execution-verified.** Do not mark build/test tasks as passing until they have been run in a reproducible environment. AUD-F01 is the first implementation priority once the build path permits reliable verification.
+
+
+## 7. Remediation and Verification Update
+
+**Verified commit:** `90f6f8feb4afd2dde03562bfb48faf0b974b310c`  
+**Workflow run:** [Governance Operations Verification #34](https://github.com/Inflame21/engineering-governance/actions/runs/38359828800)  
+**Result:** `success` — all three package jobs completed type-check, tests, and build successfully on Node.js 22 / npm 10.9.9.
+
+| Finding | Current branch status | Evidence / remaining work |
+|---|---|---|
+| AUD-F01 — Evidence can be bypassed by declared PASS | **Fixed in branch** | Evaluator now requires VERIFIED evidence; regression tests cover missing, UNVERIFIED, PARTIALLY_VERIFIED, NOT_APPLICABLE, and no-evidence cases. |
+| AUD-F02 — Decision/output contract mismatch | **Fixed in branch** | Open risks are part of the decision contract; P2/P3 open risks become conditional warnings; CLI output contract is typed. |
+| AUD-F03 — TypeScript source root boundaries | **Fixed in branch** | Analyzer and CLI compile with shared source roots; CI build confirms this configuration compiles. |
+| AUD-F04 — Schema/runtime type drift | **Open** | Requires canonical contract alignment and schema/semantic validation. |
+| AUD-F05 — Analyzer facts overwrite each other | **Fixed in branch** | Repository facts now merge per known fact field; adapter outputs can be partial. Framework markers no longer classify package manifests as frameworks. |
+| AUD-F06 — No runnable CLI entry point | **Open** | Current CLI remains programmatic; no verified `governance check .` command. |
+| AUD-F07 — Governance pack schema validation absent | **Open** | Loader still parses JSON and casts it without schema validation. |
+| AUD-F08 — Runtime architecture profile validation is incomplete | **Open** | Full schema validation and semantic reference checks remain. |
+| AUD-F09 — Monorepo manifest detection is incomplete | **Open** | Nested manifest/component attribution is not implemented. |
+| AUD-F10 — No GitHub Actions workflow | **Fixed in branch** | Package-level workflow now runs type-check, tests, and build. |
+| AUD-F11 — No graph-backed architecture conformance | **Open** | Profiles still do not evaluate real dependency edges. |
+| AUD-F12 — Changed-file scope is not used for impact analysis | **Open** | Change-aware graph scope and blast-radius analysis remain. |
+
+### Additional defects found through execution and corrected
+
+- Adapters were typed as returning complete repository facts despite emitting partial facts.
+- An obsolete duplicate analyzer registry had invalid relative imports and was removed.
+- The architecture test fixture widened severity to `string`; it now uses the canonical profile type.
+- The CLI output test fixture now conforms to the evaluation contract.
+- Go projects are recognized from `go.mod`.
+- Python dependency detection now handles quoted `pyproject.toml` declarations.
+- TypeScript frontend detection recognizes conventional `App.tsx`, `main.tsx`, and `index.tsx` entry files; tests now use representative paths.
+
+### Remaining verification limits
+
+- The passing workflow proves package type-checks, tests, and builds for the verified commit only.
+- The workflow installs dependencies with `npm install`; lockfiles are not committed yet, so dependency resolution is not fully reproducible.
+- Dependency installation reported **3 vulnerabilities (1 moderate, 2 critical)**. Their advisories and affected dependency paths have not yet been inspected; do not run `npm audit fix --force` without assessing compatibility.
+- The CLI is not yet a complete executable tool, architecture conformance is not graph-backed, and schema validation is not integrated.
+- No runtime or production approval is claimed.
+
+**Updated Phase 0 status:** source audit complete; package-level CI is now green on the verified commit; dependency-locking and the remaining findings above stay open.
