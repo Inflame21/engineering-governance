@@ -50,7 +50,7 @@ export function fingerprintRepositorySnapshot(
 
   return {
     algorithm: "sha256",
-    digest: hash.digest("hex"),
+    digest: `sha256:${hash.digest("hex")}`,
     fileCount: files.length,
     ingestedContentFileCount: Object.keys(contents).filter((file) => files.includes(file)).length,
     sourceFileCount: sourceFiles.length,
