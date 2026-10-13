@@ -61,6 +61,31 @@ describe("analyze command", () => {
     expect(result.evaluation.decision.reason).toContain("does not match the verified diff");
   });
 
+
+  it("allows an unconditional decision when the verified Git scope matches the change manifest", async () => {
+    const result = await runGovernanceCommand({
+      snapshot: {
+        rootPath: "/repo",
+        changedFiles: ["main.py"],
+        changeScope: {
+          status: "VERIFIED",
+          baseRef: "origin/main",
+          headRef: "head-sha",
+          files: ["main.py"],
+        },
+        files: ["main.py", "pyproject.toml"],
+        fileContents: {
+          "pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+          "main.py": "print('ok')",
+        },
+      },
+      governancePack: pack,
+    });
+
+    expect(result.evaluation.decision.status).toBe("GO");
+    expect(result.evaluation.decision.warnings).toEqual([]);
+  });
+
   it("adds executed Python syntax evidence to the governance assessment when explicitly enabled", async () => {
     const result = await runGovernanceCommand({
       snapshot: {
