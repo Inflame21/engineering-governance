@@ -68,6 +68,12 @@
         "$ref": "#/$defs/debt"
       },
       "default": []
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
     }
   },
   "$defs": {
@@ -461,6 +467,106 @@
         }
       },
       "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rule_id",
+        "severity",
+        "category",
+        "message",
+        "status",
+        "evidence_refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "OPEN",
+            "ACKNOWLEDGED",
+            "IN_PROGRESS",
+            "RESOLVED",
+            "ACCEPTED",
+            "SUPPRESSED",
+            "UNVERIFIED"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file"
+          ],
+          "properties": {
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "start_line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "end_line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "start_column": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "end_column": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "component_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "remediation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }
