@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { architectureSignals, validateArchitectureProfile } from "../src/architecture.js";
+import {
+  architectureSignals,
+  validateArchitectureProfile,
+} from "../src/architecture.js";
+import type { ArchitectureProfile } from "../src/architecture.js";
 
-const cleanArchitecture = {
+const cleanArchitecture: ArchitectureProfile = {
   id: "clean-architecture",
   version: "1.0.0",
   name: "Clean Architecture",
