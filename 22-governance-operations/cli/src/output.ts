@@ -72,6 +72,7 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
       `  File dependency edges: ${analysis.architecture.graph.edges.length}`,
       `  Mapped components: ${analysis.architecture.graph.components.length}`,
       `  Component dependency edges: ${analysis.architecture.graph.componentEdges.length}`,
+      `  Cross-package dependency edges: ${analysis.architecture.graph.packageEdges.length}`,
       `  Boundary findings: ${analysis.architecture.findings.length}`,
     );
     const impact = analysis.architecture.graph.changeImpact;
