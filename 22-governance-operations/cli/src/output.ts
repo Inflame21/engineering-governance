@@ -24,6 +24,21 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
     }
   }
 
+  if (analysis.architecture) {
+    lines.push(
+      "",
+      `Architecture profile: ${analysis.architecture.profileId} (${analysis.architecture.status})`,
+      `  Dependency edges: ${analysis.architecture.graph.edges.length}`,
+      `  Boundary findings: ${analysis.architecture.findings.length}`,
+    );
+    for (const finding of analysis.architecture.findings) {
+      const location = finding.source_location
+        ? ` ${finding.source_location.file}:${finding.source_location.start_line ?? 1}`
+        : "";
+      lines.push(`  [${finding.severity}] ${finding.rule_id}${location}: ${finding.message}`);
+    }
+  }
+
   if (context.unsupportedCapabilities?.length) {
     lines.push("", `Unsupported capabilities: ${context.unsupportedCapabilities.join(", ")}`);
   }
