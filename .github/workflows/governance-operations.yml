@@ -36,9 +36,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: 22-governance-operations/${{ matrix.package }}/package-lock.json
 
       - name: Install package dependencies
-        run: npm install
+        run: npm ci
 
       - name: Report dependency vulnerabilities
         shell: bash
@@ -67,6 +69,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Run CLI end-to-end contract tests
+        if: matrix.package == 'cli'
+        run: npm run test:e2e
 
       - name: Smoke test executable CLI
         if: matrix.package == 'cli'
