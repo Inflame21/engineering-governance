@@ -52,6 +52,34 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
   };
   const evaluation = evaluateGovernance(assessmentPack, context);
 
+  if (context.changeScopeStatus === "VERIFIED") {
+    const normalizeChangedPath = (file: string): string =>
+      file.replaceAll("\\", "/").replace(/^\.\//, "");
+    const actualFiles = new Set((context.changedFiles ?? []).map(normalizeChangedPath));
+    const declaredFiles = new Set(input.governancePack.change.files.map(normalizeChangedPath));
+    const undeclaredFiles = [...actualFiles].filter((file) => !declaredFiles.has(file)).sort();
+    const staleDeclarations = [...declaredFiles].filter((file) => !actualFiles.has(file)).sort();
+
+    if (undeclaredFiles.length > 0 || staleDeclarations.length > 0) {
+      const details = [
+        ...(undeclaredFiles.length ? [`undeclared changed files: ${undeclaredFiles.join(", ")}`] : []),
+        ...(staleDeclarations.length ? [`declared but unchanged files: ${staleDeclarations.join(", ")}`] : []),
+      ].join("; ");
+      const scopeViolation: GovernanceViolation = {
+        controlId: "CHANGE-SCOPE:DECLARATION-MISMATCH",
+        severity: "P1",
+        decision: "NO-GO",
+        message: `The governance change manifest does not match the verified Git diff (${details}).`,
+        missingEvidence: [],
+        missingSignals: [],
+      };
+      evaluation.decision.status = "NO-GO";
+      evaluation.decision.blockingViolations.push(scopeViolation);
+      evaluation.decision.reason = `${evaluation.decision.reason} Declared change scope does not match the verified diff.`;
+      evaluation.violations.push(scopeViolation);
+    }
+  }
+
   const missingRequiredControls = (input.architectureProfile?.requiredControls ?? [])
     .filter((controlId) => !input.governancePack.controls.some((control) => control.id === controlId));
   const profileControlViolations: GovernanceViolation[] = missingRequiredControls.map((controlId) => ({
