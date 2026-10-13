@@ -18,6 +18,14 @@ const analysis: RepositoryAnalysis = {
   adapterResults: [],
 };
 
+const context = {
+  signals: ["framework:fastapi"],
+  analysisStatus: "COMPLETE" as const,
+  unsupportedCapabilities: [],
+  analyzerLimitations: [],
+  evaluatedAt: "2026-10-13T00:00:00Z",
+};
+
 const evaluation: GovernanceEvaluation = {
   controls: [],
   violations: [],
@@ -32,14 +40,14 @@ const evaluation: GovernanceEvaluation = {
 
 describe("CLI output", () => {
   it("renders a concise human result", () => {
-    const output = formatHumanResult(analysis, evaluation);
+    const output = formatHumanResult(analysis, evaluation, context);
     expect(output).toContain("Decision: GO");
     expect(output).toContain("fastapi");
     expect(output).toContain("Open risks: 0");
   });
 
   it("renders machine-readable JSON", () => {
-    const output = formatJsonResult(analysis, evaluation);
+    const output = formatJsonResult(analysis, evaluation, context);
     expect(JSON.parse(output).evaluation.decision.status).toBe("GO");
   });
 });
