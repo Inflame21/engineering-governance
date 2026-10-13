@@ -103,26 +103,48 @@ export async function loadGitChangeScope(
 
     const baseCommit = baseResult.stdout.trim();
     const headCommit = headResult.stdout.trim();
-    const diffResult = await runner.run(
-      [
-        "diff",
-        "--name-only",
-        "-z",
-        "--diff-filter=ACDMRT",
-        "--no-ext-diff",
-        "--no-textconv",
-        `${baseCommit}...${headCommit}`,
-        "--",
-      ],
+    const diffArguments = [
+      "diff",
+      "--name-only",
+      "-z",
+      "--diff-filter=ACDMRT",
+      "--no-ext-diff",
+      "--no-textconv",
+    ];
+    const committedDiff = await runner.run(
+      [...diffArguments, `${baseCommit}...${headCommit}`, "--"],
       root,
       GIT_TIMEOUT_MS,
     );
-    if (diffResult.exitCode !== 0) {
-      return unverifiedScope(normalizedBase, diffResult.stderr.trim() || "Git could not compute the requested diff.");
+    if (committedDiff.exitCode !== 0) {
+      return unverifiedScope(normalizedBase, committedDiff.stderr.trim() || "Git could not compute the committed diff.");
     }
 
-    const files = [...new Set(diffResult.stdout.split("\0").filter(Boolean)
-      .map((file) => file.replaceAll("\\", "/")))].sort();
+    // Include staged and unstaged edits as well as non-ignored untracked files,
+    // because the repository snapshot analyzes the working tree, not just HEAD.
+    const workingTreeDiff = await runner.run(
+      [...diffArguments, "HEAD", "--"],
+      root,
+      GIT_TIMEOUT_MS,
+    );
+    if (workingTreeDiff.exitCode !== 0) {
+      return unverifiedScope(normalizedBase, workingTreeDiff.stderr.trim() || "Git could not compute the working-tree diff.");
+    }
+
+    const untrackedFiles = await runner.run(
+      ["ls-files", "--others", "--exclude-standard", "-z"],
+      root,
+      GIT_TIMEOUT_MS,
+    );
+    if (untrackedFiles.exitCode !== 0) {
+      return unverifiedScope(normalizedBase, untrackedFiles.stderr.trim() || "Git could not enumerate untracked files.");
+    }
+
+    const files = [...new Set([
+      ...committedDiff.stdout.split("\0"),
+      ...workingTreeDiff.stdout.split("\0"),
+      ...untrackedFiles.stdout.split("\0"),
+    ].filter(Boolean).map((file) => file.replaceAll("\\", "/")))].sort();
     return {
       status: "VERIFIED",
       baseRef: normalizedBase,
