@@ -354,6 +354,128 @@ describe("governance pack loader", () => {
   });
 
   it.each([
+    ["project name minimum length", (candidate: Record<string, unknown>) => {
+      (candidate["project"] as Record<string, unknown>)["name"] = "";
+    }],
+    ["change title minimum length", (candidate: Record<string, unknown>) => {
+      (candidate["change"] as Record<string, unknown>)["title"] = "";
+    }],
+    ["evidence freshness minimum length", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["freshness"] = "";
+    }],
+    ["evidence tool_version minimum length", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["tool_version"] = "";
+    }],
+    ["accepted risk accepted_by minimum length", (candidate: Record<string, unknown>) => {
+      candidate["risks"] = [{
+        id: "RSK-LENGTH", severity: "P1", title: "Accepted risk", status: "ACCEPTED",
+        accepted_by: "", accepted_at: "2026-10-14T08:00:00Z",
+        acceptance_expires_at: "2026-11-14T08:00:00Z", acceptance_reason: "Temporary acceptance.",
+      }];
+    }],
+    ["accepted risk acceptance_reason minimum length", (candidate: Record<string, unknown>) => {
+      candidate["risks"] = [{
+        id: "RSK-LENGTH", severity: "P1", title: "Accepted risk", status: "ACCEPTED",
+        accepted_by: "risk-owner", accepted_at: "2026-10-14T08:00:00Z",
+        acceptance_expires_at: "2026-11-14T08:00:00Z", acceptance_reason: "",
+      }];
+    }],
+    ["requested exception control minimum length", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-LENGTH", status: "REQUESTED", control: "", reason: "Temporary exception.",
+        project_id: "example-saas", change_id: "CHG-EMPLOYEE-BULK-IMPORT",
+        requested_by: "engineering", requested_at: "2026-10-14T08:00:00Z",
+      }];
+    }],
+    ["requested exception reason minimum length", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-LENGTH", status: "REQUESTED", control: "SEC-AUTH-001", reason: "",
+        project_id: "example-saas", change_id: "CHG-EMPLOYEE-BULK-IMPORT",
+        requested_by: "engineering", requested_at: "2026-10-14T08:00:00Z",
+      }];
+    }],
+    ["requested exception project_id minimum length", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-LENGTH", status: "REQUESTED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "", change_id: "CHG-EMPLOYEE-BULK-IMPORT",
+        requested_by: "engineering", requested_at: "2026-10-14T08:00:00Z",
+      }];
+    }],
+    ["requested exception requested_by minimum length", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-LENGTH", status: "REQUESTED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "example-saas",
+        change_id: "CHG-EMPLOYEE-BULK-IMPORT", requested_by: "",
+        requested_at: "2026-10-14T08:00:00Z",
+      }];
+    }],
+    ["approved exception approved_by minimum length", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-LENGTH", status: "APPROVED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "example-saas",
+        change_id: "CHG-EMPLOYEE-BULK-IMPORT", requested_by: "engineering",
+        requested_at: "2026-10-14T08:00:00Z", approved_by: "",
+        approved_at: "2026-10-14T09:00:00Z", expires_at: "2026-11-14T08:00:00Z",
+      }];
+    }],
+    ["finding id minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "empty id", status: "OPEN", evidence_refs: [],
+      }];
+    }],
+    ["finding rule_id minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "", severity: "P1", category: "contract",
+        message: "empty rule id", status: "OPEN", evidence_refs: [],
+      }];
+    }],
+    ["finding category minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "RULE-1", severity: "P1", category: "",
+        message: "empty category", status: "OPEN", evidence_refs: [],
+      }];
+    }],
+    ["finding message minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "", status: "OPEN", evidence_refs: [],
+      }];
+    }],
+    ["finding evidence reference item minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "empty evidence reference", status: "OPEN", evidence_refs: [""],
+      }];
+    }],
+    ["finding source location file minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "empty source file", status: "OPEN", evidence_refs: [],
+        source_location: { file: "" },
+      }];
+    }],
+    ["finding component_id minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "empty component", status: "OPEN", evidence_refs: [], component_id: "",
+      }];
+    }],
+    ["finding remediation minimum length", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LENGTH", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "empty remediation", status: "OPEN", evidence_refs: [], remediation: "",
+      }];
+    }],
+  ])("rejects minimum-length violation: %s", async (_name, mutate) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
+  it.each([
     ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
     ["project identifier pattern", (candidate: Record<string, unknown>) => {
       (candidate["project"] as Record<string, unknown>)["id"] = "Invalid Project ID";
@@ -484,6 +606,54 @@ describe("architecture profile loader", () => {
     },
     {
       name: "an empty component mapping pattern",
+      profile: { ...cleanArchitecture, componentMappings: { domain: [""] } },
+    },
+    {
+      name: "an empty profile name",
+      profile: { ...cleanArchitecture, name: "" },
+    },
+    {
+      name: "an empty architecture style",
+      profile: { ...cleanArchitecture, styles: [""] },
+    },
+    {
+      name: "an empty required control identifier",
+      profile: { ...cleanArchitecture, requiredControls: [""] },
+    },
+    {
+      name: "an empty capability identifier",
+      profile: { ...cleanArchitecture, capabilities: [""] },
+    },
+    {
+      name: "an empty boundary-rule description",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, description: "" }],
+      },
+    },
+    {
+      name: "an empty boundary-rule source pattern",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, sourcePattern: "" }],
+      },
+    },
+    {
+      name: "an empty boundary-rule target pattern",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, targetPattern: "" }],
+      },
+    },
+    {
+      name: "an empty boundary-rule identifier",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, id: "" }],
+      },
+    },
+    {
+      name: "an empty component mapping value",
       profile: { ...cleanArchitecture, componentMappings: { domain: [""] } },
     },
     {
