@@ -119,8 +119,9 @@ Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/co
 - [x] Add targeted schema-shape assertions for representative governance-pack and architecture-profile constraints, conditional required fields, and object policies.
 - [x] Add loader-level invalid-input fixtures for representative patterns, formats, bounds, nested additional properties, conditional requirements, enum rejection across 17 fields, finding confidence/uniqueness, source-location bounds, and architecture-profile uniqueness/mapping constraints.
 - [x] Cover both valid `applies_when` `oneOf` forms and invalid input; verify all conditional required fields for accepted risks, requested exceptions, and approved exceptions.
-- [x] Run required CI on the latest test head [`aa6d7ab`](https://github.com/Inflame21/engineering-governance/commit/aa6d7ab7af23b1db82d0256e170d6347f6e41f9a): [run #38526086417](https://github.com/Inflame21/engineering-governance/actions/runs/38526086417), all three jobs succeeded.
 - [x] Add at least one invalid runtime fixture for every distinct `pattern` constraint in both schemas (governance identifiers/fingerprint/version and architecture profile/version/boundary-rule identifiers).
+- [x] Add empty-string fixtures for every distinct `minLength` field in both schemas, including nested arrays and conditional metadata.
+- [x] Run required CI on the latest test head [`1654c08`](https://github.com/Inflame21/engineering-governance/commit/1654c08dbf9d222ee8c36308fbded1db78be0d17): [run #38526291642](https://github.com/Inflame21/engineering-governance/actions/runs/38526291642), all three jobs succeeded.
 - [ ] Complete the remaining recursive constraint-by-constraint valid/invalid fixture matrix and explicitly resolve/document the top-level governance-pack `additionalProperties` policy before closing AUD-03.
 
 ### AUD-08 probe evidence — updated 2026-10-14
