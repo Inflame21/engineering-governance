@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - audit/aud08-required-check-probe
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
