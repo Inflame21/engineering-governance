@@ -92,6 +92,21 @@ describe("governance pack loader", () => {
   });
 
 
+  it("accepts both supported applies_when schema forms", async () => {
+    for (const appliesWhen of ["production", ["production", "staging"]]) {
+      const candidate = JSON.parse(JSON.stringify(examplePack)) as {
+        controls: Array<Record<string, unknown>>;
+      };
+      candidate.controls[0]!["applies_when"] = appliesWhen;
+      const pack = await loadGovernancePack(
+        "/repo",
+        "governance.json",
+        memoryFileSystem(JSON.stringify(candidate)),
+      );
+      expect(pack.controls[0]?.applies_when).toEqual(appliesWhen);
+    }
+  });
+
   it.each([
     ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
     ["project identifier pattern", (candidate: Record<string, unknown>) => {
@@ -99,6 +114,9 @@ describe("governance pack loader", () => {
     }],
     ["change identifier pattern", (candidate: Record<string, unknown>) => {
       (candidate["change"] as Record<string, unknown>)["id"] = "change-1";
+    }],
+    ["applies_when violates its string-or-string-array oneOf", (candidate: Record<string, unknown>) => {
+      (candidate["controls"] as Array<Record<string, unknown>>)[0]!["applies_when"] = { environment: "production" };
     }],
     ["negative maximum evidence age", (candidate: Record<string, unknown>) => {
       (candidate["controls"] as Array<Record<string, unknown>>)[0]!["max_evidence_age_seconds"] = -1;
