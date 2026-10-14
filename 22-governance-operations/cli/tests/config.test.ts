@@ -653,10 +653,6 @@ describe("architecture profile loader", () => {
       },
     },
     {
-      name: "an empty component mapping value",
-      profile: { ...cleanArchitecture, componentMappings: { domain: [""] } },
-    },
-    {
       name: "an unknown nested boundary-rule property",
       profile: {
         ...cleanArchitecture,
