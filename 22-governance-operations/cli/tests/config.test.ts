@@ -498,6 +498,52 @@ describe("governance pack loader", () => {
   });
 
   it.each([
+    ["unknown change property", (candidate: Record<string, unknown>) => {
+      (candidate["change"] as Record<string, unknown>)["unexpected"] = true;
+    }],
+    ["unknown standard property", (candidate: Record<string, unknown>) => {
+      (candidate["standards"] as Array<Record<string, unknown>>)[0]!["unexpected"] = true;
+    }],
+    ["unknown control property", (candidate: Record<string, unknown>) => {
+      (candidate["controls"] as Array<Record<string, unknown>>)[0]!["unexpected"] = true;
+    }],
+    ["unknown evidence property", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["unexpected"] = true;
+    }],
+    ["unknown risk property", (candidate: Record<string, unknown>) => {
+      (candidate["risks"] as Array<Record<string, unknown>>)[0]!["unexpected"] = true;
+    }],
+    ["unknown decision property", (candidate: Record<string, unknown>) => {
+      (candidate["decisions"] as Array<Record<string, unknown>>)[0]!["unexpected"] = true;
+    }],
+    ["unknown exception property", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{ id: "EXC-PROPS", status: "REJECTED", unexpected: true }];
+    }],
+    ["unknown debt property", (candidate: Record<string, unknown>) => {
+      candidate["debt"] = [{ id: "DEBT-PROPS", severity: "P1", status: "OPEN", unexpected: true }];
+    }],
+    ["unknown finding property", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-PROPS", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "unknown property", status: "OPEN", evidence_refs: [], unexpected: true,
+      }];
+    }],
+    ["unknown finding source_location property", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-PROPS", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "unknown source property", status: "OPEN", evidence_refs: [],
+        source_location: { file: "src/app.ts", unexpected: true },
+      }];
+    }],
+  ])("rejects unexpected nested property: %s", async (_name, mutate) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
+  it.each([
     ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
     ["project identifier pattern", (candidate: Record<string, unknown>) => {
       (candidate["project"] as Record<string, unknown>)["id"] = "Invalid Project ID";
@@ -792,6 +838,18 @@ describe("architecture profile loader", () => {
         ...cleanArchitecture,
         boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, id: "" }],
       },
+    },
+    {
+      name: "an unknown profile root property",
+      profile: { ...cleanArchitecture, unexpected: true },
+    },
+    {
+      name: "a component mapping value that is not an array",
+      profile: { ...cleanArchitecture, componentMappings: { domain: "src/domain/**" } },
+    },
+    {
+      name: "a component mapping array item with the wrong type",
+      profile: { ...cleanArchitecture, componentMappings: { domain: [42] } },
     },
     {
       name: "an unknown nested boundary-rule property",
