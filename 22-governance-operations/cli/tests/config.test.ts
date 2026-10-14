@@ -549,7 +549,11 @@ describe("governance pack loader", () => {
     ).rejects.toThrow("schema validation failed");
   });
 
-  it.each([
+  const requiredFieldCases: Array<{
+    name: string;
+    path: Array<string | number>;
+    seed?: (candidate: Record<string, unknown>) => void;
+  }> = [
     { name: "root version", path: ["version"] },
     { name: "root project", path: ["project"] },
     { name: "root change", path: ["change"] },
@@ -654,7 +658,8 @@ describe("governance pack loader", () => {
       path: ["findings", 0, "source_location", "file"],
       seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [], source_location: { file: "src/app.ts" } }]; },
     },
-  ])("rejects a missing required field: $name", async ({ path, seed }) => {
+  ];
+  it.each(requiredFieldCases)("rejects a missing required field: $name", async ({ path, seed }) => {
     const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
     seed?.(candidate);
     deleteJsonPath(candidate, path);
