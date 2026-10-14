@@ -25,22 +25,37 @@ export function isControlApplicable(
 function evidenceForControl(
   control: GovernanceControl,
   evidence: GovernanceEvidence[],
-): { missing: string[]; supporting: string[] } {
+): { missing: string[]; supporting: string[]; failed: string[]; partial: string[] } {
   const required = control.required_evidence ?? [];
-  const byId = new Map(evidence.map((item) => [item.id, item]));
   const missing: string[] = [];
   const supporting: string[] = [];
+  const failed: string[] = [];
+  const partial: string[] = [];
 
   for (const evidenceId of required) {
-    const item = byId.get(evidenceId);
-    if (!item || item.status === "UNVERIFIED") {
+    const matches = evidence.filter((item) => item.id === evidenceId);
+    if (matches.length !== 1) {
       missing.push(evidenceId);
       continue;
     }
-    supporting.push(evidenceId);
+
+    const item = matches[0]!;
+    if (!item.supports_controls.includes(control.id) ||
+        item.freshness !== "current" ||
+        !item.source.trim()) {
+      missing.push(evidenceId);
+    } else if (item.status === "VERIFIED") {
+      supporting.push(evidenceId);
+    } else if (item.status === "PARTIALLY_VERIFIED") {
+      partial.push(evidenceId);
+    } else if (item.status === "NOT_APPLICABLE") {
+      failed.push(evidenceId);
+    } else {
+      missing.push(evidenceId);
+    }
   }
 
-  return { missing, supporting };
+  return { missing, supporting, failed, partial };
 }
 
 export function evaluateControl(
@@ -63,8 +78,13 @@ export function evaluateControl(
     };
   }
 
-  const { missing, supporting } = evidenceForControl(control, evidence);
-  const status = control.status ?? (missing.length > 0 ? "UNVERIFIED" : "PASS");
+  const { missing, supporting, failed, partial } = evidenceForControl(control, evidence);
+  // Declared status is never proof that a required verification passed.
+  // An empty required-evidence set is not a verified PASS.
+  const status: ControlEvaluation["status"] =
+    failed.length > 0 ? "FAIL" :
+    missing.length > 0 || (control.required_evidence ?? []).length === 0 ? "UNVERIFIED" :
+    partial.length > 0 ? "WARN" : "PASS";
 
   return {
     controlId: control.id,
@@ -75,9 +95,11 @@ export function evaluateControl(
     missingEvidence: missing,
     supportingEvidence: supporting,
     reason:
-      missing.length > 0
-        ? `Required evidence is missing or unverified: ${missing.join(", ")}.`
-        : `Required evidence is satisfied for control ${control.id}.`,
+      failed.length > 0 ? `Required evidence is inapplicable: ${failed.join(", ")}.` :
+      missing.length > 0 ? `Required evidence is missing, stale, unlinked, duplicated, or unverified: ${missing.join(", ")}.` :
+      (control.required_evidence ?? []).length === 0 ? "No required evidence is declared; verification cannot be established." :
+      partial.length > 0 ? `Required evidence is only partially verified: ${partial.join(", ")}.` :
+      `Required evidence is verified for control ${control.id}.`,
   };
 }
 
