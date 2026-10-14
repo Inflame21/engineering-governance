@@ -20,34 +20,68 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: ${{ matrix.package }} / ${{ matrix.command }}
+  analyzer:
+    name: Verify analyzer
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - engine
-          - analyzer
-          - cli
-        command:
-          - check
-          - test
-          - build
     defaults:
       run:
-        working-directory: 22-governance-operations/${{ matrix.package }}
+        working-directory: 22-governance-operations/analyzer
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Install package dependencies
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
 
-      - name: Run ${{ matrix.command }}
-        run: npm run ${{ matrix.command }}
+  cli:
+    name: Verify CLI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 22-governance-operations/cli
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+
+  engine:
+    name: Verify engine
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 22-governance-operations/engine
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
