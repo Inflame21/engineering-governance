@@ -316,6 +316,44 @@ describe("governance pack loader", () => {
   });
 
   it.each([
+    ["standard identifier pattern", (candidate: Record<string, unknown>) => {
+      ((candidate["standards"] as Array<Record<string, unknown>>)[0]!)["id"] = "bad-standard";
+    }],
+    ["control identifier pattern", (candidate: Record<string, unknown>) => {
+      ((candidate["controls"] as Array<Record<string, unknown>>)[0]!)["id"] = "bad control";
+    }],
+    ["evidence identifier pattern", (candidate: Record<string, unknown>) => {
+      ((candidate["evidence"] as Array<Record<string, unknown>>)[0]!)["id"] = "EVIDENCE-1";
+    }],
+    ["risk identifier pattern", (candidate: Record<string, unknown>) => {
+      ((candidate["risks"] as Array<Record<string, unknown>>)[0]!)["id"] = "risk-1";
+    }],
+    ["decision identifier pattern", (candidate: Record<string, unknown>) => {
+      ((candidate["decisions"] as Array<Record<string, unknown>>)[0]!)["id"] = "decision-1";
+    }],
+    ["exception identifier pattern", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{ id: "exception-1", status: "REJECTED" }];
+    }],
+    ["exception change identifier pattern", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-REGEX", status: "REQUESTED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "example-saas",
+        change_id: "change-1", requested_by: "engineering",
+        requested_at: "2026-10-14T08:00:00Z",
+      }];
+    }],
+    ["debt identifier pattern", (candidate: Record<string, unknown>) => {
+      candidate["debt"] = [{ id: "debt-1", severity: "P1", status: "OPEN" }];
+    }],
+  ])("rejects invalid identifier pattern: %s", async (_name, mutate) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
+  it.each([
     ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
     ["project identifier pattern", (candidate: Record<string, unknown>) => {
       (candidate["project"] as Record<string, unknown>)["id"] = "Invalid Project ID";
@@ -406,6 +444,17 @@ describe("architecture profile loader", () => {
     {
       name: "an invalid profile identifier pattern",
       profile: { ...cleanArchitecture, id: "Invalid Profile ID" },
+    },
+    {
+      name: "an invalid profile version pattern",
+      profile: { ...cleanArchitecture, version: "v1" },
+    },
+    {
+      name: "an invalid boundary-rule identifier pattern",
+      profile: {
+        ...cleanArchitecture,
+        boundaryRules: [{ ...cleanArchitecture.boundaryRules[0]!, id: "bad rule id" }],
+      },
     },
     {
       name: "an empty styles array",
