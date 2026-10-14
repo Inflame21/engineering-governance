@@ -60,6 +60,7 @@ export function deriveDecision(
   if (blockingViolations.length > 0 || openRisks.length > 0) {
     const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
       controlId: `RISK:${risk.id}`,
+      status: "FAIL",
       severity: risk.severity,
       decision: "NO-GO",
       message: risk.title,
