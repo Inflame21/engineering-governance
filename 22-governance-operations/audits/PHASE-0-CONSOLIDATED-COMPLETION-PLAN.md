@@ -123,6 +123,7 @@ Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/co
 - [x] Add empty-string fixtures for every distinct `minLength` field in both schemas, including nested arrays and conditional metadata.
 - [x] Add table-driven missing-required-property runtime fixtures for all 52 required properties across the root model, every `$defs` object, and nested finding source location.
 - [x] Run required CI on the latest test head [`f6e4657`](https://github.com/Inflame21/engineering-governance/commit/f6e4657ee314a330a604f41a26bf6bf195a60156): [run #38526530261](https://github.com/Inflame21/engineering-governance/actions/runs/38526530261), all three jobs succeeded.
+- [x] Add invalid fixtures for unknown properties across nested governance objects and invalid component-mapping value shapes; do not change the unresolved governance-pack root policy. Latest CI: [run #38526722391](https://github.com/Inflame21/engineering-governance/actions/runs/38526722391), all three jobs succeeded.
 - [ ] Complete the remaining recursive constraint-by-constraint valid/invalid fixture matrix and explicitly resolve/document the top-level governance-pack `additionalProperties` policy before closing AUD-03.
 
 ### AUD-08 probe evidence — updated 2026-10-14
