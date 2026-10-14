@@ -1,0 +1,33 @@
+name: AUD-08 Required Check Probe
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify-analyzer-probe:
+    name: Verify analyzer
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Confirm probe context
+        run: echo "AUD-08 probe: Verify analyzer should succeed"
+
+  verify-cli-probe:
+    name: Verify cli
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Intentionally fail required context
+        run: |
+          echo "AUD-08 probe: this required context is intentionally failing."
+          exit 1
+
+  verify-engine-probe:
+    name: Verify engine
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Confirm probe context
+        run: echo "AUD-08 probe: Verify engine should succeed"
