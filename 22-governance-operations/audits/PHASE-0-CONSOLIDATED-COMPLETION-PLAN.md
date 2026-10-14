@@ -73,6 +73,8 @@ Complete the Phase 0 audit as one coordinated implementation and verification ba
 - [x] Record that the direct legacy branch-protection endpoint returned HTTP 403; the active ruleset was readable, but legacy protection outside the ruleset remains unverified.
 - [ ] Decide these policy exceptions separately; do not change them in this audit batch without explicit authorization.
 - [ ] Verify enforcement with a safe test of required-check failure behavior if available without weakening `main` protections.
+
+**Probe evidence (2026-10-14):** Temporary PR [#3](https://github.com/Inflame21/engineering-governance/pull/3) was created from `main`, emitted the exact required contexts from GitHub Actions integration `15368`, and was closed unmerged after evidence capture. On tested head [`b3e8358`](https://github.com/Inflame21/engineering-governance/commit/b3e835836648c2bc9aaed4ebc7ade0c1b27c441c), [run #38524643959](https://github.com/Inflame21/engineering-governance/actions/runs/38524643959) showed `Verify analyzer` and `Verify engine` passing and `Verify cli` intentionally failing; the PR reported `mergeable_state=blocked`. Because the required review was also outstanding, this does not isolate the failed check as the sole merge blocker. This provides direct check-name/source evidence but the WP5 enforcement item remains unchecked until the evidence boundary is resolved or accepted by the policy owner. No ruleset was changed and no probe was merged.
 - [ ] Record the limitation that legacy branch-protection endpoint access returned 403.
 
 **Acceptance:** documented enforcement matches intended policy; unverified settings remain explicit risks, not presumed safe.
