@@ -119,6 +119,28 @@ describe("decision matrix: risk acceptance", () => {
     expect(decide(blocked).decision.status).toBe("NO-GO");
   });
 
+  it("ignores an approved exception that references an accepted P1 risk (fails closed)", () => {
+    const p = pack("PASS", "P1", "NO-GO", [risk("P1", "ACCEPTED")]);
+    p.exceptions = [{ id: "EXC-2", status: "APPROVED", risk: "RSK-P1-ACCEPTED", expires_at: "2999-01-01T00:00:00Z" }];
+    expect(decide(p).decision.status).toBe("NO-GO");
+  });
+
+  it.each([
+    ["lowercase status", { status: "accepted" }],
+    ["unknown status", { status: "WAIVED" }],
+    ["missing status", { status: undefined }],
+    ["lowercase severity", { severity: "p1" }],
+    ["unknown severity", { severity: "P9" }],
+  ])("fails closed on a malformed risk record: %s", (_name, override) => {
+    const malformed = { ...risk("P1", "OPEN"), ...override } as unknown as GovernanceRisk;
+    expect(decideFor("PASS", "P1", "NO-GO", [malformed]).decision.status).toBe("NO-GO");
+  });
+
+  it("fails closed on a partially verified control with an unrecognized severity", () => {
+    const result = decideFor("WARN", "P9" as Severity, "NONE");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
   it("keeps the worst outcome when a condition and a blocker coexist", () => {
     expect(decideFor("WARN", "P2", "NONE", [risk("P2", "OPEN")]).decision.status).toBe("GO_WITH_CONDITIONS");
     expect(decideFor("WARN", "P2", "NONE", [risk("P1", "OPEN")]).decision.status).toBe("NO-GO");
