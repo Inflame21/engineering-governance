@@ -1,0 +1,58 @@
+name: Governance Operations CI
+
+on:
+  pull_request:
+    paths:
+      - "22-governance-operations/**"
+      - ".github/workflows/governance-operations.yml"
+  push:
+    branches: [main]
+    paths:
+      - "22-governance-operations/**"
+      - ".github/workflows/governance-operations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-operations-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: ${{ matrix.package }} / ${{ matrix.command }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - engine
+          - analyzer
+          - cli
+        command:
+          - check
+          - test
+          - build
+    defaults:
+      run:
+        working-directory: 22-governance-operations/${{ matrix.package }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            22-governance-operations/engine/package.json
+            22-governance-operations/analyzer/package.json
+            22-governance-operations/cli/package.json
+
+      - name: Install package dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run ${{ matrix.command }}
+        run: npm run ${{ matrix.command }}
