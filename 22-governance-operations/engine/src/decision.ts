@@ -45,7 +45,7 @@ export function deriveDecision(
     .map((item) => toViolation(item, pack));
 
   const blockingViolations = violations.filter(
-    (item) => item.decision === "NO-GO" || item.severity === "P0",
+    (item) => item.status === "UNVERIFIED" || item.status === "FAIL" || item.decision === "NO-GO" || item.severity === "P0",
   );
 
   const warnings = violations.filter(
