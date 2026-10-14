@@ -108,6 +108,134 @@ describe("governance pack loader", () => {
   });
 
   it.each([
+    ["change type enum", (candidate: Record<string, unknown>) => {
+      (candidate["change"] as Record<string, unknown>)["type"] = "unknown";
+    }],
+    ["change risk class enum", (candidate: Record<string, unknown>) => {
+      (candidate["change"] as Record<string, unknown>)["risk_class"] = "E";
+    }],
+    ["control severity enum", (candidate: Record<string, unknown>) => {
+      (candidate["controls"] as Array<Record<string, unknown>>)[0]!["severity"] = "P9";
+    }],
+    ["control status enum", (candidate: Record<string, unknown>) => {
+      (candidate["controls"] as Array<Record<string, unknown>>)[0]!["status"] = "UNKNOWN";
+    }],
+    ["control failure decision enum", (candidate: Record<string, unknown>) => {
+      (candidate["controls"] as Array<Record<string, unknown>>)[0]!["failure_decision"] = "ALLOW";
+    }],
+    ["evidence type enum", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["type"] = "E99";
+    }],
+    ["evidence status enum", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["status"] = "APPROVED";
+    }],
+    ["evidence freshness status enum", (candidate: Record<string, unknown>) => {
+      (candidate["evidence"] as Array<Record<string, unknown>>)[0]!["freshness_status"] = "fresh";
+    }],
+    ["risk severity enum", (candidate: Record<string, unknown>) => {
+      (candidate["risks"] as Array<Record<string, unknown>>)[0]!["severity"] = "P9";
+    }],
+    ["risk status enum", (candidate: Record<string, unknown>) => {
+      (candidate["risks"] as Array<Record<string, unknown>>)[0]!["status"] = "RESOLVED";
+    }],
+    ["decision type enum", (candidate: Record<string, unknown>) => {
+      (candidate["decisions"] as Array<Record<string, unknown>>)[0]!["type"] = "DEPLOY";
+    }],
+    ["decision status enum", (candidate: Record<string, unknown>) => {
+      (candidate["decisions"] as Array<Record<string, unknown>>)[0]!["status"] = "MAYBE";
+    }],
+    ["exception status enum", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{ id: "EXC-ENUM", status: "UNKNOWN" }];
+    }],
+    ["debt severity enum", (candidate: Record<string, unknown>) => {
+      candidate["debt"] = [{ id: "DEBT-ENUM", severity: "P9", status: "OPEN" }];
+    }],
+    ["debt status enum", (candidate: Record<string, unknown>) => {
+      candidate["debt"] = [{ id: "DEBT-ENUM", severity: "P1", status: "UNKNOWN" }];
+    }],
+    ["finding severity enum", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-ENUM", rule_id: "RULE-1", severity: "P9", category: "contract",
+        message: "invalid severity", status: "OPEN", evidence_refs: [],
+      }];
+    }],
+    ["finding status enum", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-ENUM", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "invalid status", status: "UNKNOWN", evidence_refs: [],
+      }];
+    }],
+  ])("rejects invalid enum value: %s", async (_name, mutate) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
+  it("requires every conditional field for accepted risks and requested/approved exceptions", async () => {
+    const acceptedRisk = {
+      id: "RSK-CONTRACT",
+      severity: "P1",
+      title: "Accepted risk",
+      status: "ACCEPTED",
+      accepted_by: "risk-owner",
+      accepted_at: "2026-10-14T08:00:00Z",
+      acceptance_expires_at: "2026-11-14T08:00:00Z",
+      acceptance_reason: "Temporary acceptance with an expiry.",
+    };
+    const requestedException = {
+      id: "EXC-CONTRACT",
+      status: "REQUESTED",
+      control: "SEC-AUTH-001",
+      reason: "Temporary exception request.",
+      project_id: "example-saas",
+      change_id: "CHG-EMPLOYEE-BULK-IMPORT",
+      requested_by: "engineering",
+      requested_at: "2026-10-14T08:00:00Z",
+    };
+    const approvedException = {
+      ...requestedException,
+      status: "APPROVED",
+      approved_by: "security-owner",
+      approved_at: "2026-10-14T09:00:00Z",
+      expires_at: "2026-11-14T08:00:00Z",
+    };
+    const cases = [
+      {
+        label: "accepted risk",
+        value: acceptedRisk as Record<string, unknown>,
+        required: ["accepted_by", "accepted_at", "acceptance_expires_at", "acceptance_reason"],
+        assign: (candidate: Record<string, unknown>, value: Record<string, unknown>) => { candidate["risks"] = [value]; },
+      },
+      {
+        label: "requested exception",
+        value: requestedException as Record<string, unknown>,
+        required: ["control", "reason", "project_id", "change_id", "requested_by", "requested_at"],
+        assign: (candidate: Record<string, unknown>, value: Record<string, unknown>) => { candidate["exceptions"] = [value]; },
+      },
+      {
+        label: "approved exception",
+        value: approvedException as Record<string, unknown>,
+        required: ["control", "reason", "project_id", "change_id", "requested_by", "requested_at", "approved_by", "approved_at", "expires_at"],
+        assign: (candidate: Record<string, unknown>, value: Record<string, unknown>) => { candidate["exceptions"] = [value]; },
+      },
+    ];
+    for (const item of cases) {
+      for (const field of item.required) {
+        const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+        const value = JSON.parse(JSON.stringify(item.value)) as Record<string, unknown>;
+        delete value[field];
+        item.assign(candidate, value);
+        await expect(
+          loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+          `${item.label} should require ${field}`,
+        ).rejects.toThrow("schema validation failed");
+      }
+    }
+  });
+
+  it.each([
     ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
     ["project identifier pattern", (candidate: Record<string, unknown>) => {
       (candidate["project"] as Record<string, unknown>)["id"] = "Invalid Project ID";
