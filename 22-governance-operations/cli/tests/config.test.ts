@@ -416,8 +416,26 @@ describe("architecture profile loader", () => {
       profile: { ...cleanArchitecture, styles: [...cleanArchitecture.styles, cleanArchitecture.styles[0]!] },
     },
     {
+      name: "duplicate required controls",
+      profile: {
+        ...cleanArchitecture,
+        requiredControls: [...cleanArchitecture.requiredControls, cleanArchitecture.requiredControls[0]!],
+      },
+    },
+    {
+      name: "duplicate capabilities",
+      profile: {
+        ...cleanArchitecture,
+        capabilities: [...(cleanArchitecture.capabilities ?? []), cleanArchitecture.capabilities![0]!],
+      },
+    },
+    {
       name: "an empty component mapping pattern list",
       profile: { ...cleanArchitecture, componentMappings: { domain: [] } },
+    },
+    {
+      name: "an empty component mapping pattern",
+      profile: { ...cleanArchitecture, componentMappings: { domain: [""] } },
     },
     {
       name: "an unknown nested boundary-rule property",
