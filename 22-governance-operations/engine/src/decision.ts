@@ -22,6 +22,7 @@ function toViolation(
   const definition = pack.controls.find((item) => item.id === control.controlId);
   return {
     controlId: control.controlId,
+    status: control.status,
     severity: control.severity,
     decision: control.failureDecision,
     message:
