@@ -114,17 +114,16 @@ Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/co
 6. Update audit evidence and issue checklist; present residual risks and request review.
 
 
-### AUD-03 schema-constraint follow-up
+### AUD-03 schema-constraint follow-up — updated 2026-10-14
 
 - [x] Add targeted schema-shape assertions for representative governance-pack and architecture-profile constraints, conditional required fields, and object policies.
-- [x] Add loader-level invalid-input fixtures for representative patterns, date-time formats, numeric bounds, nested additional properties, conditional requirements, finding confidence/uniqueness, and architecture-profile constraints.
-- [x] Run required CI on head [`d308148`](https://github.com/Inflame21/engineering-governance/commit/d30814884eda295a0ab297b029e5c550510a1dec): [run #38401267284](https://github.com/Inflame21/engineering-governance/actions/runs/38401267284), all three jobs succeeded.
+- [x] Add loader-level invalid-input fixtures for representative patterns, formats, bounds, nested additional properties, conditional requirements, enum rejection across 17 fields, finding confidence/uniqueness, source-location bounds, and architecture-profile uniqueness/mapping constraints.
+- [x] Cover both valid `applies_when` `oneOf` forms and invalid input; verify all conditional required fields for accepted risks, requested exceptions, and approved exceptions.
+- [x] Run required CI on the latest test head [`3dd00cb`](https://github.com/Inflame21/engineering-governance/commit/3dd00cb8991208429b817671ca5ab005054a2561): [run #38525898164](https://github.com/Inflame21/engineering-governance/actions/runs/38525898164), all three jobs succeeded.
 - [ ] Complete a recursive constraint-by-constraint valid/invalid fixture matrix and explicitly resolve/document the top-level governance-pack `additionalProperties` policy before closing AUD-03.
 
+### AUD-08 probe evidence — updated 2026-10-14
 
-
-### AUD-08 safe probe readiness note
-
-- Confirmed that `.github/workflows/governance-operations.yml` is absent from `main` (404) and introduced by PR #1; a branch created only from `main` will not inherit that workflow.
-- Do not create a duplicate giant-history probe branch or alter ruleset settings. Before creating a temporary probe PR, verify required-check app/source association and duplicate-context behavior. The probe must never be merged; only its temporary PR may be closed after evidence is captured.
-- AUD-08 remains open; no failing-check enforcement result is claimed. See repository audit §16.
+- [x] Verify the active ruleset's required-check source association: the three contexts are associated with GitHub Actions integration `15368`.
+- [x] Create an isolated temporary probe PR based on `main`, emit the exact three required contexts, intentionally fail `Verify cli`, capture the check results, and close the probe unmerged: [PR #3](https://github.com/Inflame21/engineering-governance/pull/3), [run #38524643959](https://github.com/Inflame21/engineering-governance/actions/runs/38524643959).
+- [ ] Isolate the failed required check as the sole merge blocker, or obtain policy-owner acceptance of the documented evidence boundary. The observed PR state was blocked, but the required approving review was also outstanding; no ruleset changes or merges were made. See repository audit §16.
