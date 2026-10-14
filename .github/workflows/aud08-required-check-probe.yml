@@ -1,6 +1,9 @@
 name: AUD-08 Required Check Probe
 
 on:
+  push:
+    branches:
+      - audit/aud08-required-check-probe
   pull_request:
     branches:
       - main
