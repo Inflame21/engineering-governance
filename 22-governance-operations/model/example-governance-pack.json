@@ -113,7 +113,7 @@
       "status": "VERIFIED",
       "description": "Authorization tests and route inspection confirm the endpoint is protected.",
       "source": "CI security/test job",
-      "freshness": "current change",
+      "freshness": "current",
       "supports_controls": [
         "SEC-AUTH-001"
       ]
@@ -124,7 +124,7 @@
       "status": "VERIFIED",
       "description": "Transaction boundary and partial-failure behavior reviewed against the import service.",
       "source": "code review",
-      "freshness": "current change",
+      "freshness": "current",
       "supports_controls": [
         "DB-TRANSACTION-001"
       ]
@@ -135,7 +135,7 @@
       "status": "UNVERIFIED",
       "description": "No verified evidence yet demonstrates import idempotency.",
       "source": "change record",
-      "freshness": "current change",
+      "freshness": "current",
       "supports_controls": [
         "API-IDEMPOTENCY-001"
       ]
@@ -146,7 +146,7 @@
       "status": "PARTIALLY_VERIFIED",
       "description": "Happy-path tests exist; malformed rows and partial-failure scenarios remain incomplete.",
       "source": "CI test job",
-      "freshness": "current change",
+      "freshness": "current",
       "supports_controls": [
         "QA-NEGATIVE-001"
       ]

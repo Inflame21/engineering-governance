@@ -53,8 +53,13 @@ export function deriveDecision(
     (item) => !blockingViolations.includes(item),
   );
 
+  // ACCEPTED is a claim, not an approval: the engine cannot verify the approver, expiry or
+  // exception behind it, and P0 is not approvable (EXC-021 section 8). Until exceptions are
+  // evaluated, P0/P1 acceptance fails closed like an open risk.
   const openRisks = pack.risks.filter(
-    (risk) => risk.status === "OPEN" && (risk.severity === "P0" || risk.severity === "P1"),
+    (risk) =>
+      (risk.status === "OPEN" || risk.status === "ACCEPTED") &&
+      (risk.severity === "P0" || risk.severity === "P1"),
   );
 
   if (blockingViolations.length > 0 || openRisks.length > 0) {
@@ -72,7 +77,7 @@ export function deriveDecision(
       reason:
         blockingViolations.length > 0
           ? `Production blocked by ${blockingViolations.length} control violation(s).`
-          : `Production blocked by ${openRisks.length} open P0/P1 risk(s).`,
+          : `Production blocked by ${openRisks.length} open or unapproved-accepted P0/P1 risk(s).`,
       blockingViolations: [...blockingViolations, ...riskViolations].sort(
         (a, b) => severityRank[a.severity] - severityRank[b.severity],
       ),
