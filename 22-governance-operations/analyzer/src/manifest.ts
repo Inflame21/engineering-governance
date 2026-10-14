@@ -22,5 +22,5 @@ export function hasPackageDependency(
 export function hasPythonDependency(content: string | undefined, packageName: string): boolean {
   if (!content) return false;
   const escaped = packageName.replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|[\\s=<>~!])${escaped}(?:[\\s=<>~!]|$)`, "im").test(content);
+  return new RegExp(`(?:^|[\\s=<>~!"',\\[])${escaped}(?:[\\s=<>~!"',;\\[\\]]|$)`, "im").test(content);
 }
