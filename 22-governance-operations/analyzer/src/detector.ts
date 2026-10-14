@@ -19,6 +19,13 @@ const languageByExtension: Record<string, string> = {
   ".c": "c",
 };
 
+// Manifests that prove a language even when no source file is in the snapshot.
+const languageByManifest: Record<string, string> = {
+  "pyproject.toml": "python",
+  "go.mod": "go",
+  "Cargo.toml": "rust",
+};
+
 const frameworkMarkers: Record<string, string> = {
   "next.config.js": "nextjs",
   "next.config.mjs": "nextjs",
@@ -28,9 +35,6 @@ const frameworkMarkers: Record<string, string> = {
   "angular.json": "angular",
   "nuxt.config.ts": "nuxt",
   "manage.py": "django",
-  "pyproject.toml": "python",
-  "go.mod": "go",
-  "Cargo.toml": "rust",
   "pom.xml": "spring",
   "build.gradle": "gradle",
   "build.gradle.kts": "gradle",
@@ -65,6 +69,10 @@ export function detectRepositoryFacts(
       const language = languageByExtension[lower.slice(dot)];
       if (language) languages.add(language);
     }
+  }
+
+  for (const [marker, language] of Object.entries(languageByManifest)) {
+    if (files.has(marker)) languages.add(language);
   }
 
   for (const [marker, framework] of Object.entries(frameworkMarkers)) {

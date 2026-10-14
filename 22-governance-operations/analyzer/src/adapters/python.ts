@@ -1,10 +1,10 @@
-import type { RepositoryAnalysis, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
+import type { AdapterAnalysis, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
 
 export const pythonAdapter: RepositoryAnalyzerAdapter = {
   id: "python",
   languages: ["python"],
   supports: (snapshot) => snapshot.files.some((file) => file.endsWith(".py")),
-  async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAnalysis> {
+  async analyze(snapshot: RepositorySnapshot): Promise<AdapterAnalysis> {
     const files = snapshot.files;
     const signals = new Set<string>();
 

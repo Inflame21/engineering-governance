@@ -5,14 +5,15 @@ export interface RepositorySnapshot {
   fileContents?: Readonly<Record<string, string>>;
 }
 
-export interface RepositoryFacts {
+// A type alias (not an interface) so facts are assignable to the engine's Record<string, unknown>.
+export type RepositoryFacts = {
   languages: string[];
   frameworks: string[];
   packageManagers: string[];
   buildSystems: string[];
   infrastructureSystems: string[];
   testSystems: string[];
-}
+};
 
 export interface RepositoryAnalysis {
   facts: RepositoryFacts;
@@ -28,10 +29,15 @@ export interface RepositoryAnalysis {
   }>;
 }
 
+/** What one adapter contributes; the pipeline merges it over the base facts. */
+export type AdapterAnalysis = Omit<RepositoryAnalysis, "facts"> & {
+  facts: Partial<RepositoryFacts>;
+};
+
 export interface RepositoryAnalyzerAdapter {
   readonly id: string;
   readonly languages: readonly string[];
   readonly frameworks?: readonly string[];
   supports(snapshot: RepositorySnapshot): boolean;
-  analyze(snapshot: RepositorySnapshot): Promise<RepositoryAnalysis>;
+  analyze(snapshot: RepositorySnapshot): Promise<AdapterAnalysis>;
 }

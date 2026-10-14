@@ -13,10 +13,18 @@ const pack: GovernancePack = {
     title: "API changes require API capability",
     severity: "P1",
     applies_when: ["capability:http-api"],
-    required_evidence: [],
+    required_evidence: ["EVD-API"],
     failure_decision: "NO-GO",
   }],
-  evidence: [],
+  evidence: [{
+    id: "EVD-API",
+    type: "E3_AUTOMATED_ANALYSIS",
+    status: "VERIFIED",
+    description: "API contract tests pass.",
+    source: "test",
+    freshness: "current",
+    supports_controls: ["API-001"],
+  }],
   risks: [],
   decisions: [],
 };
@@ -27,7 +35,7 @@ describe("analyze command", () => {
       snapshot: {
         rootPath: "/repo",
         changedFiles: ["main.py"],
-        files: ["main.py", "pyproject.toml"],
+        files: ["main.py", "routers/users.py", "pyproject.toml"],
         fileContents: {
           "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
         },
@@ -37,5 +45,6 @@ describe("analyze command", () => {
 
     expect(result).toContain("Decision: GO");
     expect(result).toContain("fastapi");
+    expect(result).toContain("Blocking violations: 0");
   });
 });
