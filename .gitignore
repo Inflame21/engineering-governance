@@ -1,0 +1,4 @@
+# Package-local reproducible lockfiles are committed; installed dependencies and
+# TypeScript build products are not source artifacts.
+22-governance-operations/*/node_modules/
+22-governance-operations/*/dist/

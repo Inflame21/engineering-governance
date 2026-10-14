@@ -1,0 +1,133 @@
+# Phase 0 — Consolidated Completion Plan
+
+**Repository:** `Inflame21/engineering-governance`  
+**Working branch:** `audit/phase-0-baseline`  
+**Tracking:** PR #1; issue #2  
+**Status:** `IN_PROGRESS` — this plan is not a production approval.
+
+## Objective
+
+Complete the Phase 0 audit as one coordinated implementation and verification batch. Avoid serial one-line edits. Group related code, tests, CI, and evidence updates, then verify the resulting exact commit SHA. Keep the PR and tracking issue open until every P0 acceptance criterion is evidenced.
+
+## Guardrails
+
+- Do not merge PR #1, close issue #2, or declare production readiness as part of this batch.
+- Do not modify GitHub rulesets/branch protection without a separate explicit approval.
+- Do not fabricate lockfiles or claim a reproducible install while CI uses unlocked dependency resolution.
+- Preserve exact commit SHAs and distinguish source review, automated test evidence, runtime verification, and production approval.
+- Any implementation change must have a regression test or an explicit reason a test cannot be added.
+- Use one coherent implementation commit where practical; the GitHub Contents API creates one commit per file, so multiple-file work may require a branch-side workflow/PR rather than pretending separate file writes are one commit.
+
+## Work packages and acceptance criteria
+
+### WP0 — Baseline and branch scope
+- [x] Compare audit branch against `main`.
+- [x] Record historical branch comparison and merge base `ca1ea5a4ef096ffefe74b2331cc8d8483d38bc9e`; use PR #1's current compare view/description for the live scope count.
+- [x] Confirm the comparison contains substantial implementation and test changes, not merely audit follow-ups.
+- [ ] Review PR #1 file/commit scope and determine whether its history is intentionally the full 357-commit feature branch.
+- [ ] Do not rewrite or squash history until PR intent and reviewability are clear.
+
+### WP1 — Reproducible CI and toolchain (AUD-01, AUD-08)
+- [x] Active workflow job names match required ruleset contexts: `Verify engine`, `Verify analyzer`, `Verify cli`.
+- [x] CI passes all three package jobs on commit `5a63563ec4bb84ff5433ef9cd7ebc9af260188fc`.
+- [x] Update workflow action versions and pin runner image to Ubuntu 24.04; verify CI after the change.
+- [x] Choose and document one dependency strategy for each independent package.
+- [x] Generate authentic lockfiles using npm, commit them, and replace `npm install` with `npm ci`.
+- [x] Ensure lockfile updates are deterministic and CI fails when manifests and locks disagree.
+- [x] Record Node, npm, action, runner, and exact SHA in the evidence report (audit §12; CI run #38397850555). Reviewer authentication of the logged Node/npm values remains unconfirmed.
+
+**Acceptance:** clean CI on the final SHA; no unlocked install path in required CI; exact check names match the ruleset.
+
+### WP2 — Governance evidence integrity (AUD-02, AUD-03)
+- [x] Public engine decision path rejects duplicate evidence IDs before evaluation.
+- [x] Regression test covers duplicate evidence IDs at the direct engine API boundary.
+- [x] Add/verify table-driven tests for missing, unverified, stale, expired, invalid-timestamp, contradictory, and control-unlinked evidence.
+- [x] Prove unknown applicability and incomplete analysis cannot be converted into a PASS/GO by absence of evidence.
+- [x] Verify duplicate IDs and invalid cross-references fail consistently in CLI pack loading and direct engine entry points.
+- [x] Verify malformed JSON, schema-invalid pack, invalid exception/risk references, and invalid architecture profile fail with actionable diagnostics.
+
+**Acceptance:** no unusable or ambiguous evidence can establish PASS; invalid governance input never reaches decision evaluation; results are deterministic for a fixed input and evaluation timestamp.
+
+### WP3 — CLI contract and security boundaries (AUD-06, AUD-07)
+- [x] CI smoke test builds and invokes the CLI for help/version/analyze/check and a seeded architecture violation.
+- [x] CI asserts invalid-option and missing-pack failures return exit code 3 and expected diagnostics.
+- [x] Expand exit-code matrix for GO (0), GO_WITH_CONDITIONS (1), NO-GO (2), and execution/configuration errors (3), using stable fixtures.
+- [x] Assert JSON and human-readable output contracts for success and failure paths.
+- [x] Adversarially test path traversal, symlinks, unreadable/oversized files, file-count limits, malformed roots, and repository-controlled execution.
+- [x] Verify optional tool execution is opt-in, allowlisted, bounded by timeout/output limits, and never shell-interpolates repository-controlled strings.
+
+**Acceptance:** exit codes match the documented contract; NO-GO cannot exit 0; analysis/tool failure cannot silently become GO; filesystem access remains confined to the intended repository.
+
+### WP4 — Analyzer and architecture graph
+- [x] Test nested/multiple manifests and package-scoped fact attribution; test malformed manifests and mixed framework/language repositories.
+- [x] Verify deterministic ordering, unresolved imports, unsupported-language reporting, generated-directory ignoring, ambiguous component mappings, and partial graph construction. Source-file read failures are covered; unreadable-manifest behavior and analyzer-level exclusion behavior are not fully evidenced and remain open.
+- [x] Validate malformed profiles (unknown fields, duplicate IDs, severity, pattern types, mappings, JSON types).
+- [x] Ensure incomplete graph coverage is explicit and every architecture violation carries inspectable source evidence.
+
+**Acceptance:** uncertainty is preserved rather than interpreted as absence or conformance; invalid profiles fail closed.
+
+### WP5 — Ruleset policy and merge readiness (AUD-08)
+- [x] Verify active ruleset targets `main` and requires the three workflow job names.
+- [x] Verify one approving review, stale review dismissal, latest-push approval, review-thread resolution, and deletion/force-push restrictions.
+- [x] Record current policy choices: administrator bypass is always allowed; strict up-to-date check is disabled.
+- [x] Record that the direct legacy branch-protection endpoint returned HTTP 403; the active ruleset was readable, but legacy protection outside the ruleset remains unverified.
+- [ ] Decide these policy exceptions separately; do not change them in this audit batch without explicit authorization.
+- [ ] Verify enforcement with a safe test of required-check failure behavior if available without weakening `main` protections.
+
+**Probe evidence (2026-10-14):** Temporary PR [#3](https://github.com/Inflame21/engineering-governance/pull/3) was created from `main`, emitted the exact required contexts from GitHub Actions integration `15368`, and was closed unmerged after evidence capture. On tested head [`b3e8358`](https://github.com/Inflame21/engineering-governance/commit/b3e835836648c2bc9aaed4ebc7ade0c1b27c441c), [run #38524643959](https://github.com/Inflame21/engineering-governance/actions/runs/38524643959) showed `Verify analyzer` and `Verify engine` passing and `Verify cli` intentionally failing; the PR reported `mergeable_state=blocked`. Because the required review was also outstanding, this does not isolate the failed check as the sole merge blocker. This provides direct check-name/source evidence but the WP5 enforcement item remains unchecked until the evidence boundary is resolved or accepted by the policy owner. No ruleset was changed and no probe was merged.
+- [ ] Record the limitation that legacy branch-protection endpoint access returned 403.
+
+**Acceptance:** documented enforcement matches intended policy; unverified settings remain explicit risks, not presumed safe.
+
+### WP6 — Evidence and closure
+- [x] Update the repository audit with links to CI runs, exact SHA, test matrix, remaining risks, and evidence boundaries.
+- [x] Re-run all required checks after the final implementation changes and verify each job's conclusion.
+- [ ] Confirm the PR diff and issue checklist are complete.
+- [ ] Keep Phase 0 open if any P0 criterion is unmet or evidence is not tied to the final SHA.
+
+## Final pass status (supersedes the evidence list below)
+
+Code baseline [`02beafc`](https://github.com/Inflame21/engineering-governance/commit/02beafc8ec6558f21c50cb343da54af6a8ed3fdf) passed CI run [#38396121321](https://github.com/Inflame21/engineering-governance/actions/runs/38396121321). The schema/TypeScript contract test at [`9884a1a`](https://github.com/Inflame21/engineering-governance/commit/9884a1a9f77f71d7575d9c628ec4e5e515b35078) passed [CI run #38397574762](https://github.com/Inflame21/engineering-governance/actions/runs/38397574762); the audit record was then extended in [`a63c9a2`](https://github.com/Inflame21/engineering-governance/commit/a63c9a28d66c69318fb68223d3eee3ecc3f07278). See [Section 11 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#11-schematypescript-contract-comparison--2026-10-13). AUD-03 is improved but remains partial: field/requiredness/enum drift is tested, while the complete primitive-type, constraint, and conditional-rule matrix remains open. Still open: PR #1 scope/history review (WP0), failing-check enforcement (WP5), the unsupported framework-detection investigation, unreadable-manifest/analyzer-exclusion evidence (WP4), and final review of PR/issue reconciliation (WP6). A real-repository CLI integration smoke now runs analyze and check using the example pack; it confirms PARTIAL analysis is preserved and the decision is NO-GO (run [#38398216932](https://github.com/Inflame21/engineering-governance/actions/runs/38398216932)). Exact CI versions were captured in [run #38397850555](https://github.com/Inflame21/engineering-governance/actions/runs/38397850555): Node v22.23.3 and npm 10.9.9 on Linux. The workflow selects Node 22 rather than pinning the exact patch. The current scope count: see PR #1's live compare view and latest PR description; this plan does not treat any embedded historical ahead-count as authoritative. See [Section 14 of the repository audit](./PHASE-0-REPOSITORY-AUDIT.md#14-real-repository-cli-integration-smoke--2026-10-13) for the integration-smoke evidence.
+
+### AUD-03 schema-constraint follow-up
+
+- Added targeted schema-shape assertions for representative governance-pack and architecture-profile primitive types, regexes, formats, bounds, uniqueness, object policies, and risk/exception conditional requirements in `cli/tests/schema-types.contract.test.ts`.
+- This is not yet the complete constraint-by-constraint valid/invalid runtime fixture matrix. AUD-03 remains partial pending CI on the new head and broader loader/CLI fixtures.
+
+## Current verified evidence
+
+> **Scope-count note:** Use PR #1's current compare view and latest PR description for live ahead/behind/file counts. Historical counts in this document are retained only as snapshots and must not be used as current scope claims.
+
+- CI run [38384895443](https://github.com/Inflame21/engineering-governance/actions/runs/38384895443): all engine, analyzer, and CLI jobs succeeded after the action/runner update; CLI smoke test succeeded.
+- Workflow commit: [5a63563ec4bb84ff5433ef9cd7ebc9af260188fc](https://github.com/Inflame21/engineering-governance/commit/5a63563ec4bb84ff5433ef9cd7ebc9af260188fc).
+- Earlier CLI exit-path smoke-test commit: [8426a96cae2e9edd54bda2d13d6ca25b588391ba](https://github.com/Inflame21/engineering-governance/commit/8426a96cae2e9edd54bda2d13d6ca25b588391ba).
+- Duplicate evidence ID guard/test passed in CI before the latest workflow-only update.
+- Branch comparison: use PR #1's current compare view and latest PR description for live ahead/behind/file counts. Historical snapshots in earlier plan/audit sections are not authoritative for current scope.
+
+## Execution order
+
+1. Finish baseline/PR scope review.
+2. Close evidence-engine and CLI P0 test gaps in a single code/test batch.
+3. Generate real package lockfiles and switch CI to `npm ci` only after lockfiles exist.
+4. Complete analyzer/filesystem adversarial tests.
+5. Run the complete CI matrix on the final batch SHA.
+6. Update audit evidence and issue checklist; present residual risks and request review.
+
+
+### AUD-03 schema-constraint follow-up — updated 2026-10-14
+
+- [x] Add targeted schema-shape assertions for representative governance-pack and architecture-profile constraints, conditional required fields, and object policies.
+- [x] Add loader-level invalid-input fixtures for representative patterns, formats, bounds, nested additional properties, conditional requirements, enum rejection across 17 fields, finding confidence/uniqueness, source-location bounds, and architecture-profile uniqueness/mapping constraints.
+- [x] Cover both valid `applies_when` `oneOf` forms and invalid input; verify all conditional required fields for accepted risks, requested exceptions, and approved exceptions.
+- [x] Add at least one invalid runtime fixture for every distinct `pattern` constraint in both schemas (governance identifiers/fingerprint/version and architecture profile/version/boundary-rule identifiers).
+- [x] Add empty-string fixtures for every distinct `minLength` field in both schemas, including nested arrays and conditional metadata.
+- [x] Add table-driven missing-required-property runtime fixtures for all 52 required properties across the root model, every `$defs` object, and nested finding source location.
+- [x] Run required CI on the latest test head [`f6e4657`](https://github.com/Inflame21/engineering-governance/commit/f6e4657ee314a330a604f41a26bf6bf195a60156): [run #38526530261](https://github.com/Inflame21/engineering-governance/actions/runs/38526530261), all three jobs succeeded.
+- [x] Add invalid fixtures for unknown properties across nested governance objects and invalid component-mapping value shapes; do not change the unresolved governance-pack root policy. Latest CI: [run #38526722391](https://github.com/Inflame21/engineering-governance/actions/runs/38526722391), all three jobs succeeded.
+- [ ] Complete the remaining recursive constraint-by-constraint valid/invalid fixture matrix and explicitly resolve/document the top-level governance-pack `additionalProperties` policy before closing AUD-03.
+
+### AUD-08 probe evidence — updated 2026-10-14
+
+- [x] Verify the active ruleset's required-check source association: the three contexts are associated with GitHub Actions integration `15368`.
+- [x] Create an isolated temporary probe PR based on `main`, emit the exact three required contexts, intentionally fail `Verify cli`, capture the check results, and close the probe unmerged: [PR #3](https://github.com/Inflame21/engineering-governance/pull/3), [run #38524643959](https://github.com/Inflame21/engineering-governance/actions/runs/38524643959).
+- [ ] Isolate the failed required check as the sole merge blocker, or obtain policy-owner acceptance of the documented evidence boundary. The observed PR state was blocked, but the required approving review was also outstanding; no ruleset changes or merges were made. See repository audit §16.

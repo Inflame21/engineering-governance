@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "name": "Microservices",
   "description": "An architecture profile for independently deployable services with explicit ownership and network contracts.",
-  "styles": ["microservices", "distributed-systems"],
+  "styles": [
+    "microservices",
+    "distributed-systems"
+  ],
   "boundaryRules": [
     {
       "id": "ARCH-SERVICE-DATA-OWNERSHIP",
@@ -14,6 +17,27 @@
       "allowed": false
     }
   ],
-  "requiredControls": ["ARCH-SERVICE-OWNERSHIP", "API-CONTRACT-COMPATIBILITY", "OBS-DISTRIBUTED-TRACEABILITY"],
-  "capabilities": ["service-discovery", "api-contract-analysis", "deployment-topology-analysis"]
+  "requiredControls": [
+    "ARCH-SERVICE-OWNERSHIP",
+    "API-CONTRACT-COMPATIBILITY",
+    "OBS-DISTRIBUTED-TRACEABILITY"
+  ],
+  "capabilities": [
+    "service-discovery",
+    "api-contract-analysis",
+    "deployment-topology-analysis"
+  ],
+  "componentMappings": {
+    "service-a": [
+      "services/service-a/**",
+      "apps/service-a/**",
+      "service-a/**"
+    ],
+    "service-b-private-database": [
+      "services/service-b/database/**",
+      "services/service-b/db/**",
+      "service-b/database/**",
+      "service-b/db/**"
+    ]
+  }
 }

@@ -1,4 +1,9 @@
+import { createRequire } from "node:module";
 import type { GovernancePack } from "../../engine/src/types.js";
+import { validateArchitectureProfile, type ArchitectureProfile } from "../../analyzer/src/architecture.js";
+import { validateGovernancePackSemantics } from "../../engine/src/validation.js";
+import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
+import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
 
 export interface GovernanceConfig {
   governancePackPath: string;
@@ -7,6 +12,36 @@ export interface GovernanceConfig {
 
 export interface ConfigFileSystemPort {
   readTextFile(rootPath: string, relativePath: string): Promise<string | undefined>;
+}
+
+interface SchemaError {
+  instancePath: string;
+  message?: string;
+}
+
+interface SchemaValidator {
+  (value: unknown): boolean;
+  errors: SchemaError[] | null;
+}
+
+interface AjvInstance {
+  compile(schema: unknown): SchemaValidator;
+}
+
+type AjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => AjvInstance;
+
+const require = createRequire(import.meta.url);
+const Ajv2020 = require("ajv/dist/2020.js") as AjvConstructor;
+const addFormats = require("ajv-formats") as (ajv: AjvInstance) => void;
+const ajv = new Ajv2020({ allErrors: true, strict: true });
+addFormats(ajv);
+const validateSchema = ajv.compile(governanceSchema);
+const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
+
+function formatSchemaErrors(errors: readonly SchemaError[]): string {
+  return errors
+    .map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`)
+    .join("; ");
 }
 
 export async function loadGovernancePack(
@@ -19,11 +54,62 @@ export async function loadGovernancePack(
     throw new Error(`Governance pack not found: ${path}`);
   }
 
-  const parsed: unknown = JSON.parse(content);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Governance pack is not valid JSON: ${message}`);
+  }
+
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("Governance pack must be a JSON object");
   }
 
-  // Full schema validation is a separate mandatory hardening step.
-  return parsed as GovernancePack;
+  if (!validateSchema(parsed)) {
+    throw new Error(`Governance pack schema validation failed: ${formatSchemaErrors(validateSchema.errors ?? [])}`);
+  }
+
+  const pack = parsed as GovernancePack;
+  const semanticIssues = validateGovernancePackSemantics(pack);
+  if (semanticIssues.length > 0) {
+    const details = semanticIssues
+      .map((issue) => `${issue.path} [${issue.code}]: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Governance pack semantic validation failed: ${details}`);
+  }
+
+  return pack;
+}
+
+/** Load and validate an architecture profile from a repository-relative JSON path. */
+export async function loadArchitectureProfile(
+  rootPath: string,
+  path: string,
+  fs: ConfigFileSystemPort,
+): Promise<ArchitectureProfile> {
+  const content = await fs.readTextFile(rootPath, path);
+  if (content === undefined) throw new Error(`Architecture profile not found: ${path}`);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Architecture profile is not valid JSON: ${message}`);
+  }
+
+  if (!validateArchitectureProfileSchema(parsed)) {
+    throw new Error(
+      `Architecture profile validation failed: ${formatSchemaErrors(validateArchitectureProfileSchema.errors ?? [])}`,
+    );
+  }
+
+  const profile = parsed as ArchitectureProfile;
+  const semanticValidation = validateArchitectureProfile(profile);
+  if (!semanticValidation.valid) {
+    throw new Error(`Architecture profile validation failed: ${semanticValidation.errors.join("; ")}`);
+  }
+
+  return profile;
 }

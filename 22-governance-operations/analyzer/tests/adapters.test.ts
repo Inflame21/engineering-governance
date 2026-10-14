@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { genericRepositoryAdapter } from "../src/adapters/generic.js";
+import { frameworkAdapter } from "../src/adapters/frameworks.js";
 import { pythonAdapter } from "../src/adapters/python.js";
 import { typescriptAdapter } from "../src/adapters/typescript.js";
 
@@ -9,6 +10,7 @@ const snapshot = {
   files: [
     "backend/main.py",
     "backend/routers/users.py",
+    "backend/models/user.py",
     "backend/tests/test_users.py",
     "src/App.tsx",
     "src/api/users.ts",
@@ -26,6 +28,24 @@ describe("repository adapters", () => {
       "containerized",
       "tests:present",
     ]);
+  });
+
+
+  it("detects frameworks from nested workspace manifests", async () => {
+    const result = await frameworkAdapter.analyze({
+      rootPath: "/repo",
+      changedFiles: [],
+      files: ["apps/api/pyproject.toml", "apps/web/package.json"],
+      fileContents: {
+        "apps/api/pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+        "apps/web/package.json": JSON.stringify({ dependencies: { react: "^19.0.0", vite: "^6.0.0" } }),
+      },
+    });
+
+    expect(result.facts?.frameworks).toEqual(["fastapi", "react", "vite"]);
+    expect(result.signals).toContain("framework:fastapi");
+    expect(result.signals).toContain("framework:react");
+    expect(result.executionStatus).toBe("SUCCESS");
   });
 
   it("detects Python API and database capabilities", async () => {

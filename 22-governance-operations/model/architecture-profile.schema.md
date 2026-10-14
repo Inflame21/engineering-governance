@@ -15,4 +15,20 @@ Architecture profiles express project-specific architectural constraints without
 - `architecture-profile-clean-architecture.json`
 - `architecture-profile-microservices.json`
 
-The initial patterns are illustrative logical labels. Before enforcement, map them to actual repository components using a project architecture manifest or analyzer-derived component graph.
+## Component mappings and verification
+
+`componentMappings` maps logical roles used by boundary rules to repository-relative glob patterns. For example:
+
+```json
+{
+  "componentMappings": {
+    "domain": ["src/domain/**", "domain/**"],
+    "application": ["src/application/**", "application/**"],
+    "infrastructure": ["src/infrastructure/**", "src/repositories/**"]
+  }
+}
+```
+
+Boundary rule `sourcePattern` and `targetPattern` values refer to these role names; a pipe separates alternatives (for example, `transport|ui|infrastructure`). A rule with `allowed: false` reports an edge when a source role imports a target role. Values in `requiredControls` are governance control IDs, not boundary-rule IDs; every required control must exist in the selected governance pack or the CLI returns `NO-GO`. Role mappings must match actual repository paths before a rule can be verified. A missing mapping, missing role, unresolved local import, source-content limit, or unsupported language produces a partial result rather than a clean pass.
+
+The current dependency extractor resolves relative TypeScript/JavaScript imports and Python imports. It does not yet perform AST/type-aware analysis, resolve TypeScript path aliases, or build dependency graphs for other languages. Such cases are reported as unsupported/incomplete and must not be treated as proof of architectural conformance.

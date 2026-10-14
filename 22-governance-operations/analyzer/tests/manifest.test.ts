@@ -13,8 +13,12 @@ describe("manifest inspection", () => {
     expect(hasPackageDependency(packageJson, "vite")).toBe(true);
   });
 
-  it("does not confuse similarly named Python packages", () => {
+  it("detects Python dependencies in requirements and quoted pyproject declarations", () => {
     expect(hasPythonDependency("fastapi==0.115.0\npydantic==2.0.0\n", "fastapi")).toBe(true);
+    expect(hasPythonDependency('[project]\ndependencies = ["fastapi>=0.115"]', "fastapi")).toBe(true);
+  });
+
+  it("does not confuse similarly named Python packages", () => {
     expect(hasPythonDependency("fastapi-users==13.0.0\n", "fastapi")).toBe(false);
   });
 });

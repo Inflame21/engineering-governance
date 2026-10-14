@@ -30,8 +30,44 @@ export function toGovernanceContext(
     signals.add(`test_system:${testSystem}`);
   }
 
+  const unsupportedCapabilities = [
+    ...new Set(analysis.adapterResults.flatMap((result) => result.unsupportedCapabilities)),
+  ].sort();
+  const analyzerLimitations = [
+    ...new Set(analysis.adapterResults.flatMap((result) => result.limitations)),
+  ].sort();
+  const hasFailure = analysis.adapterResults.some((result) => result.executionStatus === "FAILED");
+  const hasPartialResult = analysis.adapterResults.some(
+    (result) => result.executionStatus === "PARTIAL" || result.executionStatus === "SKIPPED",
+  );
+  const analysisStatus =
+    analysis.adapterResults.length === 0
+      ? "PARTIAL"
+      : hasFailure && analysis.adapterResults.every(
+          (result) => result.executionStatus === "FAILED" || result.executionStatus === "SKIPPED",
+        )
+        ? "FAILED"
+        : hasFailure || hasPartialResult || unsupportedCapabilities.length > 0
+          ? "PARTIAL"
+          : "COMPLETE";
+
+  if (analysis.adapterResults.length === 0) {
+    unsupportedCapabilities.push("analysis:no-adapters");
+    analyzerLimitations.push("No analyzer adapters produced a result.");
+  }
+
   return {
     signals: [...signals].sort(),
     facts: analysis.facts,
+    findings: analysis.findings,
+    analysisStatus,
+    unsupportedCapabilities: [...new Set(unsupportedCapabilities)].sort(),
+    analyzerLimitations: [...new Set(analyzerLimitations)].sort(),
+    ...(analysis.changeScope ? {
+      changeScopeStatus: analysis.changeScope.status,
+      ...(analysis.changeScope.reason ? { changeScopeReason: analysis.changeScope.reason } : {}),
+      changedFiles: analysis.changeScope.files,
+    } : {}),
+    evaluatedAt: new Date().toISOString(),
   };
 }

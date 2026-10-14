@@ -6,7 +6,12 @@ const basePack: GovernancePack = {
   version: "1.0.0",
   project: { id: "test", name: "Test", repository: "example/test", environment: "production" },
   change: { id: "CHG-1", type: "feature", title: "Test change", risk_class: "B", files: ["src/example.ts"] },
-  standards: [],
+  standards: [{
+    id: "SEC-007",
+    title: "Security Engineering",
+    version: "1.0.0",
+    source: "07-security/07-security-engineering-standard.md",
+  }],
   controls: [{
     id: "SEC-AUTH-001",
     standard: "SEC-007",
@@ -29,11 +34,47 @@ const basePack: GovernancePack = {
   decisions: []
 };
 
+const applicableContext = {
+  signals: ["api_endpoint", "protected_resource"],
+};
+
+const controlDecisionCases = (["P0", "P1", "P2", "P3"] as const).flatMap((severity) =>
+  (["NO-GO", "GO_WITH_CONDITIONS", "REVIEW_REQUIRED", "NONE"] as const).map((failureDecision) => ({
+    severity,
+    failureDecision,
+    expected: severity === "P0" || failureDecision === "NO-GO"
+      ? "NO-GO" as const
+      : "GO_WITH_CONDITIONS" as const,
+  })),
+);
+
 describe("rule and control engine", () => {
+  it("rejects duplicate IDs when the engine is called directly without CLI pack validation", () => {
+    const duplicateEvidencePack: GovernancePack = {
+      ...basePack,
+      evidence: [
+        ...basePack.evidence,
+        { ...basePack.evidence[0]!, description: "Conflicting duplicate evidence." },
+      ],
+    };
+
+    expect(() => evaluateGovernance(duplicateEvidencePack, applicableContext))
+      .toThrow(/Duplicate ID 'EVD-AUTH' in evidence/);
+  });
+
+  it("rejects invalid semantic cross-references when the engine is called directly", () => {
+    const invalidPack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, required_evidence: ["EVD-MISSING"] }],
+    };
+
+    expect(() => evaluateGovernance(invalidPack, applicableContext))
+      .toThrow(/requires unknown evidence 'EVD-MISSING'/);
+  });
   it("evaluates one control identically for multiple implementation languages", () => {
     for (const language of ["typescript", "python", "go", "java", "rust"]) {
       const result = evaluateGovernance(basePack, {
-        signals: ["api_endpoint", "protected_resource"],
+        ...applicableContext,
         facts: { language }
       });
       expect(result.decision.status).toBe("GO");
@@ -41,22 +82,512 @@ describe("rule and control engine", () => {
     }
   });
 
-  it("does not apply controls when normalized conditions are absent", () => {
-    const result = evaluateGovernance(basePack, { signals: ["cli_command"] });
+  it("does not apply controls when normalized conditions are absent after complete analysis", () => {
+    const result = evaluateGovernance(basePack, {
+      signals: ["cli_command"],
+      analysisStatus: "COMPLETE",
+    });
     expect(result.controls[0]?.status).toBe("NOT_APPLICABLE");
     expect(result.decision.status).toBe("GO");
   });
 
-  it("blocks when required evidence is unverified", () => {
-    const pack = {
+
+  it("does not treat missing signals as non-applicability when analysis is partial", () => {
+    const result = evaluateGovernance(basePack, {
+      signals: ["api_endpoint"],
+      analysisStatus: "PARTIAL",
+      unsupportedCapabilities: ["python-api-path-detection"],
+    });
+
+    expect(result.controls[0]?.applicabilityStatus).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingSignals).toContain("protected_resource");
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("does not assume analysis is complete when no analysis status is provided", () => {
+    const result = evaluateGovernance(basePack, { signals: ["cli_command"] });
+
+    expect(result.controls[0]?.applicabilityStatus).toBe("UNVERIFIED");
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("does not allow a declared PASS to override missing required evidence", () => {
+    const pack: GovernancePack = {
       ...basePack,
-      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" as const }]
+      controls: [{ ...basePack.controls[0]!, status: "PASS" }],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
+    };
+    const result = evaluateGovernance(pack, applicableContext);
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingEvidence).toContain("EVD-AUTH");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it.each(["UNVERIFIED", "PARTIALLY_VERIFIED", "NOT_APPLICABLE"] as const)(
+    "does not accept %s evidence as proof of a required control",
+    (evidenceStatus) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{ ...basePack.controls[0]!, status: "PASS" }],
+        evidence: [{ ...basePack.evidence[0]!, status: evidenceStatus }],
+      };
+      const result = evaluateGovernance(pack, applicableContext);
+
+      expect(result.controls[0]?.status).toBe("UNVERIFIED");
+      expect(result.decision.status).toBe("NO-GO");
+    },
+  );
+
+
+  it.each(["stale", "expired", "unknown"] as const)(
+    "does not accept %s evidence as current proof",
+    (freshness) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        evidence: [{ ...basePack.evidence[0]!, freshness_status: freshness }],
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        evaluatedAt: "2026-10-13T00:00:00.000Z",
+      });
+
+      expect(result.controls[0]?.status).toBe("UNVERIFIED");
+      expect(result.controls[0]?.missingEvidence).toContain("EVD-AUTH");
+      expect(result.decision.status).toBe("NO-GO");
+    },
+  );
+
+  it("does not accept a legacy stale freshness label", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      evidence: [{ ...basePack.evidence[0]!, freshness: "stale" }],
+    }, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it.each(["not-a-timestamp", "2026-10-14T00:00:00.000Z"])(
+    "does not accept invalid or future evidence timestamps: %s",
+    (generatedAt) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{ ...basePack.controls[0]!, max_evidence_age_seconds: 3_600 }],
+        evidence: [{
+          ...basePack.evidence[0]!,
+          generated_at: generatedAt,
+        }],
+      };
+
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        evaluatedAt: "2026-10-13T00:00:00.000Z",
+      });
+
+      expect(result.controls[0]?.status).toBe("UNVERIFIED");
+      expect(result.decision.status).toBe("NO-GO");
+    },
+  );
+
+  it("does not let selected evidence override contradictory linked evidence", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      evidence: [
+        ...basePack.evidence,
+        {
+          id: "EVD-AUTH-FAILED",
+          type: "E3_AUTOMATED_ANALYSIS",
+          status: "PARTIALLY_VERIFIED",
+          description: "A second authorization check did not complete.",
+          source: "test",
+          freshness: "current",
+          supports_controls: ["SEC-AUTH-001"],
+        },
+      ],
+    };
+
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingEvidence).toContain("EVD-AUTH-FAILED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("requires a valid timestamp when a control defines a maximum evidence age", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, max_evidence_age_seconds: 3600 }],
+      evidence: [{
+        ...basePack.evidence[0]!,
+        generated_at: "2026-10-12T00:00:00.000Z",
+      }],
     };
     const result = evaluateGovernance(pack, {
-      signals: ["api_endpoint", "protected_resource"]
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00.000Z",
     });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
     expect(result.decision.status).toBe("NO-GO");
-    expect(result.decision.blockingViolations[0]?.controlId).toBe("SEC-AUTH-001");
+  });
+
+  it("rejects future-dated evidence when maximum age is enforced", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, max_evidence_age_seconds: 3600 }],
+      evidence: [{
+        ...basePack.evidence[0]!,
+        generated_at: "2026-10-14T00:00:00.000Z",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00.000Z",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("does not pass a control with no declared or linked evidence", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{
+        ...basePack.controls[0]!,
+        status: "PASS",
+        required_evidence: [],
+      }],
+      evidence: [],
+    };
+    const result = evaluateGovernance(pack, applicableContext);
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+
+  it("rejects an accepted risk without auditable acceptance metadata before evaluation", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      risks: [{
+        id: "RSK-ACCEPTED",
+        severity: "P1",
+        title: "Accepted risk without approval metadata",
+        status: "ACCEPTED",
+      }],
+    };
+    expect(() => evaluateGovernance(pack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    })).toThrow("must include accepted_by");
+  });
+
+  it("honors only current, scoped, approved exceptions for non-P0 controls", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, severity: "P1" }],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
+      exceptions: [{
+        id: "EXC-1",
+        status: "APPROVED",
+        control: "SEC-AUTH-001",
+        reason: "Temporary, bounded exception for a scheduled migration.",
+        project_id: "test",
+        change_id: "CHG-1",
+        requested_by: "engineering",
+        requested_at: "2026-10-10T00:00:00Z",
+        approved_by: "security-owner",
+        approved_at: "2026-10-11T00:00:00Z",
+        expires_at: "2026-10-20T00:00:00Z",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.blockingViolations).toHaveLength(0);
+    expect(result.decision.warnings.some((item) => item.controlId === "EXCEPTION:EXC-1")).toBe(true);
+  });
+
+  it("does not apply expired exceptions and rejects out-of-scope approved exceptions", () => {
+    const baseException = {
+      id: "EXC-2",
+      status: "EXPIRED" as const,
+      control: "SEC-AUTH-001",
+      reason: "Temporary exception.",
+      project_id: "test",
+      change_id: "CHG-1",
+      requested_by: "engineering",
+      requested_at: "2026-10-01T00:00:00Z",
+      approved_by: "security-owner",
+      approved_at: "2026-10-02T00:00:00Z",
+      expires_at: "2026-10-10T00:00:00Z",
+    };
+    const expiredPack: GovernancePack = {
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, severity: "P1" }],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
+      exceptions: [baseException],
+    };
+    const expiredResult = evaluateGovernance(expiredPack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    });
+    expect(expiredResult.decision.status).toBe("NO-GO");
+
+    const outOfScopePack: GovernancePack = {
+      ...expiredPack,
+      exceptions: [{
+        ...baseException,
+        id: "EXC-3",
+        status: "APPROVED",
+        project_id: "different-project",
+        expires_at: "2026-10-20T00:00:00Z",
+      }],
+    };
+    expect(() => evaluateGovernance(outOfScopePack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    })).toThrow("outside the current project/change scope");
+  });
+
+  it("never lets an exception waive a P0 control", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
+      exceptions: [{
+        id: "EXC-P0",
+        status: "APPROVED",
+        control: "SEC-AUTH-001",
+        reason: "Attempted P0 exception.",
+        project_id: "test",
+        change_id: "CHG-1",
+        requested_by: "engineering",
+        requested_at: "2026-10-10T00:00:00Z",
+        approved_by: "security-owner",
+        approved_at: "2026-10-11T00:00:00Z",
+        expires_at: "2026-10-20T00:00:00Z",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    });
+
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.some((item) => item.controlId === "SEC-AUTH-001")).toBe(true);
+    expect(result.decision.warnings.some((item) => item.message.includes("P0 controls cannot be waived"))).toBe(true);
+  });
+
+
+  it("does not return unconditional GO when analysis is partial and no controls apply", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [],
+      evidence: [],
+    };
+    const result = evaluateGovernance(pack, {
+      signals: [],
+      analysisStatus: "PARTIAL",
+      unsupportedCapabilities: ["language-specific-analysis:go"],
+    });
+
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.warnings.some((item) => item.controlId === "ANALYSIS:COMPLETENESS")).toBe(true);
+  });
+
+  it("returns NO-GO when repository analysis failed", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [],
+      evidence: [],
+    };
+    const result = evaluateGovernance(pack, {
+      signals: [],
+      analysisStatus: "FAILED",
+    });
+
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.some((item) => item.controlId === "ANALYSIS:COMPLETENESS")).toBe(true);
+  });
+
+
+  it("blocks production on unresolved P1 analyzer findings", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      controls: [],
+      evidence: [],
+    }, {
+      signals: [],
+      analysisStatus: "COMPLETE",
+      findings: [{
+        id: "FND-ARCH-001",
+        rule_id: "ARCH-DOMAIN-INDEPENDENCE",
+        severity: "P1",
+        category: "architecture-boundary",
+        message: "Domain depends on infrastructure.",
+        status: "OPEN",
+        evidence_refs: ["EVD-ARCH-1"],
+      }],
+    });
+
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.some((item) => item.controlId === "FINDING:FND-ARCH-001")).toBe(true);
+  });
+
+  it("does not block on resolved findings", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      controls: [],
+      evidence: [],
+    }, {
+      signals: [],
+      analysisStatus: "COMPLETE",
+      findings: [{
+        id: "FND-ARCH-002",
+        rule_id: "ARCH-DOMAIN-INDEPENDENCE",
+        severity: "P1",
+        category: "architecture-boundary",
+        message: "Domain dependency was removed.",
+        status: "RESOLVED",
+        evidence_refs: ["EVD-ARCH-2"],
+      }],
+    });
+
+    expect(result.decision.status).toBe("GO");
+  });
+
+
+  it("does not return unconditional GO when requested change scope is unverified", () => {
+    const result = evaluateGovernance({
+      ...basePack,
+      controls: [],
+      evidence: [],
+    }, {
+      signals: [],
+      analysisStatus: "COMPLETE",
+      changeScopeStatus: "UNVERIFIED",
+      changeScopeReason: "Base revision is unavailable.",
+    });
+
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.warnings.some((item) => item.controlId === "CHANGE-SCOPE:VERIFICATION")).toBe(true);
+  });
+
+  it.each(controlDecisionCases)(
+    "applies the control severity/failure-policy matrix: $severity + $failureDecision",
+    ({ severity, failureDecision, expected }) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{
+          ...basePack.controls[0]!,
+          severity,
+          status: "FAIL",
+          failure_decision: failureDecision,
+        }],
+        evidence: basePack.evidence,
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        analysisStatus: "COMPLETE",
+        evaluatedAt: "2026-10-13T00:00:00Z",
+      });
+
+      expect(result.decision.status).toBe(expected);
+    },
+  );
+
+  it.each([
+    { severity: "P0" as const, failureDecision: "NONE" as const, expected: "NO-GO" as const },
+    { severity: "P1" as const, failureDecision: "NO-GO" as const, expected: "NO-GO" as const },
+    { severity: "P1" as const, failureDecision: "GO_WITH_CONDITIONS" as const, expected: "GO_WITH_CONDITIONS" as const },
+    { severity: "P2" as const, failureDecision: "NO-GO" as const, expected: "NO-GO" as const },
+    { severity: "P3" as const, failureDecision: "REVIEW_REQUIRED" as const, expected: "GO_WITH_CONDITIONS" as const },
+  ])(
+    "derives $expected for a $severity control with $failureDecision policy",
+    ({ severity, failureDecision, expected }) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        controls: [{
+          ...basePack.controls[0]!,
+          severity,
+          status: "FAIL",
+          failure_decision: failureDecision,
+        }],
+        evidence: basePack.evidence,
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        analysisStatus: "COMPLETE",
+        evaluatedAt: "2026-10-13T00:00:00Z",
+      });
+
+      expect(result.decision.status).toBe(expected);
+    },
+  );
+
+  it.each([
+    { severity: "P0" as const, expected: "NO-GO" as const },
+    { severity: "P1" as const, expected: "NO-GO" as const },
+    { severity: "P2" as const, expected: "GO_WITH_CONDITIONS" as const },
+    { severity: "P3" as const, expected: "GO_WITH_CONDITIONS" as const },
+  ])(
+    "applies the open-risk severity policy to $severity risks",
+    ({ severity, expected }) => {
+      const pack: GovernancePack = {
+        ...basePack,
+        risks: [{
+          id: `RSK-${severity}`,
+          severity,
+          title: `Open ${severity} risk`,
+          status: "OPEN",
+        }],
+      };
+      const result = evaluateGovernance(pack, {
+        ...applicableContext,
+        analysisStatus: "COMPLETE",
+        evaluatedAt: "2026-10-13T00:00:00Z",
+      });
+
+      expect(result.decision.status).toBe(expected);
+    },
+  );
+
+  it("honors a valid, current, time-bounded risk acceptance", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      risks: [{
+        id: "RSK-ACCEPTED",
+        severity: "P1",
+        title: "Bounded accepted risk",
+        status: "ACCEPTED",
+        accepted_by: "security-owner",
+        accepted_at: "2026-10-10T00:00:00Z",
+        acceptance_expires_at: "2026-10-20T00:00:00Z",
+        acceptance_reason: "Temporary exposure is bounded by compensating controls.",
+      }],
+    };
+    const result = evaluateGovernance(pack, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+      evaluatedAt: "2026-10-13T00:00:00Z",
+    });
+
+    expect(result.decision.status).toBe("GO");
+    expect(result.decision.openRisks).toEqual([]);
   });
 
   it("blocks on an open P1 risk even when controls pass", () => {
@@ -64,10 +595,37 @@ describe("rule and control engine", () => {
       ...basePack,
       risks: [{ id: "RSK-1", severity: "P1" as const, title: "Duplicate data risk", status: "OPEN" as const }]
     };
-    const result = evaluateGovernance(pack, {
-      signals: ["api_endpoint", "protected_resource"]
-    });
+    const result = evaluateGovernance(pack, applicableContext);
     expect(result.decision.status).toBe("NO-GO");
     expect(result.decision.blockingViolations[0]?.controlId).toBe("RISK:RSK-1");
+  });
+});
+
+describe("evidence linkage and determinism", () => {
+  it("does not let evidence that supports only a different control satisfy a required evidence ID", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [
+        { ...basePack.controls[0]!, status: "PASS" },
+        { ...basePack.controls[0]!, id: "SEC-OTHER-001", required_evidence: [] },
+      ],
+      evidence: [{ ...basePack.evidence[0]!, supports_controls: ["SEC-OTHER-001"] }],
+    };
+
+    const result = evaluateGovernance(pack, { ...applicableContext, analysisStatus: "COMPLETE" });
+
+    expect(result.controls[0]?.status).toBe("UNVERIFIED");
+    expect(result.controls[0]?.missingEvidence).toEqual(["EVD-AUTH"]);
+    expect(result.decision.status).toBe("NO-GO");
+  });
+
+  it("produces an identical evaluation for the same input regardless of evidence order", () => {
+    const extra = { ...basePack.evidence[0]!, id: "EVD-AUTH-2" };
+    const context = { ...applicableContext, analysisStatus: "COMPLETE" as const, evaluatedAt: "2026-10-13T00:00:00.000Z" };
+    const forward = evaluateGovernance({ ...basePack, evidence: [basePack.evidence[0]!, extra] }, context);
+    const reversed = evaluateGovernance({ ...basePack, evidence: [extra, basePack.evidence[0]!] }, context);
+
+    expect(reversed).toEqual(forward);
+    expect(evaluateGovernance({ ...basePack, evidence: [basePack.evidence[0]!, extra] }, context)).toEqual(forward);
   });
 });
