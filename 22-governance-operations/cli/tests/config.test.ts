@@ -13,6 +13,28 @@ function memoryFileSystem(content: string | undefined, profileContent?: string) 
   };
 }
 
+function deleteJsonPath(root: Record<string, unknown>, path: Array<string | number>) {
+  let parent: unknown = root;
+  for (const segment of path.slice(0, -1)) {
+    if (Array.isArray(parent)) {
+      parent = parent[segment as number];
+    } else if (parent && typeof parent === "object") {
+      parent = (parent as Record<string, unknown>)[segment as string];
+    } else {
+      throw new Error(`Invalid test path segment: ${String(segment)}`);
+    }
+  }
+  const last = path[path.length - 1];
+  if (last === undefined) throw new Error("Cannot delete an empty JSON path");
+  if (Array.isArray(parent)) {
+    parent.splice(last as number, 1);
+  } else if (parent && typeof parent === "object") {
+    delete (parent as Record<string, unknown>)[last as string];
+  } else {
+    throw new Error(`Invalid parent for JSON path: ${String(last)}`);
+  }
+}
+
 describe("governance pack loader", () => {
   it("loads a schema-valid pack with valid semantic references", async () => {
     const pack = await loadGovernancePack(
@@ -522,6 +544,120 @@ describe("governance pack loader", () => {
   ])("rejects schema constraint violation: %s", async (_name, mutate) => {
     const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
     mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
+  it.each([
+    { name: "root version", path: ["version"] },
+    { name: "root project", path: ["project"] },
+    { name: "root change", path: ["change"] },
+    { name: "root standards", path: ["standards"] },
+    { name: "root controls", path: ["controls"] },
+    { name: "root evidence", path: ["evidence"] },
+    { name: "root risks", path: ["risks"] },
+    { name: "root decisions", path: ["decisions"] },
+    { name: "project id", path: ["project", "id"] },
+    { name: "project name", path: ["project", "name"] },
+    { name: "project repository", path: ["project", "repository"] },
+    { name: "project environment", path: ["project", "environment"] },
+    { name: "change id", path: ["change", "id"] },
+    { name: "change type", path: ["change", "type"] },
+    { name: "change title", path: ["change", "title"] },
+    { name: "change risk_class", path: ["change", "risk_class"] },
+    { name: "change files", path: ["change", "files"] },
+    { name: "standard id", path: ["standards", 0, "id"] },
+    { name: "standard title", path: ["standards", 0, "title"] },
+    { name: "standard version", path: ["standards", 0, "version"] },
+    { name: "standard source", path: ["standards", 0, "source"] },
+    { name: "control id", path: ["controls", 0, "id"] },
+    { name: "control standard", path: ["controls", 0, "standard"] },
+    { name: "control title", path: ["controls", 0, "title"] },
+    { name: "control severity", path: ["controls", 0, "severity"] },
+    { name: "evidence id", path: ["evidence", 0, "id"] },
+    { name: "evidence type", path: ["evidence", 0, "type"] },
+    { name: "evidence status", path: ["evidence", 0, "status"] },
+    { name: "evidence description", path: ["evidence", 0, "description"] },
+    { name: "evidence source", path: ["evidence", 0, "source"] },
+    { name: "evidence freshness", path: ["evidence", 0, "freshness"] },
+    { name: "evidence supports_controls", path: ["evidence", 0, "supports_controls"] },
+    { name: "risk id", path: ["risks", 0, "id"] },
+    { name: "risk severity", path: ["risks", 0, "severity"] },
+    { name: "risk title", path: ["risks", 0, "title"] },
+    { name: "risk status", path: ["risks", 0, "status"] },
+    { name: "decision id", path: ["decisions", 0, "id"] },
+    { name: "decision type", path: ["decisions", 0, "type"] },
+    { name: "decision status", path: ["decisions", 0, "status"] },
+    {
+      name: "exception id",
+      path: ["exceptions", 0, "id"],
+      seed: (candidate: Record<string, unknown>) => { candidate["exceptions"] = [{ id: "EXC-REQUIRED", status: "REJECTED" }]; },
+    },
+    {
+      name: "exception status",
+      path: ["exceptions", 0, "status"],
+      seed: (candidate: Record<string, unknown>) => { candidate["exceptions"] = [{ id: "EXC-REQUIRED", status: "REJECTED" }]; },
+    },
+    {
+      name: "debt id",
+      path: ["debt", 0, "id"],
+      seed: (candidate: Record<string, unknown>) => { candidate["debt"] = [{ id: "DEBT-REQUIRED", severity: "P1", status: "OPEN" }]; },
+    },
+    {
+      name: "debt severity",
+      path: ["debt", 0, "severity"],
+      seed: (candidate: Record<string, unknown>) => { candidate["debt"] = [{ id: "DEBT-REQUIRED", severity: "P1", status: "OPEN" }]; },
+    },
+    {
+      name: "debt status",
+      path: ["debt", 0, "status"],
+      seed: (candidate: Record<string, unknown>) => { candidate["debt"] = [{ id: "DEBT-REQUIRED", severity: "P1", status: "OPEN" }]; },
+    },
+    {
+      name: "finding id",
+      path: ["findings", 0, "id"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding rule_id",
+      path: ["findings", 0, "rule_id"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding severity",
+      path: ["findings", 0, "severity"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding category",
+      path: ["findings", 0, "category"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding message",
+      path: ["findings", 0, "message"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding status",
+      path: ["findings", 0, "status"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding evidence_refs",
+      path: ["findings", 0, "evidence_refs"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [] }]; },
+    },
+    {
+      name: "finding source_location file",
+      path: ["findings", 0, "source_location", "file"],
+      seed: (candidate: Record<string, unknown>) => { candidate["findings"] = [{ id: "FND-REQUIRED", rule_id: "RULE-1", severity: "P1", category: "test", message: "test", status: "OPEN", evidence_refs: [], source_location: { file: "src/app.ts" } }]; },
+    },
+  ])("rejects a missing required field: $name", async ({ path, seed }) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    seed?.(candidate);
+    deleteJsonPath(candidate, path);
     await expect(
       loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
     ).rejects.toThrow("schema validation failed");
