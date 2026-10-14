@@ -236,6 +236,86 @@ describe("governance pack loader", () => {
   });
 
   it.each([
+    ["accepted risk accepted_at date-time format", (candidate: Record<string, unknown>) => {
+      candidate["risks"] = [{
+        id: "RSK-DATE", severity: "P1", title: "Accepted risk", status: "ACCEPTED",
+        accepted_by: "risk-owner", accepted_at: "yesterday",
+        acceptance_expires_at: "2026-11-14T08:00:00Z", acceptance_reason: "Temporary acceptance.",
+      }];
+    }],
+    ["accepted risk expiry date-time format", (candidate: Record<string, unknown>) => {
+      candidate["risks"] = [{
+        id: "RSK-DATE", severity: "P1", title: "Accepted risk", status: "ACCEPTED",
+        accepted_by: "risk-owner", accepted_at: "2026-10-14T08:00:00Z",
+        acceptance_expires_at: "tomorrow", acceptance_reason: "Temporary acceptance.",
+      }];
+    }],
+    ["decision timestamp date-time format", (candidate: Record<string, unknown>) => {
+      (candidate["decisions"] as Array<Record<string, unknown>>)[0]!["timestamp"] = "not-a-date";
+    }],
+    ["requested exception requested_at date-time format", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-DATE", status: "REQUESTED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "example-saas",
+        change_id: "CHG-EMPLOYEE-BULK-IMPORT", requested_by: "engineering",
+        requested_at: "not-a-date",
+      }];
+    }],
+    ["approved exception approved_at date-time format", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-DATE", status: "APPROVED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "example-saas",
+        change_id: "CHG-EMPLOYEE-BULK-IMPORT", requested_by: "engineering",
+        requested_at: "2026-10-14T08:00:00Z", approved_by: "security-owner",
+        approved_at: "not-a-date", expires_at: "2026-11-14T08:00:00Z",
+      }];
+    }],
+    ["approved exception expiry date-time format", (candidate: Record<string, unknown>) => {
+      candidate["exceptions"] = [{
+        id: "EXC-DATE", status: "APPROVED", control: "SEC-AUTH-001",
+        reason: "Temporary exception.", project_id: "example-saas",
+        change_id: "CHG-EMPLOYEE-BULK-IMPORT", requested_by: "engineering",
+        requested_at: "2026-10-14T08:00:00Z", approved_by: "security-owner",
+        approved_at: "2026-10-14T09:00:00Z", expires_at: "not-a-date",
+      }];
+    }],
+    ["finding source location start_line minimum", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LINE", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "invalid line", status: "OPEN", evidence_refs: [],
+        source_location: { file: "src/app.ts", start_line: 0 },
+      }];
+    }],
+    ["finding source location end_line minimum", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-LINE", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "invalid line", status: "OPEN", evidence_refs: [],
+        source_location: { file: "src/app.ts", start_line: 1, end_line: 0 },
+      }];
+    }],
+    ["finding source location start_column minimum", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-COLUMN", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "invalid column", status: "OPEN", evidence_refs: [],
+        source_location: { file: "src/app.ts", start_column: 0 },
+      }];
+    }],
+    ["finding source location end_column minimum", (candidate: Record<string, unknown>) => {
+      candidate["findings"] = [{
+        id: "FND-COLUMN", rule_id: "RULE-1", severity: "P1", category: "contract",
+        message: "invalid column", status: "OPEN", evidence_refs: [],
+        source_location: { file: "src/app.ts", start_column: 1, end_column: 0 },
+      }];
+    }],
+  ])("rejects invalid schema constraint: %s", async (_name, mutate) => {
+    const candidate = JSON.parse(JSON.stringify(examplePack)) as Record<string, unknown>;
+    mutate(candidate);
+    await expect(
+      loadGovernancePack("/repo", "governance.json", memoryFileSystem(JSON.stringify(candidate))),
+    ).rejects.toThrow("schema validation failed");
+  });
+
+  it.each([
     ["version semver pattern", (candidate: Record<string, unknown>) => { candidate["version"] = "v1"; }],
     ["project identifier pattern", (candidate: Record<string, unknown>) => {
       (candidate["project"] as Record<string, unknown>)["id"] = "Invalid Project ID";
