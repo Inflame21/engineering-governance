@@ -1,3 +1,4 @@
+import { checkApproverAuthority } from "./authority.js";
 import { evaluateControl } from "./evaluator.js";
 import { validateGovernancePackSemantics } from "./validation.js";
 import type {
@@ -66,8 +67,25 @@ function isRiskAcceptanceValid(
   return acceptedAt <= evaluatedAt && evaluatedAt < expiresAt && acceptedAt < expiresAt;
 }
 
+/**
+ * Whether an ACCEPTED risk's acceptance holds. P0 is never approvable (EXC-021 section 8). When approved
+ * authority roles are supplied, the accepter must hold one that covers the risk's severity, which is
+ * what allows a P1 acceptance. Without them only P2/P3 acceptances hold, as before.
+ */
+function riskAcceptanceHolds(risk: GovernanceRisk, context: GovernanceContext): boolean {
+  if (risk.status !== "ACCEPTED" || !isRiskAcceptanceValid(risk, context)) return false;
+  if (risk.severity === "P0") return false;
+  const authority = context.approverAuthority;
+  if (authority && authority.length > 0) {
+    return checkApproverAuthority(risk.accepted_by ?? "", risk.acceptance_role, risk.severity, authority).authorized;
+  }
+  return risk.severity === "P2" || risk.severity === "P3";
+}
+
 interface ExceptionAssessment {
   valid: boolean;
+  /** The authority role the waiver was approved under, when authority was checked. */
+  role?: string;
   reason: string;
   controlSeverity?: GovernanceViolation["severity"];
 }
@@ -148,11 +166,35 @@ function assessApprovedException(
       reason: "The requester cannot approve their own exception (EXC-021 section 15).",
     };
   }
-  if (control.severity === "P0" || control.severity === "P1") {
+  if (control.severity === "P0") {
     return {
       valid: false,
       controlSeverity: control.severity,
-      reason: "P0/P1 controls cannot be waived by an exception until approver authority can be verified (EXC-021 sections 8 and 15).",
+      reason: "P0 controls cannot be waived by an exception; they need the emergency governance process (EXC-021 section 8).",
+    };
+  }
+  const authority = context.approverAuthority;
+  if (authority && authority.length > 0) {
+    const check = checkApproverAuthority(exception.approved_by, exception.approver_role, control.severity, authority);
+    if (!check.authorized) {
+      return {
+        valid: false,
+        controlSeverity: control.severity,
+        reason: `Approver authority is not established: ${check.reason} (EXC-021 section 15).`,
+      };
+    }
+    return {
+      valid: true,
+      role: exception.approver_role as string,
+      controlSeverity: control.severity,
+      reason: `Approved exception is active and in scope; ${check.reason}.`,
+    };
+  }
+  if (control.severity === "P1") {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "P1 controls cannot be waived by an exception without an approved approver-authority policy (EXC-021 sections 8 and 15).",
     };
   }
 
@@ -214,16 +256,16 @@ export function deriveDecision(
     (item) => !blockingControlViolations.includes(item),
   );
 
-  // A risk is resolved only when MITIGATED/CLOSED, or ACCEPTED at P2/P3 with valid acceptance.
-  // Anything else, including a missing or unrecognised status, is open so malformed records fail
-  // closed. ACCEPTED P0/P1 stays open: the engine cannot verify approver authority (EXC-021
-  // section 15) and P0 is not approvable (section 8).
+  // A risk is resolved only when MITIGATED/CLOSED, or ACCEPTED with an acceptance that holds
+  // (valid, unexpired and, for P1, made by a holder of an approved authority role; see
+  // riskAcceptanceHolds). Anything else, including a missing or unrecognised status, is open so
+  // malformed records fail closed. P0 is never approvable (EXC-021 section 8).
   const isLowRisk = (risk: GovernanceRisk) => risk.severity === "P2" || risk.severity === "P3";
   const openRisks: GovernanceRisk[] = pack.risks
     .filter((risk) =>
       risk.status !== "MITIGATED" &&
       risk.status !== "CLOSED" &&
-      !(risk.status === "ACCEPTED" && isLowRisk(risk) && isRiskAcceptanceValid(risk, context)),
+      !riskAcceptanceHolds(risk, context),
     )
     .map((risk): GovernanceRisk => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk)
     .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.id.localeCompare(b.id));
@@ -235,13 +277,24 @@ export function deriveDecision(
     decision: isLowRisk(risk) ? "GO_WITH_CONDITIONS" : "NO-GO",
     message:
       pack.risks.some((sourceRisk) => sourceRisk.id === risk.id && sourceRisk.status === "ACCEPTED")
-        ? `Risk ${risk.id} has an invalid or expired acceptance and is treated as open.`
+        ? `Risk ${risk.id} is ACCEPTED, but the acceptance does not hold (invalid, expired, or the approver's authority is not established) and it is treated as open.`
         : risk.title,
     missingEvidence: [],
     missingSignals: [],
   }));
   const blockingRiskViolations = riskViolations.filter((item) => item.decision === "NO-GO");
-  const riskWarnings = riskViolations.filter((item) => item.decision !== "NO-GO");
+  const acceptedP1Warnings: GovernanceViolation[] = pack.risks
+    .filter((risk) => risk.severity === "P1" && riskAcceptanceHolds(risk, context))
+    .map((risk) => ({
+      controlId: `RISK:${risk.id}`,
+      status: "WARN" as const,
+      severity: risk.severity,
+      decision: "GO_WITH_CONDITIONS" as const,
+      message: `Risk ${risk.id} is accepted under authority role ${risk.acceptance_role} until ${risk.acceptance_expires_at}; residual P1 risk remains. The approver's identity is declared in the governance pack, not authenticated.`,
+      missingEvidence: [],
+      missingSignals: [],
+    }));
+  const riskWarnings = [...riskViolations.filter((item) => item.decision !== "NO-GO"), ...acceptedP1Warnings];
 
   const exceptionWarnings: GovernanceViolation[] = [];
   for (const exception of pack.exceptions ?? []) {
@@ -274,7 +327,7 @@ export function deriveDecision(
         severity,
         decision: "GO_WITH_CONDITIONS",
         message: assessment?.valid
-          ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}.`
+          ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}.${assessment.role ? ` Approved under authority role ${assessment.role}; the approver's identity is declared in the governance pack, not authenticated.` : ""}`
           : `Exception ${exception.id} was not applied: ${assessment?.reason ?? "validity could not be established"}`,
         missingEvidence: [],
         missingSignals: [],

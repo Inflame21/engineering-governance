@@ -401,6 +401,11 @@
           "type": "string",
           "minLength": 1
         },
+        "acceptance_role": {
+          "type": "string",
+          "description": "The authority role under which accepted_by accepted the risk (EXC-021 section 15). A P1 acceptance holds only when this names an approved role that covers P1 and accepted_by holds it.",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
         "acceptance_expires_at": {
           "type": "string",
           "format": "date-time"
@@ -552,6 +557,11 @@
         "approved_by": {
           "type": "string",
           "minLength": 1
+        },
+        "approver_role": {
+          "type": "string",
+          "description": "The authority role under which approved_by approved the exception (EXC-021 section 15). Checked against the approved authority policy; required for the waiver to hold once a policy is in force.",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
         },
         "approved_at": {
           "type": "string",

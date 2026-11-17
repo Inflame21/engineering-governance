@@ -60,6 +60,13 @@ on:
         required: false
         type: boolean
         default: true
+      use_authority:
+        description: >
+          Apply the approver-authority policy of the pinned governance baseline, which decides who may
+          approve exceptions and accept risks by severity. Its roles are DRAFT until approved.
+        required: false
+        type: boolean
+        default: true
       diff_scope:
         description: >
           Verify the changed-file scope against a base revision. For pull requests the base branch is
@@ -184,6 +191,15 @@ jobs:
           echo ".governance-baseline/" >> _target/.git/info/exclude
           echo "catalog_path=.governance-baseline/organization-controls.json" >> "$GITHUB_OUTPUT"
 
+      - name: Place the approver-authority policy from the governance baseline
+        id: authority
+        if: ${{ inputs.use_authority }}
+        run: |
+          mkdir -p _target/.governance-baseline
+          cp _governance/22-governance-operations/model/authority/organization-authority.json _target/.governance-baseline/
+          echo ".governance-baseline/" >> _target/.git/info/exclude
+          echo "authority_path=.governance-baseline/organization-authority.json" >> "$GITHUB_OUTPUT"
+
       - name: Run the governance check
         id: check
         env:
@@ -197,6 +213,7 @@ jobs:
           PROJECT_ID: ${{ inputs.project_id }}
           PROFILE_PATH: ${{ inputs.profile_path }}
           CATALOG_PATH: ${{ steps.catalog.outputs.catalog_path }}
+          AUTHORITY_PATH: ${{ steps.authority.outputs.authority_path }}
           BASE_REF: ${{ steps.base.outputs.base_ref }}
           RUN_TOOLS: ${{ inputs.run_tools }}
         run: bash _governance/.github/scripts/governance-check.sh

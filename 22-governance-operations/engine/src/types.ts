@@ -92,6 +92,8 @@ export interface GovernanceRisk {
   accepted_at?: string;
   acceptance_expires_at?: string;
   acceptance_reason?: string;
+  /** The authority role under which accepted_by accepted the risk (EXC-021 section 15). */
+  acceptance_role?: string;
 }
 
 export interface GovernanceStandard {
@@ -121,8 +123,19 @@ export interface GovernanceException {
   requested_by?: string;
   requested_at?: string;
   approved_by?: string;
+  /** The authority role under which approved_by approved the exception (EXC-021 section 15). */
+  approver_role?: string;
   approved_at?: string;
   expires_at?: string;
+}
+
+/** An approved authority role: which severities it may approve and who holds it. */
+export interface ApproverAuthority {
+  role: string;
+  /** P1 to P3 only: P0 is never approvable through the normal flow (EXC-021 section 8). */
+  severities: Severity[];
+  /** Names and handles of the people who hold the role. */
+  holders: string[];
 }
 
 export interface GovernanceDebt {
@@ -206,6 +219,12 @@ export interface GovernanceContext {
    * example from the control catalog. Listing a control here makes every exception for it invalid.
    */
   nonExceptionableControls?: string[];
+  /**
+   * The approved authority roles, supplied by the caller from a policy it trusts. When present and not
+   * empty, every exception waiver and risk acceptance must come from a holder of a role that covers its
+   * severity. When absent or empty, no P1 waiver or P1 acceptance can hold, and P2/P3 behave as before.
+   */
+  approverAuthority?: ApproverAuthority[];
 }
 
 export type ApplicabilityStatus = "APPLICABLE" | "NOT_APPLICABLE" | "UNVERIFIED";

@@ -129,6 +129,13 @@ describe.skipIf(!runnable)("reusable workflow script", () => {
     expect(result.summary).toContain("Pipeline outcome: passed");
   }, 60_000);
 
+  it("passes a named authority policy to the CLI, and a missing one is an ERROR that fails", async () => {
+    const result = await run({ TARGET_DIR: fixtures.complete!, CONDITIONS: "pass", AUTHORITY_PATH: "authority/nope.json" });
+    expect(result.exitCode).toBe(1);
+    expect(decisionOf(result)).toBe("ERROR");
+    expect(result.summary).toContain("Authority policy not found: authority/nope.json");
+  }, 60_000);
+
   it("shows the error and no decision body when the CLI cannot produce a report", async () => {
     const result = await run({ TARGET_DIR: fixtures["no-pack"]!, CONDITIONS: "pass" });
     expect(result.summary).toContain("could not produce a report");
@@ -157,6 +164,8 @@ describe.skipIf(!runnable)("reusable workflow script", () => {
     ["shell metacharacters in a path", { CONDITIONS: "pass", PACK_PATH: "$(touch pwned)" }],
     ["backticks in a path", { CONDITIONS: "pass", REGISTRY_PATH: "`id`" }],
     ["a base ref with a semicolon", { CONDITIONS: "pass", BASE_REF: "main;rm -rf /" }],
+    ["an authority path that climbs out with ..", { CONDITIONS: "pass", AUTHORITY_PATH: "../authority.json" }],
+    ["shell metacharacters in an authority path", { CONDITIONS: "pass", AUTHORITY_PATH: "$(touch pwned).json" }],
     ["a project id without a registry", { CONDITIONS: "pass", PROJECT_ID: "e2e" }],
     ["a malformed project id", { CONDITIONS: "pass", REGISTRY_PATH: "r.json", PROJECT_ID: "E2E!" }],
     ["a run_tools value that is not true or false", { CONDITIONS: "pass", RUN_TOOLS: "yes" }],

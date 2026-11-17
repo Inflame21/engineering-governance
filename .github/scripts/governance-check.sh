@@ -5,7 +5,7 @@
 # can never be interpreted as shell code. Every value is validated before it is used.
 #
 # Required: GOVERNANCE_CLI (built CLI entry point), TARGET_DIR (repository to assess), OUT_DIR, CONDITIONS (pass|fail).
-# Optional: PACK_PATH, REGISTRY_PATH, PROJECT_ID, PROFILE_PATH, CATALOG_PATH, BASE_REF, RUN_TOOLS (true|false),
+# Optional: PACK_PATH, REGISTRY_PATH, PROJECT_ID, PROFILE_PATH, CATALOG_PATH, AUTHORITY_PATH, BASE_REF, RUN_TOOLS (true|false),
 #           GOVERNANCE_REF (recorded in the summary), SUMMARY_FILE and OUTPUT_FILE (default to the runner's
 #           GITHUB_STEP_SUMMARY and GITHUB_OUTPUT).
 #
@@ -45,12 +45,14 @@ PACK_PATH="${PACK_PATH:-}"
 REGISTRY_PATH="${REGISTRY_PATH:-}"
 PROFILE_PATH="${PROFILE_PATH:-}"
 CATALOG_PATH="${CATALOG_PATH:-}"
+AUTHORITY_PATH="${AUTHORITY_PATH:-}"
 PROJECT_ID="${PROJECT_ID:-}"
 BASE_REF="${BASE_REF:-}"
 relative_path PACK_PATH
 relative_path REGISTRY_PATH
 relative_path PROFILE_PATH
 relative_path CATALOG_PATH
+relative_path AUTHORITY_PATH
 if [[ -n "$PROJECT_ID" ]]; then
   [[ "$PROJECT_ID" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || input_error "PROJECT_ID must be lowercase letters, digits and ._-"
   [[ -n "$REGISTRY_PATH" ]] || input_error "PROJECT_ID requires REGISTRY_PATH"
@@ -67,6 +69,7 @@ args=(report "$TARGET_DIR")
 [[ -n "$PROJECT_ID" ]] && args+=(--project "$PROJECT_ID")
 [[ -n "$PROFILE_PATH" ]] && args+=(--profile "$PROFILE_PATH")
 [[ -n "$CATALOG_PATH" ]] && args+=(--catalog "$CATALOG_PATH")
+[[ -n "$AUTHORITY_PATH" ]] && args+=(--authority "$AUTHORITY_PATH")
 [[ -n "$BASE_REF" ]] && args+=(--base "$BASE_REF")
 [[ "$RUN_TOOLS" == "true" ]] && args+=(--run-tools)
 

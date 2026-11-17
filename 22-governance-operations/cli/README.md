@@ -53,6 +53,13 @@ node dist/cli/src/index.js validate ../.. --catalog 22-governance-operations/mod
 node dist/cli/src/index.js check ../.. --catalog 22-governance-operations/model/catalog/organization-controls.json
 ```
 
+Apply an approver-authority policy (see `model/authority/README.md`). `--authority` takes one policy file. Only `APPROVED` roles with a named holder confer authority; they let an exception waiver or risk acceptance for a P1 control or risk hold when its approver holds a role that covers P1 (named in `approver_role` or `acceptance_role`). P0 never holds. Without approved roles, P1 waivers and acceptances never hold, so passing a draft policy changes no result. `validate --authority` checks the file alone:
+
+```bash
+node dist/cli/src/index.js validate ../.. --authority 22-governance-operations/model/authority/organization-authority.json
+node dist/cli/src/index.js check ../.. --authority 22-governance-operations/model/authority/organization-authority.json
+```
+
 Assess a registered project. With `--registry`, `check` and `report` look the project up in the registry and let the record decide which governance pack and architecture profile apply:
 
 ```bash

@@ -6,6 +6,7 @@ import governanceSchema from "../../model/governance-model.schema.json" with { t
 import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
 import projectRegistrationSchema from "../../model/project-registration.schema.json" with { type: "json" };
 import controlCatalogSchema from "../../model/control-catalog.schema.json" with { type: "json" };
+import authorityPolicySchema from "../../model/authority-policy.schema.json" with { type: "json" };
 import cleanArchitectureProfile from "../../model/architecture-profile-clean-architecture.json" with { type: "json" };
 import hexagonalProfile from "../../model/architecture-profile-hexagonal.json" with { type: "json" };
 import microservicesProfile from "../../model/architecture-profile-microservices.json" with { type: "json" };
@@ -45,6 +46,7 @@ const validateSchema = ajv.compile(governanceSchema);
 const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
 const validateProjectRegistrationSchema = ajv.compile(projectRegistrationSchema);
 const validateControlCatalogSchema = ajv.compile(controlCatalogSchema);
+const validateAuthorityPolicySchema = ajv.compile(authorityPolicySchema);
 
 // shortcut: the approved profiles are listed here, so a new model/architecture-profile-*.json
 // needs one import and one entry; upgrade to directory discovery when profiles change often.
@@ -331,4 +333,57 @@ export async function loadControlCatalog(
     throw new Error(`Control catalog validation failed: duplicate control id(s): ${[...duplicates].sort().join(", ")}`);
   }
   return catalog;
+}
+
+export interface AuthorityRole {
+  id: string;
+  title: string;
+  severities: Array<"P1" | "P2" | "P3">;
+  source_file: string;
+  source_section: string;
+  source_text: string;
+  holders: ProjectContact[];
+  status: "DRAFT" | "APPROVED" | "DEPRECATED" | "RETIRED";
+  effective_from?: string;
+  retired_at?: string;
+}
+
+export interface AuthorityPolicy {
+  version: string;
+  policy_id: string;
+  policy_version: string;
+  description: string;
+  roles: AuthorityRole[];
+}
+
+/** Load and validate an approver-authority policy from a repository-relative JSON path. */
+export async function loadAuthorityPolicy(
+  rootPath: string,
+  path: string,
+  fs: ConfigFileSystemPort,
+): Promise<AuthorityPolicy> {
+  const content = await fs.readTextFile(rootPath, path);
+  if (content === undefined) throw new Error(`Authority policy not found: ${path}`);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content) as unknown;
+  } catch (error) {
+    throw new Error(`Authority policy is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!validateAuthorityPolicySchema(parsed)) {
+    throw new Error(`Authority policy schema validation failed: ${formatSchemaErrors(validateAuthorityPolicySchema.errors ?? [])}`);
+  }
+
+  const policy = parsed as AuthorityPolicy;
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const role of policy.roles) {
+    if (seen.has(role.id)) duplicates.add(role.id);
+    seen.add(role.id);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(`Authority policy validation failed: duplicate role id(s): ${[...duplicates].sort().join(", ")}`);
+  }
+  return policy;
 }
