@@ -17,13 +17,14 @@ const VERSION = "0.1.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "analyze" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
   baseRef?: string;
   runTools: boolean;
   json: boolean;
+  format?: "markdown" | "json";
 }
 
 function usage(): string {
@@ -32,12 +33,16 @@ function usage(): string {
     "",
     "Usage:",
     "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>]",
+    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance --help",
     "  governance --version",
     "",
     "Commands:",
     "  check     Analyze a repository, validate its governance pack, and derive a decision.",
+    "  validate  Validate the governance pack (and architecture profile) against their schemas; no analysis.",
+    "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
     "",
     "Options:",
@@ -46,6 +51,7 @@ function usage(): string {
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
     "  --run-tools Execute installed local TypeScript/Python checks (never installs dependencies).",
     "  --json    Emit machine-readable JSON.",
+    "  --format  Report format for the report command: markdown (default) or json.",
     "  -h, --help",
     "  -v, --version",
     "",
@@ -66,7 +72,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -76,6 +82,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let baseRef: string | undefined;
   let runTools = false;
   let json = false;
+  let format: "markdown" | "json" | undefined;
   let repositoryProvided = false;
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -86,6 +93,14 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     }
     if (argument === "--run-tools") {
       runTools = true;
+      continue;
+    }
+    if (argument === "--format") {
+      const value = rest[index + 1];
+      if (rawCommand !== "report") throw new Error("--format is only supported by the report command.");
+      if (value !== "markdown" && value !== "json") throw new Error("--format must be markdown or json.");
+      format = value;
+      index += 1;
       continue;
     }
     if (argument === "--pack" || argument === "--profile" || argument === "--base") {
@@ -111,6 +126,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     ...(baseRef ? { baseRef } : {}),
     runTools,
     json,
+    ...(format ? { format } : {}),
   };
 }
 
@@ -133,6 +149,14 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   try {
+    if (args.command === "validate") {
+      await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
+      if (args.profilePath) await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem);
+      process.stdout.write(`Valid: ${args.packPath}${args.profilePath ? ` and ${args.profilePath}` : ""}
+`);
+      return 0;
+    }
+
     const changeScope = args.baseRef
       ? await loadGitChangeScope(args.repositoryPath, args.baseRef)
       : undefined;
@@ -164,7 +188,8 @@ export async function runCli(argv: string[]): Promise<number> {
     const result = await runGovernanceCommand({
       snapshot,
       governancePack,
-      ...(args.json ? { json: true } : {}),
+      ...(args.json || (args.command === "report" && args.format === "json") ? { json: true } : {}),
+      ...(args.command === "report" && args.format !== "json" ? { markdown: true } : {}),
       ...(architectureProfile ? { architectureProfile } : {}),
       ...(args.runTools ? { verificationRunner: nodeVerificationToolRunner } : {}),
     });

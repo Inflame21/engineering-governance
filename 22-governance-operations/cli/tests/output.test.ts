@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAnalysisResult, formatHumanResult, formatJsonResult } from "../src/output.js";
+import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "../src/output.js";
 import type { GovernanceEvaluation } from "../../engine/src/types.js";
 import type { RepositoryAnalysis } from "../../analyzer/src/types.js";
 
@@ -196,5 +196,54 @@ describe("CLI output", () => {
     expect(parsed.report.repositoryFingerprint).toBe(analysis.snapshotFingerprint?.digest);
     expect(Number.isNaN(Date.parse(parsed.report.generatedAt))).toBe(false);
     expect(parsed.report.decision).toBe("GO");
+  });
+});
+
+describe("markdown report", () => {
+  it("renders the decision, analysis table and summary for a passing assessment", () => {
+    const output = formatMarkdownResult(analysis, evaluation, context);
+    expect(output).toContain("# Governance report");
+    expect(output).toContain("**Decision:** GO");
+    expect(output).toContain("## Repository analysis");
+    expect(output).toContain("- Open risks: 0");
+    expect(output).not.toContain("## Blocking violations");
+  });
+
+  it("lists blockers and escapes table-breaking characters in control reasons", () => {
+    const blocked: GovernanceEvaluation = {
+      controls: [{
+        controlId: "SEC-001",
+        applicable: true,
+        applicabilityStatus: "APPLICABLE",
+        status: "FAIL",
+        severity: "P1",
+        failureDecision: "NO-GO",
+        missingEvidence: [],
+        missingSignals: [],
+        supportingEvidence: [],
+        reason: "first | second\nthird",
+      }],
+      violations: [],
+      decision: {
+        ...evaluation.decision,
+        status: "NO-GO",
+        reason: "Blocked.",
+        blockingViolations: [{
+          controlId: "SEC-001",
+          status: "FAIL",
+          severity: "P1",
+          decision: "NO-GO",
+          message: "Authorization is missing.",
+          missingEvidence: ["EVD-AUTH"],
+          missingSignals: [],
+        }],
+      },
+    };
+    const output = formatMarkdownResult(analysis, blocked, context);
+    expect(output).toContain("**Decision:** NO-GO");
+    expect(output).toContain("## Blocking violations");
+    expect(output).toContain("- **[P1] SEC-001**: Authorization is missing.");
+    expect(output).toContain("  - Missing evidence: EVD-AUTH");
+    expect(output).toContain("| SEC-001 | FAIL | first \| second third |");
   });
 });

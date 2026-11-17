@@ -165,6 +165,64 @@ export function formatHumanResult(
   return lines.join("\n");
 }
 
+/** Escapes text for a Markdown table cell. */
+const cell = (value: string): string => value.replace(/\|/g, "\|").replace(/\r?\n/g, " ");
+
+export function formatMarkdownResult(
+  analysis: RepositoryAnalysis,
+  evaluation: GovernanceEvaluation,
+  context: GovernanceContext,
+): string {
+  const { decision } = evaluation;
+  const list = (items: string[]) => (items.length ? items.join(", ") : "none detected");
+  const lines = [
+    "# Governance report",
+    "",
+    `**Decision:** ${decision.status}`,
+    ...(decision.reason ? ["", `**Reason:** ${decision.reason}`] : []),
+    "",
+    "## Repository analysis",
+    "",
+    "| | |",
+    "|---|---|",
+    `| Analysis status | ${context.analysisStatus ?? "UNVERIFIED"} |`,
+    `| Languages | ${cell(list(analysis.facts.languages))} |`,
+    `| Frameworks | ${cell(list(analysis.facts.frameworks))} |`,
+    `| Package managers | ${cell(list(analysis.facts.packageManagers))} |`,
+    `| Build systems | ${cell(list(analysis.facts.buildSystems))} |`,
+    `| Infrastructure | ${cell(list(analysis.facts.infrastructureSystems))} |`,
+    `| Test systems | ${cell(list(analysis.facts.testSystems))} |`,
+    "",
+    "## Decision summary",
+    "",
+    `- Controls evaluated: ${evaluation.controls.length}`,
+    `- Blocking violations: ${decision.blockingViolations.length}`,
+    `- Warnings: ${decision.warnings.length}`,
+    `- Open risks: ${decision.openRisks.length}`,
+  ];
+
+  const section = (title: string, items: typeof decision.warnings) => {
+    if (items.length === 0) return;
+    lines.push("", `## ${title}`, "");
+    for (const item of items) {
+      lines.push(`- **[${item.severity}] ${item.controlId}**: ${item.message}`);
+      if (item.missingEvidence.length > 0) lines.push(`  - Missing evidence: ${item.missingEvidence.join(", ")}`);
+      if (item.missingSignals.length > 0) lines.push(`  - Missing signals/capabilities: ${item.missingSignals.join(", ")}`);
+      if (item.evidenceRefs?.length) lines.push(`  - Evidence: ${item.evidenceRefs.join(", ")}`);
+    }
+  };
+  section("Blocking violations", decision.blockingViolations);
+  section("Warnings", decision.warnings);
+
+  const attention = evaluation.controls.filter((c) => c.status !== "PASS" && c.status !== "NOT_APPLICABLE");
+  if (attention.length > 0) {
+    lines.push("", "## Controls needing attention", "", "| Control | Status | Reason |", "|---|---|---|");
+    for (const control of attention) lines.push(`| ${cell(control.controlId)} | ${control.status} | ${cell(control.reason)} |`);
+  }
+
+  return lines.join("\n");
+}
+
 export function formatJsonResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,

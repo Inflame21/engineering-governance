@@ -27,6 +27,19 @@ node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/exa
 node dist/cli/src/index.js check ../.. --pack 22-governance-operations/model/example-governance-pack.json --json
 ```
 
+Validate a governance pack (and optionally an architecture profile) without analyzing the repository. This is quick and suited to pre-commit hooks; it exits `0` when valid and `3` when not:
+
+```bash
+node dist/cli/src/index.js validate ../.. --pack 22-governance-operations/model/example-governance-pack.json
+```
+
+Render the same assessment as `check` as a report. The default format is Markdown, which suits pull-request comments and job summaries; `--format json` emits the same JSON as `check --json`. Exit codes are identical to `check`:
+
+```bash
+node dist/cli/src/index.js report ../.. --pack 22-governance-operations/model/example-governance-pack.json
+node dist/cli/src/index.js report ../.. --pack 22-governance-operations/model/example-governance-pack.json --format json
+```
+
 Run the built-artifact CLI contract suite after building:
 
 ```bash
