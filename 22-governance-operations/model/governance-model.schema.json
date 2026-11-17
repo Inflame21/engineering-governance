@@ -176,8 +176,7 @@
         "id",
         "standard",
         "title",
-        "severity",
-        "status"
+        "severity"
       ],
       "properties": {
         "id": {
@@ -205,13 +204,21 @@
             "WARN",
             "NOT_APPLICABLE",
             "UNVERIFIED"
-          ]
+          ],
+          "description": "Declared status. Informational only: the engine derives status from linked evidence and never trusts this value."
         },
         "applies_when": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
         },
         "required_evidence": {
           "type": "array",
@@ -239,7 +246,10 @@
         "id",
         "type",
         "status",
-        "description"
+        "description",
+        "source",
+        "freshness",
+        "supports_controls"
       ],
       "properties": {
         "id": {
@@ -268,10 +278,14 @@
           "type": "string"
         },
         "source": {
-          "type": "string"
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Where the evidence comes from. Blank sources are treated as missing evidence."
         },
         "freshness": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "description": "Only the exact value 'current' is accepted as fresh; any other value is treated as stale."
         },
         "supports_controls": {
           "type": "array",

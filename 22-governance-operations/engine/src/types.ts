@@ -83,6 +83,7 @@ export interface ControlEvaluation {
 
 export interface GovernanceViolation {
   controlId: string;
+  status: ControlStatus;
   severity: Severity;
   decision: FailureDecision;
   message: string;

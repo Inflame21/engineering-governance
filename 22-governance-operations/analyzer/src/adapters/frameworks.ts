@@ -1,4 +1,4 @@
-import type { RepositoryAnalysis, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
+import type { AdapterAnalysis, RepositoryAnalyzerAdapter, RepositorySnapshot } from "../types.js";
 import { hasPackageDependency, hasPythonDependency, parsePackageJson } from "../manifest.js";
 
 export const frameworkAdapter: RepositoryAnalyzerAdapter = {
@@ -8,7 +8,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
     snapshot.files.includes("package.json") ||
     snapshot.files.includes("pyproject.toml") ||
     snapshot.files.includes("requirements.txt"),
-  async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAnalysis> {
+  async analyze(snapshot: RepositorySnapshot): Promise<AdapterAnalysis> {
     const signals = new Set<string>();
     const frameworks = new Set<string>();
 
@@ -48,7 +48,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
     if (frameworks.size === 0) return { facts: {}, signals: [], evidence: [] };
 
     return {
-      facts: { frameworks: [...frameworks] },
+      facts: { frameworks: [...frameworks].sort() },
       signals: [...signals].sort(),
       evidence: [{
         id: "EVD-FRAMEWORK-MANIFEST",

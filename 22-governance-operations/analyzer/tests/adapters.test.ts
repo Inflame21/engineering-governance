@@ -9,9 +9,11 @@ const snapshot = {
   files: [
     "backend/main.py",
     "backend/routers/users.py",
+    "backend/models/user.py",
     "backend/tests/test_users.py",
     "src/App.tsx",
     "src/api/users.ts",
+    "src/components/UserList.tsx",
     "tests/App.test.tsx",
     ".github/workflows/ci.yml",
     "Dockerfile",

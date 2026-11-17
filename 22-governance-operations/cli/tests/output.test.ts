@@ -16,12 +16,12 @@ const analysis = {
 
 const evaluation = {
   controls: [],
+  violations: [],
   decision: {
     status: "GO" as const,
     reason: "All applicable controls passed.",
     blockingViolations: [],
     warnings: [],
-    openRisks: [],
   },
 };
 

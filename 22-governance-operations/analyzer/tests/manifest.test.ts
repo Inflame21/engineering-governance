@@ -17,4 +17,10 @@ describe("manifest inspection", () => {
     expect(hasPythonDependency("fastapi==0.115.0\npydantic==2.0.0\n", "fastapi")).toBe(true);
     expect(hasPythonDependency("fastapi-users==13.0.0\n", "fastapi")).toBe(false);
   });
+
+  it("detects quoted pyproject.toml dependencies and extras", () => {
+    expect(hasPythonDependency('dependencies = ["fastapi>=0.115", "pydantic"]', "fastapi")).toBe(true);
+    expect(hasPythonDependency('dependencies = ["fastapi[standard]>=0.115"]', "fastapi")).toBe(true);
+    expect(hasPythonDependency('dependencies = ["fastapi-users>=13"]', "fastapi")).toBe(false);
+  });
 });

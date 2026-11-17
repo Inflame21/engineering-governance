@@ -1,0 +1,87 @@
+name: Governance Operations CI
+
+on:
+  pull_request:
+    paths:
+      - "22-governance-operations/**"
+      - ".github/workflows/governance-operations.yml"
+  push:
+    branches: [main]
+    paths:
+      - "22-governance-operations/**"
+      - ".github/workflows/governance-operations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-operations-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyzer:
+    name: Verify analyzer
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 22-governance-operations/analyzer
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+
+  cli:
+    name: Verify CLI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 22-governance-operations/cli
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+
+  engine:
+    name: Verify engine
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 22-governance-operations/engine
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
