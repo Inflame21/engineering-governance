@@ -131,84 +131,238 @@ describe("built governance CLI", () => {
     expect(decision.blockingViolations.map((v: { controlId: string }) => v.controlId)).toContain("SCOPE:NO_APPLICABLE_CONTROLS");
   });
 
-  it("validate checks the pack without analysing the repository and exits 3 for an invalid pack", async () => {
-    const root = await createCompleteFixture();
-    const ok = await runCli(["validate", root]);
-    expect(ok.exitCode).toBe(0);
-    expect(ok.stdout).toContain("Valid: .governance/governance-pack.json");
-
-    const { project: _project, ...withoutProject } = pack();
-    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(withoutProject));
-    const bad = await runCli(["validate", root]);
-    expect(bad.exitCode).toBe(3);
-    expect(bad.stdout).toBe("");
-    expect(bad.stderr).toContain("schema validation failed");
-
-    const missing = await runCli(["validate", root, "--pack", "nope.json"]);
-    expect(missing.exitCode).toBe(3);
-    expect(missing.stderr).toContain("Governance pack not found");
-  });
-
-  it("report renders Markdown by default with the same exit codes as check, and supports --format json", async () => {
-    const root = await createCompleteFixture();
-
-    const go = await runCli(["report", root, "--base", "HEAD"]);
-    expect(go.exitCode).toBe(0);
-    expect(go.stdout).toContain("# Governance report");
-    expect(go.stdout).toContain("**Decision:** GO");
-
-    const json = await runCli(["report", root, "--base", "HEAD", "--format", "json"]);
-    expect(json.exitCode).toBe(0);
-    expect(JSON.parse(json.stdout).report.decision).toBe("GO");
-
-    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(pack(true)));
-    const blocked = await runCli(["report", root, "--base", "HEAD"]);
-    expect(blocked.exitCode).toBe(2);
-    expect(blocked.stdout).toContain("**Decision:** NO-GO");
-    expect(blocked.stdout).toContain("## Blocking violations");
-  });
-
-  it("validate --registry checks project registration records and fails closed on an empty or invalid registry", async () => {
-    const root = await createCompleteFixture();
-    const registry = path.join(root, "registry", "projects");
-    await mkdir(registry, { recursive: true });
-    const example = await readFile(path.resolve("../model/example-project-registration.json"), "utf8");
-
-    const empty = await runCli(["validate", root, "--registry", "registry/projects"]);
-    expect(empty.exitCode).toBe(3);
-    expect(empty.stderr).toContain("No project registration records");
-
-    await writeFile(path.join(registry, "example-saas.json"), example);
-    const ok = await runCli(["validate", root, "--registry", "registry/projects"]);
-    expect(ok.exitCode).toBe(0);
-    expect(ok.stdout).toContain("Valid: 1 project registration in registry/projects");
-
-    const both = await runCli(["validate", root, "--registry", "registry/projects", "--pack", ".governance/governance-pack.json"]);
-    expect(both.exitCode).toBe(0);
-    expect(both.stdout).toContain(".governance/governance-pack.json and 1 project registration");
-
-    await writeFile(path.join(registry, "example-saas.json"), example.replace('"ONBOARDING"', '"ACTIVE"'));
-    const gap = await runCli(["validate", root, "--registry", "registry/projects"]);
-    expect(gap.exitCode).toBe(3);
-    expect(gap.stdout).toBe("");
-    expect(gap.stderr).toContain("schema validation failed");
-  });
-
-  it("rejects --registry on commands other than validate with exit 3", async () => {
-    const root = await createCompleteFixture();
-    const result = await runCli(["check", root, "--registry", "registry/projects"]);
-    expect(result.exitCode).toBe(3);
-    expect(result.stderr).toContain("only supported by the validate command");
-  });
-
-  it("rejects an unsupported report format and --format on other commands with exit 3", async () => {
-    const root = await createCompleteFixture();
-    expect((await runCli(["report", root, "--format", "xml"])).exitCode).toBe(3);
-    const wrongCommand = await runCli(["check", root, "--format", "markdown"]);
-    expect(wrongCommand.exitCode).toBe(3);
-    expect(wrongCommand.stderr).toContain("only supported by the report command");
-  });
-
+  it("validate checks the pack without analysing the repository and exits 3 for an invalid pack", async () => {
+    const root = await createCompleteFixture();
+    const ok = await runCli(["validate", root]);
+    expect(ok.exitCode).toBe(0);
+    expect(ok.stdout).toContain("Valid: .governance/governance-pack.json");
+
+    const { project: _project, ...withoutProject } = pack();
+    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(withoutProject));
+    const bad = await runCli(["validate", root]);
+    expect(bad.exitCode).toBe(3);
+    expect(bad.stdout).toBe("");
+    expect(bad.stderr).toContain("schema validation failed");
+
+    const missing = await runCli(["validate", root, "--pack", "nope.json"]);
+    expect(missing.exitCode).toBe(3);
+    expect(missing.stderr).toContain("Governance pack not found");
+  });
+
+  it("report renders Markdown by default with the same exit codes as check, and supports --format json", async () => {
+    const root = await createCompleteFixture();
+
+    const go = await runCli(["report", root, "--base", "HEAD"]);
+    expect(go.exitCode).toBe(0);
+    expect(go.stdout).toContain("# Governance report");
+    expect(go.stdout).toContain("**Decision:** GO");
+
+    const json = await runCli(["report", root, "--base", "HEAD", "--format", "json"]);
+    expect(json.exitCode).toBe(0);
+    expect(JSON.parse(json.stdout).report.decision).toBe("GO");
+
+    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(pack(true)));
+    const blocked = await runCli(["report", root, "--base", "HEAD"]);
+    expect(blocked.exitCode).toBe(2);
+    expect(blocked.stdout).toContain("**Decision:** NO-GO");
+    expect(blocked.stdout).toContain("## Blocking violations");
+  });
+
+  it("validate --registry checks project registration records and fails closed on an empty or invalid registry", async () => {
+    const root = await createCompleteFixture();
+    const registry = path.join(root, "registry", "projects");
+    await mkdir(registry, { recursive: true });
+    const example = await readFile(path.resolve("../model/example-project-registration.json"), "utf8");
+
+    const empty = await runCli(["validate", root, "--registry", "registry/projects"]);
+    expect(empty.exitCode).toBe(3);
+    expect(empty.stderr).toContain("No project registration records");
+
+    await writeFile(path.join(registry, "example-saas.json"), example);
+    const ok = await runCli(["validate", root, "--registry", "registry/projects"]);
+    expect(ok.exitCode).toBe(0);
+    expect(ok.stdout).toContain("Valid: 1 project registration in registry/projects");
+
+    const both = await runCli(["validate", root, "--registry", "registry/projects", "--pack", ".governance/governance-pack.json"]);
+    expect(both.exitCode).toBe(0);
+    expect(both.stdout).toContain(".governance/governance-pack.json and 1 project registration");
+
+    await writeFile(path.join(registry, "example-saas.json"), example.replace('"ONBOARDING"', '"ACTIVE"'));
+    const gap = await runCli(["validate", root, "--registry", "registry/projects"]);
+    expect(gap.exitCode).toBe(3);
+    expect(gap.stdout).toBe("");
+    expect(gap.stderr).toContain("schema validation failed");
+  });
+
+  it("rejects --registry on analyze, and --project without --registry or on other commands, with exit 3", async () => {
+    const root = await createCompleteFixture();
+    const analyze = await runCli(["analyze", root, "--registry", "registry/projects"]);
+    expect(analyze.exitCode).toBe(3);
+    expect(analyze.stderr).toContain("only supported by the validate, check and report commands");
+
+    const orphan = await runCli(["check", root, "--project", "e2e"]);
+    expect(orphan.exitCode).toBe(3);
+    expect(orphan.stderr).toContain("--project requires --registry");
+
+    const wrongCommand = await runCli(["validate", root, "--registry", "registry/projects", "--project", "e2e"]);
+    expect(wrongCommand.exitCode).toBe(3);
+    expect(wrongCommand.stderr).toContain("only supported by the check and report commands");
+  });
+
+  function registration(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      version: "1.0.0",
+      id: "e2e",
+      name: "CLI E2E",
+      status: "ACTIVE",
+      criticality: "LOW",
+      data_classification: "INTERNAL",
+      repositories: [{ name: "example/e2e" }],
+      owners: {
+        technical_owner: { name: "Technical Owner" },
+        governance_representative: { name: "Governance Rep" },
+        escalation_contact: { name: "Escalation Contact" },
+      },
+      environments: ["test"],
+      profiles: { architecture: "hexagonal-architecture", technology: ["typescript"] },
+      governance_pack: ".governance/governance-pack.json",
+      ...overrides,
+    };
+  }
+
+  async function writeRegistration(root: string, record: Record<string, unknown>, file = "e2e.json"): Promise<void> {
+    const directory = path.join(root, "registry", "projects");
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, file), JSON.stringify(record));
+    // --base HEAD treats untracked files as changes, so commit the record like a real registry would be.
+    for (const args of [["add", "-A"], ["commit", "--quiet", "--allow-empty", "-m", "registry"]]) {
+      const result = await run("git", args, root);
+      if (result.exitCode !== 0) throw new Error(`Could not commit the registry fixture: ${result.stderr}`);
+    }
+  }
+
+  const REGISTRY = ["--registry", "registry/projects"];
+
+  it("check uses the registered project's pack and profile, and labels the project", async () => {
+    const root = await createCompleteFixture();
+    await writeRegistration(root, registration());
+
+    const result = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    // The registry's hexagonal profile is applied. Its component mappings match nothing in this tiny
+    // repository, so boundary rules are unverifiable: conditional, never an unconditional GO.
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("Decision: GO_WITH_CONDITIONS");
+    expect(result.stdout).toContain("Project: e2e (ACTIVE, criticality LOW, data INTERNAL)");
+    expect(result.stdout).toContain("Architecture profile: hexagonal-architecture (PARTIAL)");
+    expect(result.stdout).not.toContain("OWNERSHIP-GAP");
+  });
+
+  it("reads the pack path from the registry unless --pack names one explicitly", async () => {
+    const root = await createCompleteFixture();
+    await mkdir(path.join(root, "packs"), { recursive: true });
+    await writeFile(path.join(root, "packs", "e2e-pack.json"), JSON.stringify(pack()));
+    await writeRegistration(root, registration({ governance_pack: "packs/e2e-pack.json" }));
+    expect((await runCli(["check", root, ...REGISTRY, "--base", "HEAD"])).exitCode).toBe(1);
+
+    await writeRegistration(root, registration({ governance_pack: "packs/missing.json" }));
+    const missing = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(missing.exitCode).toBe(3);
+    expect(missing.stderr).toContain("Governance pack not found: packs/missing.json");
+
+    const override = await runCli(["check", root, ...REGISTRY, "--pack", ".governance/governance-pack.json", "--base", "HEAD"]);
+    expect(override.exitCode).toBe(1);
+    expect(override.stderr).toBe("");
+  });
+
+  it("applies the registered architecture profile: clean-architecture requires controls this pack lacks", async () => {
+    const root = await createCompleteFixture();
+    await writeRegistration(root, registration({ profiles: { architecture: "clean-architecture", technology: ["typescript"] } }));
+
+    const result = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toContain("Decision: NO-GO");
+    expect(result.stdout).toContain("REQUIRED-CONTROL:ARCH-DEPENDENCY-DIRECTION");
+  });
+
+  it("reports an unassigned owner as a condition, so the exit code is 1 and not 0", async () => {
+    const root = await createCompleteFixture();
+    await writeRegistration(root, registration({
+      status: "ONBOARDING",
+      owners: {
+        technical_owner: { name: "UNASSIGNED" },
+        governance_representative: { name: "UNASSIGNED" },
+        escalation_contact: { name: "UNASSIGNED" },
+      },
+    }));
+
+    const result = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("Decision: GO_WITH_CONDITIONS");
+    expect(result.stdout).toContain("REGISTRY:e2e:OWNERSHIP-GAP");
+  });
+
+  it("rejects a pack that does not belong to the registered project, and RETIRED projects, with exit 3", async () => {
+    const root = await createCompleteFixture();
+
+    await writeRegistration(root, registration({ id: "someone-else" }));
+    const wrongId = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(wrongId.exitCode).toBe(3);
+    expect(wrongId.stdout).toBe("");
+    expect(wrongId.stderr).toContain("does not match registered project 'someone-else'");
+
+    await writeRegistration(root, registration({ repositories: [{ name: "example/another" }] }));
+    const wrongRepo = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(wrongRepo.exitCode).toBe(3);
+    expect(wrongRepo.stderr).toContain("is not one of the repositories registered");
+
+    await writeRegistration(root, registration({ status: "RETIRED" }));
+    const retired = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(retired.exitCode).toBe(3);
+    expect(retired.stderr).toContain("RETIRED in the registry and cannot be assessed");
+  });
+
+  it("requires --project when the registry holds several projects, and fails on an empty or unknown registry", async () => {
+    const root = await createCompleteFixture();
+
+    const empty = await runCli(["check", root, ...REGISTRY]);
+    expect(empty.exitCode).toBe(3);
+    expect(empty.stderr).toContain("No project registration records");
+
+    await writeRegistration(root, registration());
+    await writeRegistration(root, registration({ id: "second", repositories: [{ name: "example/second" }] }), "second.json");
+
+    const ambiguous = await runCli(["check", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(ambiguous.exitCode).toBe(3);
+    expect(ambiguous.stderr).toContain("holds 2 projects; pass --project <id>");
+
+    const named = await runCli(["check", root, ...REGISTRY, "--project", "e2e", "--base", "HEAD"]);
+    expect(named.exitCode).toBe(1);
+    expect(named.stdout).toContain("Project: e2e");
+    const unknown = await runCli(["check", root, ...REGISTRY, "--project", "nope", "--base", "HEAD"]);
+    expect(unknown.exitCode).toBe(3);
+    expect(unknown.stderr).toContain("Project 'nope' is not registered");
+  });
+
+  it("report supports the registry in Markdown and JSON", async () => {
+    const root = await createCompleteFixture();
+    await writeRegistration(root, registration());
+
+    const markdown = await runCli(["report", root, ...REGISTRY, "--base", "HEAD"]);
+    expect(markdown.exitCode).toBe(1);
+    expect(markdown.stdout).toContain("**Project:** e2e (ACTIVE, criticality LOW, data INTERNAL)");
+
+    const json = await runCli(["report", root, ...REGISTRY, "--format", "json", "--base", "HEAD"]);
+    expect(JSON.parse(json.stdout).report.project).toMatchObject({ id: "e2e", status: "ACTIVE" });
+  });
+
+  it("rejects an unsupported report format and --format on other commands with exit 3", async () => {
+    const root = await createCompleteFixture();
+    expect((await runCli(["report", root, "--format", "xml"])).exitCode).toBe(3);
+    const wrongCommand = await runCli(["check", root, "--format", "markdown"]);
+    expect(wrongCommand.exitCode).toBe(3);
+    expect(wrongCommand.stderr).toContain("only supported by the report command");
+  });
+
   it("reports partial analysis in JSON and exits with the documented conditional status", async () => {
     const root = await createRoot("governance-cli-partial-");
     await writeFile(path.join(root, "main.go"), "package main\nfunc main() {}\n");

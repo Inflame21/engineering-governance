@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runAnalyzeCommand, runGovernanceCommand } from "../src/commands.js";
 import type { GovernancePack } from "../../engine/src/types.js";
+import type { ProjectRegistration } from "../src/config.js";
 
 const pack: GovernancePack = {
   version: "1.0.0",
@@ -203,5 +205,77 @@ dependencies = ["fastapi>=0.115"]',
     expect(result).toContain("CHANGE-SCOPE:NOT-REQUESTED");
     expect(result).toContain("fastapi");
     expect(result).toContain("Blocking violations: 0");
+  });
+});
+
+describe("registry ownership gap", () => {
+  const example = JSON.parse(
+    readFileSync(new URL("../../model/example-project-registration.json", import.meta.url), "utf8"),
+  ) as ProjectRegistration;
+  const registration = (owners: Partial<ProjectRegistration["owners"]> = {}): ProjectRegistration => ({
+    ...example,
+    id: "demo",
+    repositories: [{ name: "demo/repo" }],
+    owners: {
+      technical_owner: { name: "Tech Owner" },
+      governance_representative: { name: "Gov Rep" },
+      escalation_contact: { name: "Escalation" },
+      ...owners,
+    },
+  });
+  const snapshot = {
+    rootPath: "/repo",
+    changedFiles: ["main.py"],
+    changeScope: { status: "VERIFIED" as const, baseRef: "origin/main", headRef: "head-sha", files: ["main.py"] },
+    files: ["main.py", "routers/users.py", "pyproject.toml"],
+    fileContents: {
+      "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
+      "main.py": "print('ok')",
+      "routers/users.py": "from fastapi import APIRouter",
+    },
+  };
+
+  it("keeps an unconditional GO when every accountable owner is named", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, registration: registration() });
+    expect(result.evaluation.decision.status).toBe("GO");
+    expect(result.evaluation.decision.warnings).toEqual([]);
+    expect(result.output).toContain("Project: demo (ONBOARDING");
+  });
+
+  it.each([
+    ["technical owner", { technical_owner: { name: "UNASSIGNED" } }],
+    ["governance representative", { governance_representative: { name: "UNASSIGNED" } }],
+  ])("downgrades GO to GO_WITH_CONDITIONS when the %s is UNASSIGNED", async (role, owners) => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, registration: registration(owners) });
+    const { decision } = result.evaluation;
+    expect(decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(decision.blockingViolations).toEqual([]);
+    expect(decision.warnings.map((w) => w.controlId)).toEqual(["REGISTRY:demo:OWNERSHIP-GAP"]);
+    expect(decision.warnings[0]?.message).toContain(role);
+    expect(decision.reason).toContain("Registry ownership gap");
+  });
+
+  it("does not hide a NO-GO behind the ownership gap, and still reports the gap", async () => {
+    const blocked = { ...pack, risks: [{ id: "RSK-1", severity: "P1" as const, title: "Open risk", status: "OPEN" as const }] };
+    const result = await runGovernanceCommand({
+      snapshot,
+      governancePack: blocked,
+      registration: registration({ technical_owner: { name: "UNASSIGNED" } }),
+    });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.warnings.map((w) => w.controlId)).toContain("REGISTRY:demo:OWNERSHIP-GAP");
+  });
+
+  it("is unchanged when no registration is supplied", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack });
+    expect(result.evaluation.decision.status).toBe("GO");
+    expect(result.output).not.toContain("Project:");
+  });
+
+  it("labels the project in markdown and JSON output", async () => {
+    const markdown = await runGovernanceCommand({ snapshot, governancePack: pack, registration: registration(), markdown: true });
+    expect(markdown.output).toContain("**Project:** demo (ONBOARDING, criticality HIGH, data CONFIDENTIAL)");
+    const json = await runGovernanceCommand({ snapshot, governancePack: pack, registration: registration(), json: true });
+    expect(JSON.parse(json.output).report.project).toMatchObject({ id: "demo", status: "ONBOARDING", criticality: "HIGH" });
   });
 });

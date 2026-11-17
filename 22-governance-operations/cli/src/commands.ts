@@ -5,6 +5,7 @@ import type { VerificationToolRunner } from "../../analyzer/src/verification.js"
 import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack, GovernanceViolation } from "../../engine/src/types.js";
+import type { ProjectRegistration } from "./config.js";
 import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "./output.js";
 
 export interface AnalyzeCommandInput {
@@ -14,6 +15,8 @@ export interface AnalyzeCommandInput {
   markdown?: boolean;
   architectureProfile?: ArchitectureProfile;
   verificationRunner?: VerificationToolRunner;
+  /** The registered project being assessed, when the registry was used. */
+  registration?: ProjectRegistration;
 }
 
 export async function runGovernanceCommand(input: AnalyzeCommandInput) {
@@ -117,11 +120,47 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
     evaluation.violations.push(...profileControlViolations);
   }
 
+  // An unassigned owner is an explicit ownership gap, not a pass: the assessment cannot be an
+  // unconditional GO while the registry says nobody is accountable for the project.
+  const registration = input.registration;
+  const gaps = registration
+    ? ([
+        ["technical owner", registration.owners.technical_owner],
+        ["governance representative", registration.owners.governance_representative],
+      ] as const).filter(([, contact]) => contact.name === "UNASSIGNED").map(([role]) => role)
+    : [];
+  if (registration && gaps.length > 0) {
+    const ownershipGap: GovernanceViolation = {
+      controlId: `REGISTRY:${registration.id}:OWNERSHIP-GAP`,
+      status: "WARN",
+      severity: "P2",
+      decision: "GO_WITH_CONDITIONS",
+      message: `Project '${registration.id}' has no assigned ${gaps.join(" or ")} in the registry; ownership is an explicit gap, not a pass.`,
+      missingEvidence: [],
+      missingSignals: [],
+    };
+    evaluation.decision.warnings.push(ownershipGap);
+    evaluation.violations.push(ownershipGap);
+    if (evaluation.decision.status === "GO") {
+      evaluation.decision.status = "GO_WITH_CONDITIONS";
+      evaluation.decision.reason = `${evaluation.decision.reason} Registry ownership gap: ${gaps.join(", ")} unassigned.`;
+    }
+  }
+
+  const project = registration
+    ? {
+        id: registration.id,
+        name: registration.name,
+        status: registration.status,
+        criticality: registration.criticality,
+        data_classification: registration.data_classification,
+      }
+    : undefined;
   const output = input.json
-    ? formatJsonResult(analysis, evaluation, context)
+    ? formatJsonResult(analysis, evaluation, context, project)
     : input.markdown
-      ? formatMarkdownResult(analysis, evaluation, context)
-      : formatHumanResult(analysis, evaluation, context);
+      ? formatMarkdownResult(analysis, evaluation, context, project)
+      : formatHumanResult(analysis, evaluation, context, project);
 
   return { analysis, context, evaluation, output };
 }

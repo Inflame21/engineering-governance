@@ -44,10 +44,16 @@ const validateSchema = ajv.compile(governanceSchema);
 const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
 const validateProjectRegistrationSchema = ajv.compile(projectRegistrationSchema);
 
-// shortcut: the approved profile ids are listed here, so a new model/architecture-profile-*.json
+// shortcut: the approved profiles are listed here, so a new model/architecture-profile-*.json
 // needs one import and one entry; upgrade to directory discovery when profiles change often.
+const BUNDLED_ARCHITECTURE_PROFILES: readonly unknown[] = [
+  cleanArchitectureProfile,
+  hexagonalProfile,
+  microservicesProfile,
+  modularProfile,
+];
 const KNOWN_ARCHITECTURE_PROFILE_IDS: ReadonlySet<string> = new Set(
-  [cleanArchitectureProfile, hexagonalProfile, microservicesProfile, modularProfile].map((profile) => profile.id),
+  BUNDLED_ARCHITECTURE_PROFILES.map((profile) => (profile as { id: string }).id),
 );
 
 function formatSchemaErrors(errors: readonly SchemaError[]): string {
@@ -111,6 +117,10 @@ export async function loadArchitectureProfile(
     throw new Error(`Architecture profile is not valid JSON: ${message}`);
   }
 
+  return validateArchitectureProfileObject(parsed);
+}
+
+function validateArchitectureProfileObject(parsed: unknown): ArchitectureProfile {
   if (!validateArchitectureProfileSchema(parsed)) {
     throw new Error(
       `Architecture profile validation failed: ${formatSchemaErrors(validateArchitectureProfileSchema.errors ?? [])}`,
@@ -124,6 +134,13 @@ export async function loadArchitectureProfile(
   }
 
   return profile;
+}
+
+/** The approved architecture profile a registration names, validated like any loaded profile. */
+export function getRegisteredArchitectureProfile(id: string): ArchitectureProfile {
+  const profile = BUNDLED_ARCHITECTURE_PROFILES.find((candidate) => (candidate as { id: string }).id === id);
+  if (!profile) throw new Error(`Unknown architecture profile '${id}'`);
+  return validateArchitectureProfileObject(structuredClone(profile));
 }
 
 export interface ProjectContact {
@@ -213,4 +230,41 @@ export async function loadProjectRegistry(
   if (issues.length > 0) throw new Error(`Project registry validation failed: ${issues.join("; ")}`);
 
   return records.map(({ record }) => record);
+}
+
+/**
+ * Pick the project to assess. An explicit id must exist; without one the registry must hold exactly
+ * one project, because guessing among several would assess the wrong project. RETIRED projects
+ * cannot be assessed.
+ */
+export function selectProjectRegistration(records: ProjectRegistration[], projectId?: string): ProjectRegistration {
+  let selected: ProjectRegistration | undefined;
+  if (projectId !== undefined) {
+    selected = records.find((record) => record.id === projectId);
+    if (!selected) {
+      throw new Error(`Project '${projectId}' is not registered (registered: ${records.map((r) => r.id).sort().join(", ")})`);
+    }
+  } else if (records.length === 1) {
+    selected = records[0];
+  } else {
+    throw new Error(`The registry holds ${records.length} projects; pass --project <id> (registered: ${records.map((r) => r.id).sort().join(", ")})`);
+  }
+  if (!selected) throw new Error("No project could be selected from the registry");
+  if (selected.status === "RETIRED") {
+    throw new Error(`Project '${selected.id}' is RETIRED in the registry and cannot be assessed`);
+  }
+  return selected;
+}
+
+/** The governance pack must belong to the registered project: same id, and a repository the project lists. */
+export function assertPackMatchesRegistration(pack: GovernancePack, registration: ProjectRegistration): void {
+  const issues: string[] = [];
+  if (pack.project.id !== registration.id) {
+    issues.push(`pack project id '${pack.project.id}' does not match registered project '${registration.id}'`);
+  }
+  const repository = pack.project.repository.toLowerCase();
+  if (!registration.repositories.some((candidate) => candidate.name.toLowerCase() === repository)) {
+    issues.push(`pack repository '${pack.project.repository}' is not one of the repositories registered for '${registration.id}' (${registration.repositories.map((r) => r.name).join(", ")})`);
+  }
+  if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
 }

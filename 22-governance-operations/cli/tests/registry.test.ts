@@ -1,6 +1,13 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { loadProjectRegistry } from "../src/config.js";
+import {
+  assertPackMatchesRegistration,
+  getRegisteredArchitectureProfile,
+  loadProjectRegistry,
+  selectProjectRegistration,
+  type ProjectRegistration,
+} from "../src/config.js";
+import type { GovernancePack } from "../../engine/src/types.js";
 
 const read = (name: string) => readFileSync(new URL(`../../model/${name}`, import.meta.url), "utf8");
 const example = JSON.parse(read("example-project-registration.json")) as Record<string, any>;
@@ -123,5 +130,59 @@ describe("project registry", () => {
     if (committed.length > 0) {
       await expect(load(Object.fromEntries(Object.entries(files).filter(([p]) => p.startsWith("registry/"))))).resolves.toHaveLength(committed.length);
     }
+  });
+});
+
+describe("using the registry to assess a project", () => {
+  const registered = (change: (r: Record<string, any>) => void = () => {}) =>
+    JSON.parse(record(change)) as ProjectRegistration;
+  const examplePack = JSON.parse(read("example-governance-pack.json")) as GovernancePack;
+
+  it("selects the only project, or the named one", () => {
+    const only = registered();
+    expect(selectProjectRegistration([only]).id).toBe("example-saas");
+    const other = registered((r) => { r.id = "other"; });
+    expect(selectProjectRegistration([only, other], "other").id).toBe("other");
+  });
+
+  it("refuses to guess among several projects, or an unknown project id", () => {
+    const a = registered();
+    const b = registered((r) => { r.id = "other"; });
+    expect(() => selectProjectRegistration([a, b])).toThrow("holds 2 projects; pass --project <id> (registered: example-saas, other)");
+    expect(() => selectProjectRegistration([a, b], "nope")).toThrow("Project 'nope' is not registered (registered: example-saas, other)");
+    expect(() => selectProjectRegistration([a], "nope")).toThrow("not registered");
+  });
+
+  it("refuses to assess a RETIRED project", () => {
+    const retired = registered((r) => { r.status = "RETIRED"; });
+    expect(() => selectProjectRegistration([retired])).toThrow("RETIRED in the registry and cannot be assessed");
+  });
+
+  it("accepts a pack whose project id and repository are registered, ignoring repository case", () => {
+    const upper = registered((r) => { r.repositories = [{ name: "INFLAME21/Example-SaaS" }]; });
+    expect(() => assertPackMatchesRegistration(examplePack, upper)).not.toThrow();
+  });
+
+  it.each([
+    ["a different project id", (r: Record<string, any>) => { r.id = "someone-else"; }, "does not match registered project 'someone-else'"],
+    ["an unregistered repository", (r: Record<string, any>) => { r.repositories = [{ name: "Inflame21/another-repo" }]; }, "is not one of the repositories registered"],
+  ])("rejects a pack with %s", (_name, change, message) => {
+    expect(() => assertPackMatchesRegistration(examplePack, registered(change))).toThrow(message);
+  });
+
+  it("reports every mismatch at once", () => {
+    const bad = registered((r) => { r.id = "x"; r.repositories = [{ name: "a/b" }]; });
+    expect(() => assertPackMatchesRegistration(examplePack, bad)).toThrow(/does not match registered project 'x'.*not one of the repositories/);
+  });
+
+  it.each(["clean-architecture", "hexagonal-architecture", "microservices", "modular-architecture-example"])(
+    "resolves the approved profile %s",
+    (id) => {
+      expect(getRegisteredArchitectureProfile(id).id).toBe(id);
+    },
+  );
+
+  it("rejects an unknown profile id", () => {
+    expect(() => getRegisteredArchitectureProfile("made-up")).toThrow("Unknown architecture profile 'made-up'");
   });
 });

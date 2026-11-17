@@ -46,6 +46,19 @@ node dist/cli/src/index.js report ../.. --pack 22-governance-operations/model/ex
 node dist/cli/src/index.js report ../.. --pack 22-governance-operations/model/example-governance-pack.json --format json
 ```
 
+Assess a registered project. With `--registry`, `check` and `report` look the project up in the registry and let the record decide which governance pack and architecture profile apply:
+
+```bash
+node dist/cli/src/index.js check ../.. --registry 22-governance-operations/registry/projects --project example-saas
+```
+
+- **Selection:** `--project <id>` picks the record. Without it, the registry must hold exactly one project; several is an error, never a guess.
+- **Pack and profile:** the record's `governance_pack` and `profiles.architecture` are used. An explicit `--pack` or `--profile` wins. The named architecture profile is applied exactly like `--profile`, so a profile whose component mappings match nothing in the repository leaves boundary rules unverifiable, and the result is conditional rather than an unconditional `GO`.
+- **The pack must belong to the project:** its `project.id` must equal the record's `id`, and its `project.repository` must be one of the record's repositories (case-insensitive). Otherwise the command exits `3` with no decision.
+- **`RETIRED` projects** cannot be assessed (exit `3`).
+- **Ownership gaps:** an `UNASSIGNED` technical owner or governance representative is reported as a `REGISTRY:<id>:OWNERSHIP-GAP` condition, so an otherwise passing assessment exits `1`, not `0`. It never turns a `NO-GO` into anything better.
+- **Output:** a `Project:` line in human and Markdown output, and `report.project` in JSON.
+
 Run the built-artifact CLI contract suite after building:
 
 ```bash
