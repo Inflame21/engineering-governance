@@ -1,10 +1,13 @@
 import { evaluateControl } from "./evaluator.js";
+import { validateGovernancePackSemantics } from "./validation.js";
 import type {
   ControlEvaluation,
   GovernanceContext,
   GovernanceDecision,
   GovernanceEvaluation,
+  GovernanceException,
   GovernancePack,
+  GovernanceRisk,
   GovernanceViolation,
 } from "./types.js";
 
@@ -27,15 +30,149 @@ function toViolation(
     decision: control.failureDecision,
     message:
       definition?.message ??
+      control.reason ??
       `Control ${control.controlId} is ${control.status}.`,
     missingEvidence: control.missingEvidence,
+    missingSignals: control.missingSignals,
+  };
+}
+
+function isRiskAcceptanceValid(
+  risk: GovernanceRisk,
+  context: GovernanceContext,
+): boolean {
+  if (
+    risk.status !== "ACCEPTED" ||
+    !risk.accepted_by?.trim() ||
+    !risk.acceptance_reason?.trim() ||
+    !risk.accepted_at ||
+    !risk.acceptance_expires_at ||
+    !context.evaluatedAt
+  ) {
+    return false;
+  }
+
+  const acceptedAt = Date.parse(risk.accepted_at);
+  const expiresAt = Date.parse(risk.acceptance_expires_at);
+  const evaluatedAt = Date.parse(context.evaluatedAt);
+  if (
+    Number.isNaN(acceptedAt) ||
+    Number.isNaN(expiresAt) ||
+    Number.isNaN(evaluatedAt)
+  ) {
+    return false;
+  }
+
+  return acceptedAt <= evaluatedAt && evaluatedAt < expiresAt && acceptedAt < expiresAt;
+}
+
+interface ExceptionAssessment {
+  valid: boolean;
+  reason: string;
+  controlSeverity?: GovernanceViolation["severity"];
+}
+
+function assessApprovedException(
+  exception: GovernanceException,
+  pack: GovernancePack,
+  context: GovernanceContext,
+): ExceptionAssessment {
+  if (exception.status !== "APPROVED") {
+    return { valid: false, reason: "Exception is not approved." };
+  }
+
+  const control = pack.controls.find((item) => item.id === exception.control);
+  if (!control) {
+    return { valid: false, reason: "Exception references an unknown control." };
+  }
+  if (
+    exception.project_id !== pack.project.id ||
+    exception.change_id !== pack.change.id
+  ) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "Exception is outside the current project/change scope.",
+    };
+  }
+  if (
+    !exception.reason?.trim() ||
+    !exception.requested_by?.trim() ||
+    !exception.requested_at ||
+    !exception.approved_by?.trim() ||
+    !exception.approved_at ||
+    !exception.expires_at
+  ) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "Exception is missing required request or approval metadata.",
+    };
+  }
+  if (!context.evaluatedAt) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "Evaluation timestamp is unavailable; exception validity cannot be verified.",
+    };
+  }
+
+  const requestedAt = Date.parse(exception.requested_at);
+  const approvedAt = Date.parse(exception.approved_at);
+  const expiresAt = Date.parse(exception.expires_at);
+  const evaluatedAt = Date.parse(context.evaluatedAt);
+  if (
+    [requestedAt, approvedAt, expiresAt, evaluatedAt].some((value) => Number.isNaN(value)) ||
+    requestedAt > approvedAt ||
+    approvedAt > evaluatedAt ||
+    approvedAt >= expiresAt ||
+    expiresAt <= evaluatedAt
+  ) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "Exception has an invalid, future, or expired approval time window.",
+    };
+  }
+  if (exception.requested_by.trim().toLowerCase() === exception.approved_by.trim().toLowerCase()) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "The requester cannot approve their own exception (EXC-021 section 15).",
+    };
+  }
+  if (control.severity === "P0" || control.severity === "P1") {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "P0/P1 controls cannot be waived by an exception until approver authority can be verified (EXC-021 sections 8 and 15).",
+    };
+  }
+
+  return {
+    valid: true,
+    controlSeverity: control.severity,
+    reason: "Approved exception is active and in scope.",
   };
 }
 
 export function deriveDecision(
   pack: GovernancePack,
   evaluations: ControlEvaluation[],
+  context: GovernanceContext = { signals: [] },
 ): GovernanceDecision {
+  const exceptionAssessments = new Map<string, ExceptionAssessment>();
+  const applicableExceptions = new Map<string, GovernanceException>();
+
+  for (const exception of pack.exceptions ?? []) {
+    if (exception.status !== "APPROVED") continue;
+    const assessment = assessApprovedException(exception, pack, context);
+    exceptionAssessments.set(exception.id, assessment);
+    if (assessment.valid && exception.control) {
+      applicableExceptions.set(exception.control, exception);
+    }
+  }
+
   const violations = evaluations
     .filter(
       (item) =>
@@ -43,73 +180,135 @@ export function deriveDecision(
         item.status !== "PASS" &&
         item.status !== "NOT_APPLICABLE",
     )
-    .map((item) => toViolation(item, pack));
+    .map((item) => {
+      const violation = toViolation(item, pack);
+      const exception = applicableExceptions.get(item.controlId);
+      if (!exception) return violation;
+      return {
+        ...violation,
+        decision: "GO_WITH_CONDITIONS" as const,
+        message: `${violation.message} An approved exception (${exception.id}) is active until ${exception.expires_at}; the control remains unverified or failed.`,
+      };
+    });
 
   // An unrecognized severity is treated as P0 so malformed packs fail closed.
   const isLowSeverity = (severity: string) =>
     severity === "P1" || severity === "P2" || severity === "P3";
 
-  const blockingViolations = violations.filter(
-    (item) => item.status === "UNVERIFIED" || item.status === "FAIL" || item.decision === "NO-GO" || !isLowSeverity(item.severity),
+  const blockingControlViolations = violations.filter(
+    (item) =>
+      !isLowSeverity(item.severity) ||
+      (!applicableExceptions.has(item.controlId) &&
+        (item.status === "UNVERIFIED" ||
+          item.status === "FAIL" ||
+          item.decision === "NO-GO")),
+  );
+  const controlWarnings = violations.filter(
+    (item) => !blockingControlViolations.includes(item),
   );
 
-  const warnings = violations.filter(
-    (item) => !blockingViolations.includes(item),
-  );
-
-  // ACCEPTED is a claim, not an approval: the engine cannot verify the approver, expiry or
-  // exception behind it, and P0 is not approvable (EXC-021 section 8). Until exceptions are
-  // evaluated, only MITIGATED/CLOSED resolves a P0/P1 risk; any other or unrecognized
-  // status, and any unrecognized severity, fails closed.
-  const openRisks = pack.risks.filter(
-    (risk) =>
+  // A risk is resolved only when MITIGATED/CLOSED, or ACCEPTED at P2/P3 with valid acceptance.
+  // Anything else, including a missing or unrecognised status, is open so malformed records fail
+  // closed. ACCEPTED P0/P1 stays open: the engine cannot verify approver authority (EXC-021
+  // section 15) and P0 is not approvable (section 8).
+  const isLowRisk = (risk: GovernanceRisk) => risk.severity === "P2" || risk.severity === "P3";
+  const openRisks: GovernanceRisk[] = pack.risks
+    .filter((risk) =>
       risk.status !== "MITIGATED" &&
       risk.status !== "CLOSED" &&
-      risk.severity !== "P2" &&
-      risk.severity !== "P3",
-  );
+      !(risk.status === "ACCEPTED" && isLowRisk(risk) && isRiskAcceptanceValid(risk, context)),
+    )
+    .map((risk): GovernanceRisk => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk)
+    .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.id.localeCompare(b.id));
 
-  if (blockingViolations.length > 0 || openRisks.length > 0) {
-    const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
-      controlId: `RISK:${risk.id}`,
-      status: "FAIL",
-      severity: risk.severity,
-      decision: "NO-GO",
-      message: risk.title,
-      missingEvidence: [],
-    }));
+  const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
+    controlId: `RISK:${risk.id}`,
+    status: isLowRisk(risk) ? "WARN" : "FAIL",
+    severity: risk.severity,
+    decision: isLowRisk(risk) ? "GO_WITH_CONDITIONS" : "NO-GO",
+    message:
+      pack.risks.some((sourceRisk) => sourceRisk.id === risk.id && sourceRisk.status === "ACCEPTED")
+        ? `Risk ${risk.id} has an invalid or expired acceptance and is treated as open.`
+        : risk.title,
+    missingEvidence: [],
+    missingSignals: [],
+  }));
+  const blockingRiskViolations = riskViolations.filter((item) => item.decision === "NO-GO");
+  const riskWarnings = riskViolations.filter((item) => item.decision !== "NO-GO");
 
+  const exceptionWarnings: GovernanceViolation[] = [];
+  for (const exception of pack.exceptions ?? []) {
+    if (exception.status === "REQUESTED") {
+      exceptionWarnings.push({
+        controlId: `EXCEPTION:${exception.id}`,
+        status: "WARN",
+        severity: "P2",
+        decision: "GO_WITH_CONDITIONS",
+        message: `Exception ${exception.id} is requested but not approved; it does not waive the control.`,
+        missingEvidence: [],
+        missingSignals: [],
+      });
+    } else if (exception.status === "EXPIRED") {
+      exceptionWarnings.push({
+        controlId: `EXCEPTION:${exception.id}`,
+        status: "WARN",
+        severity: "P1",
+        decision: "GO_WITH_CONDITIONS",
+        message: `Exception ${exception.id} is expired and cannot waive a control.`,
+        missingEvidence: [],
+        missingSignals: [],
+      });
+    } else if (exception.status === "APPROVED") {
+      const assessment = exceptionAssessments.get(exception.id);
+      const severity = assessment?.controlSeverity ?? "P1";
+      exceptionWarnings.push({
+        controlId: `EXCEPTION:${exception.id}`,
+        status: "WARN",
+        severity,
+        decision: "GO_WITH_CONDITIONS",
+        message: assessment?.valid
+          ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}.`
+          : `Exception ${exception.id} was not applied: ${assessment?.reason ?? "validity could not be established"}`,
+        missingEvidence: [],
+        missingSignals: [],
+      });
+    }
+  }
+
+  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations]
+    .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
+  const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings]
+    .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
+
+  if (blockingViolations.length > 0) {
     return {
       status: "NO-GO",
       reason:
-        blockingViolations.length > 0
-          ? `Production blocked by ${blockingViolations.length} control violation(s).`
-          : `Production blocked by ${openRisks.length} unresolved P0/P1 risk(s) (open, or accepted without verifiable approval).`,
-      blockingViolations: [...blockingViolations, ...riskViolations].sort(
-        (a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0),
-      ),
-      warnings: warnings.sort(
-        (a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0),
-      ),
+        blockingControlViolations.length > 0
+          ? `Production blocked by ${blockingControlViolations.length} blocking control violation(s) and ${blockingRiskViolations.length} blocking risk(s).`
+          : `Production blocked by ${blockingRiskViolations.length} open or unaccepted P0/P1 risk(s).`,
+      blockingViolations,
+      warnings,
+      openRisks,
     };
   }
 
   if (warnings.length > 0) {
     return {
       status: "GO_WITH_CONDITIONS",
-      reason: `${warnings.length} applicable control(s) require review or conditional approval.`,
+      reason: `${warnings.length} control, risk, or exception item(s) require review or conditional approval.`,
       blockingViolations: [],
-      warnings: warnings.sort(
-        (a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0),
-      ),
+      warnings,
+      openRisks,
     };
   }
 
   return {
     status: "GO",
-    reason: "All applicable controls are satisfied and no blocking risks remain.",
+    reason: "All applicable controls are satisfied and no open risks remain.",
     blockingViolations: [],
     warnings: [],
+    openRisks,
   };
 }
 
@@ -117,11 +316,95 @@ export function evaluateGovernance(
   pack: GovernancePack,
   context: GovernanceContext,
 ): GovernanceEvaluation {
+  // Keep the engine safe when called directly, bypassing CLI pack loading.
+  // A semantic error makes any derived decision ambiguous, so no invalid pack
+  // may reach evaluation through this public API.
+  const semanticIssues = validateGovernancePackSemantics(pack, context.evaluatedAt);
+  if (semanticIssues.length > 0) {
+    const details = semanticIssues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Governance pack semantic validation failed: ${details}`);
+  }
+
   const controls = pack.controls.map((control) =>
     evaluateControl(control, pack.evidence, context),
   );
 
-  const decision = deriveDecision(pack, controls);
+  const decision = deriveDecision(pack, controls, context);
+
+  // Incomplete analysis must remain visible even when no control references the
+  // capability the analyzer could not verify.
+  if (context.analysisStatus && context.analysisStatus !== "COMPLETE") {
+    const failed = context.analysisStatus === "FAILED";
+    const analysisViolation: GovernanceViolation = {
+      controlId: "ANALYSIS:COMPLETENESS",
+      status: failed ? "FAIL" : "UNVERIFIED",
+      severity: failed ? "P0" : "P1",
+      decision: failed ? "NO-GO" : "GO_WITH_CONDITIONS",
+      message: failed
+        ? "Repository analysis failed; a production decision cannot be supported."
+        : "Repository analysis is partial; unsupported or skipped checks require explicit review.",
+      missingEvidence: [],
+      missingSignals: context.unsupportedCapabilities ?? [],
+    };
+
+    if (failed) {
+      decision.status = "NO-GO";
+      decision.blockingViolations.push(analysisViolation);
+    } else {
+      if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+      decision.warnings.push(analysisViolation);
+    }
+    decision.reason = `${decision.reason} Analysis status: ${context.analysisStatus}.`;
+  }
+
+  if (context.changeScopeStatus === "UNVERIFIED") {
+    const scopeViolation: GovernanceViolation = {
+      controlId: "CHANGE-SCOPE:VERIFICATION",
+      status: "UNVERIFIED",
+      severity: "P1",
+      decision: "GO_WITH_CONDITIONS",
+      message: context.changeScopeReason
+        ? `Changed-file scope could not be verified: ${context.changeScopeReason}`
+        : "Changed-file scope was requested but could not be verified.",
+      missingEvidence: [],
+      missingSignals: [],
+    };
+    if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+    decision.warnings.push(scopeViolation);
+    decision.reason = `${decision.reason} Changed-file scope is unverified.`;
+  }
+
+  const findingsById = new Map<string, NonNullable<GovernancePack["findings"]>[number]>();
+  for (const finding of [...(pack.findings ?? []), ...(context.findings ?? [])]) {
+    // Findings are only closed by an explicit RESOLVED state. A local "accepted"
+    // or "suppressed" label is not, by itself, an approved risk exception.
+    if (finding.status !== "RESOLVED") findingsById.set(finding.id, finding);
+  }
+  for (const finding of findingsById.values()) {
+    const blocking = finding.severity === "P0" || finding.severity === "P1";
+    const violation: GovernanceViolation = {
+      controlId: `FINDING:${finding.id}`,
+      status: blocking ? "FAIL" : "WARN",
+      severity: finding.severity,
+      decision: blocking ? "NO-GO" : "GO_WITH_CONDITIONS",
+      message: `[${finding.rule_id}] ${finding.message}`,
+      missingEvidence: [],
+      missingSignals: [],
+      evidenceRefs: finding.evidence_refs,
+    };
+    if (blocking) {
+      decision.status = "NO-GO";
+      decision.blockingViolations.push(violation);
+    } else {
+      if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+      decision.warnings.push(violation);
+    }
+  }
+  if (findingsById.size > 0) {
+    decision.reason = `${decision.reason} ${findingsById.size} unresolved finding(s) require remediation or governed acceptance.`;
+  }
 
   return {
     controls,

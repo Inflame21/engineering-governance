@@ -19,6 +19,7 @@ export function hasPackageDependency(
   return false;
 }
 
+/** Detect a package name in common requirements.txt and pyproject.toml declarations. */
 export function hasPythonDependency(content: string | undefined, packageName: string): boolean {
   if (!content) return false;
   const escaped = packageName.replace(/[.*+?^{}()|[\]\\]/g, "\\$&");

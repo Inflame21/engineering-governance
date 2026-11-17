@@ -1,32 +1,88 @@
+import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
+import type { ArchitectureVerificationResult } from "./architecture.js";
+import type { VerificationReport } from "./verification.js";
+import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
+import type { RepositorySystemGraph } from "./system-graph.js";
+
+export type AnalyzerExecutionStatus = "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED";
+
+export interface RepositoryChangeScope {
+  status: "VERIFIED" | "UNVERIFIED";
+  baseRef: string;
+  headRef?: string;
+  files: string[];
+  reason?: string;
+}
+
 export interface RepositorySnapshot {
   rootPath: string;
   files: readonly string[];
   changedFiles: readonly string[];
   fileContents?: Readonly<Record<string, string>>;
+  contentLimitations?: readonly string[];
+  changeScope?: RepositoryChangeScope;
 }
 
-// A type alias (not an interface) so facts are assignable to the engine's Record<string, unknown>.
-export type RepositoryFacts = {
+export interface RepositoryPackageFacts {
+  /** Repository-relative package/workspace root; "." denotes the repository root. */
+  id: string;
+  root: string;
+  manifestPaths: string[];
+  sourceFiles: string[];
   languages: string[];
   frameworks: string[];
   packageManagers: string[];
   buildSystems: string[];
   infrastructureSystems: string[];
   testSystems: string[];
-};
+}
+
+export interface RepositoryFacts extends Record<string, unknown> {
+  languages: string[];
+  frameworks: string[];
+  packageManagers: string[];
+  buildSystems: string[];
+  infrastructureSystems: string[];
+  testSystems: string[];
+  /** Package-scoped facts preserve monorepo ownership instead of flattening everything. */
+  packages?: RepositoryPackageFacts[];
+}
+
+export type RepositoryEvidence = GovernanceEvidence;
+
+export interface RepositoryAdapterResult {
+  adapterId: string;
+  version: string;
+  executionStatus: AnalyzerExecutionStatus;
+  supportedCapabilities: string[];
+  unsupportedCapabilities: string[];
+  evidenceRefs: string[];
+  limitations: string[];
+}
 
 export interface RepositoryAnalysis {
   facts: RepositoryFacts;
   signals: string[];
-  evidence: Array<{
-    id: string;
-    type: string;
-    status: "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
-    description: string;
-    source: string;
-    freshness: string;
-    supports_controls: string[];
-  }>;
+  evidence: RepositoryEvidence[];
+  findings: GovernanceFinding[];
+  adapterResults: RepositoryAdapterResult[];
+  architecture?: ArchitectureVerificationResult;
+  systemGraph?: RepositorySystemGraph;
+  verification?: VerificationReport;
+  changeScope?: RepositoryChangeScope;
+  snapshotFingerprint?: RepositorySnapshotFingerprint;
+}
+
+export interface RepositoryAdapterOutput {
+  /** Adapter-specific observations; omitted fields do not erase base facts. */
+  facts?: Partial<RepositoryFacts>;
+  signals: string[];
+  evidence?: RepositoryEvidence[];
+  findings?: GovernanceFinding[];
+  executionStatus?: Exclude<AnalyzerExecutionStatus, "SKIPPED">;
+  supportedCapabilities?: string[];
+  unsupportedCapabilities?: string[];
+  limitations?: string[];
 }
 
 /** What one adapter contributes; the pipeline merges it over the base facts. */
@@ -36,8 +92,10 @@ export type AdapterAnalysis = Omit<RepositoryAnalysis, "facts"> & {
 
 export interface RepositoryAnalyzerAdapter {
   readonly id: string;
+  readonly version: string;
+  readonly capabilities: readonly string[];
   readonly languages: readonly string[];
   readonly frameworks?: readonly string[];
   supports(snapshot: RepositorySnapshot): boolean;
-  analyze(snapshot: RepositorySnapshot): Promise<AdapterAnalysis>;
+  analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput>;
 }

@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "name": "Clean Architecture",
   "description": "An architecture profile emphasizing inward dependency direction and isolation of domain rules from frameworks and infrastructure.",
-  "styles": ["clean-architecture", "layered"],
+  "styles": [
+    "clean-architecture",
+    "layered"
+  ],
   "boundaryRules": [
     {
       "id": "ARCH-DOMAIN-INDEPENDENCE",
@@ -22,6 +25,59 @@
       "allowed": false
     }
   ],
-  "requiredControls": ["ARCH-DEPENDENCY-DIRECTION", "ARCH-BOUNDARY-OWNERSHIP"],
-  "capabilities": ["dependency-graph-analysis", "layer-detection"]
+  "requiredControls": [
+    "ARCH-DEPENDENCY-DIRECTION",
+    "ARCH-BOUNDARY-OWNERSHIP"
+  ],
+  "capabilities": [
+    "dependency-graph-analysis",
+    "layer-detection"
+  ],
+  "componentMappings": {
+    "domain": [
+      "src/domain/**",
+      "domain/**",
+      "app/domain/**"
+    ],
+    "application": [
+      "src/application/**",
+      "application/**",
+      "app/application/**"
+    ],
+    "transport": [
+      "src/api/**",
+      "src/routes/**",
+      "src/routers/**",
+      "src/controllers/**",
+      "api/**",
+      "routes/**",
+      "routers/**",
+      "controllers/**"
+    ],
+    "ui": [
+      "src/components/**",
+      "src/pages/**",
+      "src/ui/**",
+      "components/**",
+      "pages/**",
+      "ui/**"
+    ],
+    "infrastructure": [
+      "src/infrastructure/**",
+      "src/infra/**",
+      "src/database/**",
+      "src/repositories/**",
+      "infrastructure/**",
+      "infra/**",
+      "database/**",
+      "repositories/**",
+      "models/**",
+      "db/**"
+    ],
+    "framework": [
+      "src/framework/**",
+      "src/config/**",
+      "config/**"
+    ]
+  }
 }

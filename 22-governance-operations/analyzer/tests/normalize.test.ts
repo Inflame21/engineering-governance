@@ -14,6 +14,8 @@ describe("governance normalization", () => {
       },
       signals: ["api_endpoint"],
       evidence: [],
+      findings: [],
+      adapterResults: [],
     });
 
     expect(context.signals).toEqual([
@@ -27,5 +29,7 @@ describe("governance normalization", () => {
       "package_manager:npm",
       "test_system:pytest",
     ]);
+    expect(context.analysisStatus).toBe("PARTIAL");
+    expect(context.unsupportedCapabilities).toContain("analysis:no-adapters");
   });
 });
