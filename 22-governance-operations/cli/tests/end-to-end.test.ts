@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -166,6 +166,39 @@ describe("built governance CLI", () => {
     expect(blocked.exitCode).toBe(2);
     expect(blocked.stdout).toContain("**Decision:** NO-GO");
     expect(blocked.stdout).toContain("## Blocking violations");
+  });
+
+  it("validate --registry checks project registration records and fails closed on an empty or invalid registry", async () => {
+    const root = await createCompleteFixture();
+    const registry = path.join(root, "registry", "projects");
+    await mkdir(registry, { recursive: true });
+    const example = await readFile(path.resolve("../model/example-project-registration.json"), "utf8");
+
+    const empty = await runCli(["validate", root, "--registry", "registry/projects"]);
+    expect(empty.exitCode).toBe(3);
+    expect(empty.stderr).toContain("No project registration records");
+
+    await writeFile(path.join(registry, "example-saas.json"), example);
+    const ok = await runCli(["validate", root, "--registry", "registry/projects"]);
+    expect(ok.exitCode).toBe(0);
+    expect(ok.stdout).toContain("Valid: 1 project registration in registry/projects");
+
+    const both = await runCli(["validate", root, "--registry", "registry/projects", "--pack", ".governance/governance-pack.json"]);
+    expect(both.exitCode).toBe(0);
+    expect(both.stdout).toContain(".governance/governance-pack.json and 1 project registration");
+
+    await writeFile(path.join(registry, "example-saas.json"), example.replace('"ONBOARDING"', '"ACTIVE"'));
+    const gap = await runCli(["validate", root, "--registry", "registry/projects"]);
+    expect(gap.exitCode).toBe(3);
+    expect(gap.stdout).toBe("");
+    expect(gap.stderr).toContain("schema validation failed");
+  });
+
+  it("rejects --registry on commands other than validate with exit 3", async () => {
+    const root = await createCompleteFixture();
+    const result = await runCli(["check", root, "--registry", "registry/projects"]);
+    expect(result.exitCode).toBe(3);
+    expect(result.stderr).toContain("only supported by the validate command");
   });
 
   it("rejects an unsupported report format and --format on other commands with exit 3", async () => {

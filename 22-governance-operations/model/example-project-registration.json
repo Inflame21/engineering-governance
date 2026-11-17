@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "id": "example-saas",
+  "name": "Example SaaS",
+  "status": "ONBOARDING",
+  "criticality": "HIGH",
+  "data_classification": "CONFIDENTIAL",
+  "repositories": [
+    { "name": "Inflame21/example-saas", "default_branch": "main" }
+  ],
+  "owners": {
+    "technical_owner": { "name": "UNASSIGNED" },
+    "governance_representative": { "name": "UNASSIGNED" },
+    "escalation_contact": { "name": "UNASSIGNED" },
+    "remediation_owner": { "name": "UNASSIGNED" }
+  },
+  "environments": ["development", "staging", "production"],
+  "profiles": {
+    "architecture": "clean-architecture",
+    "technology": ["python-fastapi", "typescript"]
+  },
+  "governance_pack": ".governance/governance-pack.json",
+  "governance_baseline": "v0.1.0"
+}

@@ -33,6 +33,12 @@ Validate a governance pack (and optionally an architecture profile) without anal
 node dist/cli/src/index.js validate ../.. --pack 22-governance-operations/model/example-governance-pack.json
 ```
 
+Validate project registration records (the proposed project registry; see `registry/projects/README.md`). `--registry` takes one `.json` file or a directory of records, and validates against `model/project-registration.schema.json`. It also checks that project ids and repositories are unique across records and that the architecture profile exists. Used alone it skips the governance-pack check; add `--pack` to validate both. An empty registry fails, because validating nothing is not a pass:
+
+```bash
+node dist/cli/src/index.js validate ../.. --registry 22-governance-operations/registry/projects
+```
+
 Render the same assessment as `check` as a report. The default format is Markdown, which suits pull-request comments and job summaries; `--format json` emits the same JSON as `check --json`. Exit codes are identical to `check`:
 
 ```bash
