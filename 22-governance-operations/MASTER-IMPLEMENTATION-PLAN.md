@@ -47,20 +47,21 @@ The system must distinguish a check that passed, failed, could not run, was skip
 
 ## 2. Current Implementation Status
 
-This section records the implementation status known when this plan was written. It is not a substitute for a fresh build, test, or source audit.
+Status as of `main` at `87d0069` (2026-11-17). Labels use the vocabulary in section 11. `TEST_VERIFIED` means a clean install, type-check, tests and build passed in each package (engine 120 tests, analyzer 64, CLI 221 plus 15 end-to-end) and CI passed on pull requests #1 and #4. `RUNTIME_VERIFIED` means the built CLI was run, including the CI smoke test against fixture repositories. Nothing here has been demonstrated on a real project or pilot. This section is not a substitute for a fresh build, test, or source audit.
 
 | Workstream | Status | Current state |
 |---|---|---|
-| Governance standards | Implemented as documents | GOV-000 through GOV-023 cover requirements, architecture, security, testing, release, incidents, debt, exceptions, and related practices. |
-| Machine-readable governance model | Foundation | JSON Schema and an example governance pack exist; integrated schema validation remains to be verified and completed. |
-| Rule & Control Engine | Foundation | Control applicability, evidence evaluation, and risk-based decisions exist; evidence authority and fail-closed behavior require hardening. |
-| Repository Analyzer | Foundation | Language/ecosystem detection, generic/Python/TypeScript adapters, and manifest-based framework detection exist. |
-| Architecture profiles | Foundation | Profile schema, Clean Architecture and microservices examples, validation, and normalized style signals exist; actual conformance verification does not yet exist. |
-| CLI and filesystem loaders | Foundation | Programmatic output/command layer and loader abstractions exist; no runnable end-to-end CLI has been verified. |
-| System graph and normalized findings | Not started | No verified unified model of components, dependencies, findings, and traceable evidence. |
-| Real verification adapters | Not verified | Execution of real build, test, security, type-checking, and architecture-analysis tools is not yet demonstrated. |
-| CI enforcement | Not started | No verified CI gate or production approval workflow. |
-| Audit, reporting, remediation | Not started | Persistent audit history, finding lifecycle, and complete evidence provenance are not verified. |
+| Governance standards | IMPLEMENTED | GOV-000 through GOV-023 exist as documents. The role name is now LSGE (formerly SGE); authority allocation is unchanged. The standards layer is frozen. |
+| Machine-readable governance model | TEST_VERIFIED | JSON Schema, example pack, runtime schema validation at the CLI boundary, semantic validation in the engine, and a schema/TypeScript contract test suite. Not yet modelled: project registry, control catalog, schema versioning (DEBT-GOV-008). |
+| Rule & Control Engine | TEST_VERIFIED | Evidence is authoritative over declared status; missing, stale, unlinked, duplicate and partial evidence block; no applicable control gives NO-GO; P2/P3 risks are conditions; accepted P0/P1 risks block; exceptions can waive P2/P3 controls only, and never when the requester is also the approver. Not yet modelled: approver identity and authority by severity (DEBT-GOV-002). |
+| Repository Analyzer | TEST_VERIFIED | TypeScript/JavaScript, Python and FastAPI adapters, package-scoped facts, snapshot fingerprint. Discovery only: dependency detection is manifest-based (DEBT-GOV-005). |
+| Architecture profiles | TEST_VERIFIED | Clean Architecture, Hexagonal, microservices and a modular-boundary example, with dependency-boundary findings checked by fixture tests. Component mappings must be customised per repository before a profile is enforced. |
+| CLI and filesystem loaders | RUNTIME_VERIFIED | `governance check`, `validate`, `report` and `analyze`; a symlink-safe, root-confined filesystem adapter; stable exit codes (0 GO, 1 conditions, 2 NO-GO, 3 invalid input); end-to-end and CI smoke tests. Not yet available: configuration discovery and `--config`. |
+| System graph and normalized findings | TEST_VERIFIED | Package, service, API, database and event nodes with relationships, provenance and limitations, plus normalized findings. Support is limited to the languages and frameworks the adapters cover. |
+| Real verification adapters | IMPLEMENTED | `--run-tools` runs installed local TypeScript and Python checks and records tool version, command, exit code and duration. Security, dependency and secret scanners are not integrated. Not demonstrated on a pilot project. |
+| CI enforcement | IMPLEMENTED (this repository only) | The governance workflow runs on pull requests and its three check names match the ruleset. There is no reusable workflow for other repositories, no pull-request summary, and no production-approval workflow. |
+| Audit, reporting, remediation | IN_PROGRESS | Markdown and JSON reports carry an assessment ID and snapshot fingerprint; `KNOWN-DEBT.md` is the debt register. There is no persistent audit history, finding lifecycle or remediation tracking. |
+| Project registry and control catalog | PLANNED | Not started. Proposed in the operating blueprint (GOV-F09) and not yet approved. |
 
 ### Existing repository organization
 
