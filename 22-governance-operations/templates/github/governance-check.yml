@@ -1,0 +1,29 @@
+# Governance check for this repository. Copy to .github/workflows/governance.yml.
+#
+# Replace BOTH occurrences of <GOVERNANCE_SHA> with the same full 40-character commit SHA (or a
+# vMAJOR.MINOR.PATCH release tag) of the governance baseline you adopt. The value after @ selects the
+# workflow; governance_ref selects the CLI, catalog and policy it runs. They must match. Branch names
+# are refused, so you always know exactly which baseline you consume.
+name: Governance
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    uses: Inflame21/engineering-governance/.github/workflows/governance-check.yml@<GOVERNANCE_SHA>
+    permissions:
+      contents: read
+    with:
+      governance_ref: <GOVERNANCE_SHA>
+      # Required choice: does GO WITH CONDITIONS pass this pipeline? 'pass' while onboarding, 'fail' once
+      # the project should be clean.
+      conditions: pass
+      # Your project registration record (see the governance repository's registry README). Omit to use
+      # .governance/governance-pack.json alone.
+      registry_path: .governance/project.json
+      # Set only if the registry holds more than one project:
+      # project_id: my-project
