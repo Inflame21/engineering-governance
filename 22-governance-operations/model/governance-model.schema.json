@@ -310,6 +310,11 @@
             "type": "string"
           }
         },
+        "result_status": {
+          "type": "string",
+          "description": "The tool's own result. Only PASS can support VERIFIED and WARN PARTIALLY_VERIFIED; every other result supports at most UNVERIFIED. The engine rejects evidence whose status is stronger than its result allows.",
+          "enum": ["PASS", "WARN", "FAIL", "SKIPPED", "UNSUPPORTED", "UNVERIFIED", "ERROR"]
+        },
         "tool_version": {
           "type": "string",
           "minLength": 1

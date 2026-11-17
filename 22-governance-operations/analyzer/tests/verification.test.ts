@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { evidenceStatusForResult } from "../../engine/src/evidence-policy.js";
 import { runVerificationAdapters, type VerificationToolRunner } from "../src/verification.js";
 
 function runner(options: {
@@ -42,6 +43,7 @@ describe("opt-in verification adapters", () => {
     expect(report.status).toBe("COMPLETE");
     expect(report.results[0]).toMatchObject({ tool: "python", status: "PASS", evidenceId: "EVD-PYTHON-SYNTAX" });
     expect(report.evidence[0]?.status).toBe("VERIFIED");
+    expect(report.evidence[0]?.result_status).toBe("PASS");
     expect(report.evidence[0]?.tool_version).toBe("Python 3.12.0");
     expect(report.evidence[0]?.repository_fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(report.evidence[0]?.generated_at).toBeTruthy();
@@ -69,7 +71,9 @@ describe("opt-in verification adapters", () => {
       severity: "P1",
       source_location: { file: "app/main.py", start_line: 1 },
     });
-    expect(report.evidence[0]?.status).toBe("PARTIALLY_VERIFIED");
+    // A failed check is not partial verification: the evidence is UNVERIFIED and the finding blocks.
+    expect(report.evidence[0]?.status).toBe("UNVERIFIED");
+    expect(report.evidence[0]?.result_status).toBe("FAIL");
   });
 
   it("does not claim a TypeScript check passed when the compiler is unavailable", async () => {
@@ -81,7 +85,7 @@ describe("opt-in verification adapters", () => {
     }, runner({ typescriptAvailable: false }));
 
     expect(report.status).toBe("PARTIAL");
-    expect(report.results[0]?.status).toBe("UNVERIFIED");
+    expect(report.results[0]?.status).toBe("UNSUPPORTED");
     expect(report.adapterResults[0]?.unsupportedCapabilities).toContain("verification:typescript-typecheck");
     expect(report.evidence).toEqual([]);
   });
@@ -142,7 +146,8 @@ describe("opt-in verification adapters", () => {
     expect(report.results[0]?.status).toBe("FAIL");
     expect(report.results[0]?.limitations).toContain("TypeScript compiler unavailable for apps/two/tsconfig.json.");
     expect(report.evidence[0]?.exit_code).toBe(1);
-    expect(report.evidence[0]?.status).toBe("PARTIALLY_VERIFIED");
+    expect(report.evidence[0]?.status).toBe("UNVERIFIED");
+    expect(report.evidence[0]?.result_status).toBe("FAIL");
   });
 
   it("creates a blocking finding when TypeScript exits non-zero without diagnostics", async () => {
@@ -243,5 +248,75 @@ describe("opt-in verification adapters", () => {
     expect(report.status).toBe("COMPLETE");
     expect(report.results).toEqual([]);
     expect(report.adapterResults).toEqual([]);
+  });
+});
+
+describe("tool result states", () => {
+  const pass = { exitCode: 0, stdout: JSON.stringify({ errors: [] }), stderr: "" };
+  const tsconfig = '{"compilerOptions":{"strict":true}}';
+
+  it("reports UNSUPPORTED when TypeScript has no project configuration to check", async () => {
+    const report = await runVerificationAdapters(
+      { rootPath: "/repo", changedFiles: [], files: ["src/main.ts"], fileContents: {} },
+      runner({ typescriptAvailable: true }),
+    );
+    expect(report.results[0]).toMatchObject({ tool: "typescript", status: "UNSUPPORTED" });
+    expect(report.evidence).toEqual([]);
+  });
+
+  it("reports SKIPPED when the TypeScript project limit stops the check from running", async () => {
+    const configs = Array.from({ length: 21 }, (_, i) => `apps/p${i}/tsconfig.json`);
+    const report = await runVerificationAdapters(
+      { rootPath: "/repo", changedFiles: [], files: ["src/main.ts", ...configs], fileContents: Object.fromEntries(configs.map((c) => [c, tsconfig])) },
+      runner({ typescriptAvailable: true }),
+    );
+    expect(report.results[0]).toMatchObject({ tool: "typescript", status: "SKIPPED" });
+    expect(report.evidence).toEqual([]);
+  });
+
+  it("reports SKIPPED when the Python file limit or the ingestion budget stops the check", async () => {
+    const many = Array.from({ length: 501 }, (_, i) => `m${i}.py`);
+    const overLimit = await runVerificationAdapters(
+      { rootPath: "/repo", changedFiles: [], files: many, fileContents: Object.fromEntries(many.map((f) => [f, "x = 1"])) },
+      runner({ python3Available: true }),
+    );
+    expect(overLimit.results[0]).toMatchObject({ tool: "python", status: "SKIPPED" });
+
+    const notIngested = await runVerificationAdapters(
+      { rootPath: "/repo", changedFiles: [], files: ["main.py"], fileContents: {} },
+      runner({ python3Available: true }),
+    );
+    expect(notIngested.results[0]).toMatchObject({ tool: "python", status: "SKIPPED" });
+  });
+
+  it("reports UNSUPPORTED when no Python interpreter is available", async () => {
+    const report = await runVerificationAdapters(
+      { rootPath: "/repo", changedFiles: [], files: ["main.py"], fileContents: { "main.py": "x = 1" } },
+      runner(),
+    );
+    expect(report.results[0]).toMatchObject({ tool: "python", status: "UNSUPPORTED" });
+    expect(report.evidence).toEqual([]);
+  });
+
+  it("never lets a result that is not PASS or WARN produce VERIFIED evidence, and records every result", async () => {
+    const scenarios: Array<{ files: string[]; contents: Record<string, string>; r: ReturnType<typeof runner>; expectedResult: string }> = [
+      { files: ["main.py"], contents: { "main.py": "x = 1" }, r: runner({ python3Available: true, results: [pass] }), expectedResult: "PASS" },
+      {
+        files: ["main.py"],
+        contents: { "main.py": "x = " },
+        r: runner({ python3Available: true, results: [{ exitCode: 1, stdout: JSON.stringify({ errors: [{ file: "main.py", line: 1, message: "invalid syntax" }] }), stderr: "" }] }),
+        expectedResult: "FAIL",
+      },
+      { files: ["main.py"], contents: { "main.py": "x = 1" }, r: runner({ python3Available: true, results: [{ exitCode: 0, stdout: "not json", stderr: "" }] }), expectedResult: "ERROR" },
+    ];
+    for (const { files, contents, r, expectedResult } of scenarios) {
+      const report = await runVerificationAdapters({ rootPath: "/repo", changedFiles: [], files, fileContents: contents }, r);
+      expect(report.results[0]?.status).toBe(expectedResult);
+      for (const item of report.evidence) {
+        expect(item.result_status).toBe(expectedResult);
+        expect(item.status).toBe(evidenceStatusForResult(item.result_status!));
+        if (item.result_status !== "PASS") expect(item.status).not.toBe("VERIFIED");
+      }
+    }
   });
 });

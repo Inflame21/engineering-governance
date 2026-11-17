@@ -1,3 +1,4 @@
+import { TOOL_RESULT_STATUSES } from "../../engine/src/evidence-policy.js";
 import type { GovernanceContext, GovernanceEvaluation } from "../../engine/src/types.js";
 import type { RepositoryAnalysis } from "../../analyzer/src/types.js";
 
@@ -81,6 +82,8 @@ function analysisLines(analysis: RepositoryAnalysis, context: GovernanceContext)
 
   if (analysis.verification) {
     lines.push("", `Tool verification: ${analysis.verification.status}`);
+    const counts = resultCounts(analysis.verification.results);
+    if (counts) lines.push(`  Results: ${counts}`);
     for (const result of analysis.verification.results) {
       lines.push(`  [${result.status}] ${result.tool}${result.toolVersion ? ` (${result.toolVersion})` : ""}: ${result.summary}`);
       for (const limitation of result.limitations) lines.push(`    Limitation: ${limitation}`);
@@ -195,8 +198,17 @@ export function formatHumanResult(
   return lines.join("\n");
 }
 
+/** "1 PASS, 2 SKIPPED": how many tool results ended in each state, in the blueprint's order. */
+function resultCounts(results: ReadonlyArray<{ status: string }>): string {
+  return TOOL_RESULT_STATUSES
+    .map((status) => ({ status, count: results.filter((result) => result.status === status).length }))
+    .filter((entry) => entry.count > 0)
+    .map((entry) => `${entry.count} ${entry.status}`)
+    .join(", ");
+}
+
 /** Escapes text for a Markdown table cell. */
-const cell = (value: string): string => value.replace(/\|/g, "\|").replace(/\r?\n/g, " ");
+const cell = (value: string): string => value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 
 export function formatMarkdownResult(
   analysis: RepositoryAnalysis,
@@ -244,6 +256,19 @@ export function formatMarkdownResult(
       if (item.evidenceRefs?.length) lines.push(`  - Evidence: ${item.evidenceRefs.join(", ")}`);
     }
   };
+  if (analysis.verification && analysis.verification.results.length > 0) {
+    lines.push(
+      "",
+      "## Tool verification",
+      "",
+      `Overall: ${analysis.verification.status}. Results: ${resultCounts(analysis.verification.results)}.`,
+      "",
+      "| Tool | Result | Summary |",
+      "|---|---|---|",
+    );
+    for (const result of analysis.verification.results) lines.push(`| ${cell(result.tool)} | ${result.status} | ${cell(result.summary)} |`);
+  }
+
   section("Blocking violations", decision.blockingViolations);
   section("Warnings", decision.warnings);
 

@@ -1,13 +1,16 @@
 import type {
   GovernanceEvidence,
   GovernanceFinding,
+  ToolResultStatus,
 } from "../../engine/src/types.js";
+import { evidenceStatusForResult } from "../../engine/src/evidence-policy.js";
 import type { RepositorySnapshot, RepositoryAdapterResult } from "./types.js";
 import { fingerprintRepositorySnapshot } from "./fingerprint.js";
 import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
 
 export type VerificationToolName = "typescript" | "python3" | "python";
-export type VerificationToolStatus = "PASS" | "FAIL" | "UNVERIFIED" | "ERROR";
+/** What a verification tool reported. The engine's policy maps it to an evidence status. */
+export type VerificationToolStatus = ToolResultStatus;
 
 export interface VerificationProcessResult {
   exitCode: number;
@@ -165,7 +168,7 @@ export async function runVerificationAdapters(
     if (tsconfigs.length === 0) {
       results.push({
         tool: "typescript",
-        status: "UNVERIFIED",
+        status: "UNSUPPORTED",
         command: ["tsc", "--noEmit"],
         summary: "TypeScript files were found, but no tsconfig.json was discovered.",
         findings: [],
@@ -183,7 +186,7 @@ export async function runVerificationAdapters(
     } else if (tsconfigs.length > MAX_TYPESCRIPT_PROJECTS) {
       results.push({
         tool: "typescript",
-        status: "UNVERIFIED",
+        status: "SKIPPED",
         command: ["tsc", "--noEmit"],
         summary: `Found ${tsconfigs.length} TypeScript projects; the safety limit is ${MAX_TYPESCRIPT_PROJECTS}.`,
         findings: [],
@@ -231,7 +234,7 @@ export async function runVerificationAdapters(
         ];
         results.push({
           tool: "typescript",
-          status: errors.length > 0 ? "ERROR" : "UNVERIFIED",
+          status: errors.length > 0 ? "ERROR" : "UNSUPPORTED",
           command: ["tsc", "--noEmit", "--pretty", "false"],
           summary: limitations.join(" ") || "No TypeScript project could be verified.",
           findings: [],
@@ -262,7 +265,8 @@ export async function runVerificationAdapters(
         const toolEvidence: GovernanceEvidence = {
           id: evidenceId,
           type: "E3_AUTOMATED_ANALYSIS",
-          status: status === "PASS" ? "VERIFIED" : "PARTIALLY_VERIFIED",
+          status: evidenceStatusForResult(status),
+          result_status: status,
           description: failures.length > 0
             ? `TypeScript type checking failed in ${failures.length} project(s).`
             : hasLimitations
@@ -318,7 +322,7 @@ export async function runVerificationAdapters(
     if (pythonCandidates.length > MAX_PYTHON_FILES) {
       results.push({
         tool: "python",
-        status: "UNVERIFIED",
+        status: "SKIPPED",
         command: ["python", "-c", "ast.parse(...)"],
         summary: `Found ${pythonFiles.length} Python files; the safety limit is ${MAX_PYTHON_FILES}.`,
         findings: [],
@@ -337,7 +341,7 @@ export async function runVerificationAdapters(
       const limitation = "Python source content was not ingested within the repository scan limits; syntax was not checked.";
       results.push({
         tool: "python",
-        status: "UNVERIFIED",
+        status: "SKIPPED",
         command: ["python", "-c", "ast.parse(...)"],
         summary: limitation,
         findings: [],
@@ -361,7 +365,7 @@ export async function runVerificationAdapters(
         const limitation = "Neither python3 nor python was available; Python syntax was not checked.";
         results.push({
           tool: "python",
-          status: "UNVERIFIED",
+          status: "UNSUPPORTED",
           command: ["python", "-c", "ast.parse(...)"],
           summary: limitation,
           findings: [],
@@ -429,7 +433,8 @@ export async function runVerificationAdapters(
           evidence.push({
             id: evidenceId,
             type: "E3_AUTOMATED_ANALYSIS",
-            status: status === "PASS" ? "VERIFIED" : "PARTIALLY_VERIFIED",
+            status: evidenceStatusForResult(status),
+            result_status: status,
             description: status === "PASS"
               ? `Python syntax verification passed for ${pythonFiles.length} file(s).`
               : status === "FAIL"
