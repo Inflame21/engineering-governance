@@ -31,7 +31,7 @@ function pack(
     version: "1.0.0",
     project: { id: "matrix", name: "Matrix", repository: "example/matrix", environment: "production" },
     change: { id: "CHG-MATRIX", type: "feature", title: "Matrix", risk_class: "B", files: [] },
-    standards: [],
+    standards: [{ id: "SEC-007", title: "Security", version: "1.0.0", source: "07-security/07-security-engineering-standard.md" }],
     controls: [{
       id: "CTL-1",
       standard: "SEC-007",

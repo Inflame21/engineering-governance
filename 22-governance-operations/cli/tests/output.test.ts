@@ -45,6 +45,7 @@ const evaluation: GovernanceEvaluation = {
     reason: "All applicable controls passed.",
     blockingViolations: [],
     warnings: [],
+    openRisks: [],
   },
 };
 
@@ -65,6 +66,7 @@ describe("CLI output", () => {
         status: "NO-GO",
         blockingViolations: [{
           controlId: "FINDING:FND-ARCH-001",
+          status: "FAIL",
           severity: "P1",
           decision: "NO-GO",
           message: "Domain depends on infrastructure.",

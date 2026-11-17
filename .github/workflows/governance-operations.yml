@@ -17,12 +17,16 @@ permissions:
 
 jobs:
   verify:
-    name: Verify ${{ matrix.package }}
+    # Job names must match the ruleset's required check names exactly (case-sensitive).
+    name: Verify ${{ matrix.label }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        package: [engine, analyzer, cli]
+        include:
+          - { package: engine, label: engine }
+          - { package: analyzer, label: analyzer }
+          - { package: cli, label: CLI }
 
     defaults:
       run:

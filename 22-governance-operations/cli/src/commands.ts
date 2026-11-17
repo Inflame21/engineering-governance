@@ -55,6 +55,7 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
   if (!context.changeScopeStatus) {
     const scopeWarning: GovernanceViolation = {
       controlId: "CHANGE-SCOPE:NOT-REQUESTED",
+      status: "UNVERIFIED",
       severity: "P1",
       decision: "GO_WITH_CONDITIONS",
       message: "Git changed-file scope was not requested. Pass --base <git-ref> before treating this as a complete change review.",
@@ -82,6 +83,7 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
       ].join("; ");
       const scopeViolation: GovernanceViolation = {
         controlId: "CHANGE-SCOPE:DECLARATION-MISMATCH",
+        status: "FAIL",
         severity: "P1",
         decision: "NO-GO",
         message: `The governance change manifest does not match the verified Git diff (${details}).`,
@@ -99,6 +101,7 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
     .filter((controlId) => !input.governancePack.controls.some((control) => control.id === controlId));
   const profileControlViolations: GovernanceViolation[] = missingRequiredControls.map((controlId) => ({
     controlId: `PROFILE:${input.architectureProfile?.id}:REQUIRED-CONTROL:${controlId}`,
+    status: "FAIL",
     severity: "P1",
     decision: "NO-GO",
     message: `Architecture profile '${input.architectureProfile?.id}' requires governance control '${controlId}', but the governance pack does not define it.`,

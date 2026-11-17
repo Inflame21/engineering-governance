@@ -209,6 +209,7 @@ export function deriveDecision(
 
   const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
     controlId: `RISK:${risk.id}`,
+    status: (risk.severity === "P0" || risk.severity === "P1") ? "FAIL" : "WARN",
     severity: risk.severity,
     decision:
       risk.severity === "P0" || risk.severity === "P1"
@@ -233,6 +234,7 @@ export function deriveDecision(
     if (exception.status === "REQUESTED") {
       exceptionWarnings.push({
         controlId: `EXCEPTION:${exception.id}`,
+        status: "WARN",
         severity: "P2",
         decision: "GO_WITH_CONDITIONS",
         message: `Exception ${exception.id} is requested but not approved; it does not waive the control.`,
@@ -242,6 +244,7 @@ export function deriveDecision(
     } else if (exception.status === "EXPIRED") {
       exceptionWarnings.push({
         controlId: `EXCEPTION:${exception.id}`,
+        status: "WARN",
         severity: "P1",
         decision: "GO_WITH_CONDITIONS",
         message: `Exception ${exception.id} is expired and cannot waive a control.`,
@@ -253,6 +256,7 @@ export function deriveDecision(
       const severity = assessment?.controlSeverity ?? "P1";
       exceptionWarnings.push({
         controlId: `EXCEPTION:${exception.id}`,
+        status: "WARN",
         severity,
         decision: "GO_WITH_CONDITIONS",
         message: assessment?.valid
@@ -328,6 +332,7 @@ export function evaluateGovernance(
     const failed = context.analysisStatus === "FAILED";
     const analysisViolation: GovernanceViolation = {
       controlId: "ANALYSIS:COMPLETENESS",
+      status: failed ? "FAIL" : "UNVERIFIED",
       severity: failed ? "P0" : "P1",
       decision: failed ? "NO-GO" : "GO_WITH_CONDITIONS",
       message: failed
@@ -350,6 +355,7 @@ export function evaluateGovernance(
   if (context.changeScopeStatus === "UNVERIFIED") {
     const scopeViolation: GovernanceViolation = {
       controlId: "CHANGE-SCOPE:VERIFICATION",
+      status: "UNVERIFIED",
       severity: "P1",
       decision: "GO_WITH_CONDITIONS",
       message: context.changeScopeReason
@@ -373,6 +379,7 @@ export function evaluateGovernance(
     const blocking = finding.severity === "P0" || finding.severity === "P1";
     const violation: GovernanceViolation = {
       controlId: `FINDING:${finding.id}`,
+      status: blocking ? "FAIL" : "WARN",
       severity: finding.severity,
       decision: blocking ? "NO-GO" : "GO_WITH_CONDITIONS",
       message: `[${finding.rule_id}] ${finding.message}`,
