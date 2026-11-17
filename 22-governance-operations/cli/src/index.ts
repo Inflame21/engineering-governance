@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { loadArchitectureProfile, loadGovernancePack, loadProjectRegistry } from "./config.js";
+import {
+  assertPackMatchesRegistration,
+  getRegisteredArchitectureProfile,
+  loadArchitectureProfile,
+  loadGovernancePack,
+  loadProjectRegistry,
+  selectProjectRegistration,
+  type ProjectRegistration,
+} from "./config.js";
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
@@ -22,6 +30,7 @@ interface ParsedArguments {
   packPath: string;
   profilePath?: string;
   registryPath?: string;
+  projectId?: string;
   packExplicit: boolean;
   baseRef?: string;
   runTools: boolean;
@@ -34,9 +43,9 @@ function usage(): string {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>]",
-    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
+    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance --help",
     "  governance --version",
@@ -49,7 +58,10 @@ function usage(): string {
     "",
     "Options:",
     `  --pack    Governance pack JSON path relative to the repository root (default: ${DEFAULT_PACK_PATH})`,
-    "  --registry Project registration file or directory of .json records (validate only). Alone, it skips the pack check.",
+    "  --registry Project registration file or directory of .json records. validate: alone, skips the pack check.",
+    "             check/report: supplies the project's pack path and architecture profile (explicit --pack/--profile win),",
+    "             requires the pack to belong to the project, rejects RETIRED projects and reports unassigned owners as conditions.",
+    "  --project  Registered project id for check/report with --registry (required when the registry holds several projects).",
     "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
     "  --run-tools Execute installed local TypeScript/Python checks (never installs dependencies).",
@@ -83,6 +95,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let packPath = DEFAULT_PACK_PATH;
   let profilePath: string | undefined;
   let registryPath: string | undefined;
+  let projectId: string | undefined;
   let packExplicit = false;
   let baseRef: string | undefined;
   let runTools = false;
@@ -108,15 +121,17 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       index += 1;
       continue;
     }
-    if (argument === "--pack" || argument === "--profile" || argument === "--base" || argument === "--registry") {
+    if (argument === "--pack" || argument === "--profile" || argument === "--base" || argument === "--registry" || argument === "--project") {
       const value = rest[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a relative path.`);
-      if (argument === "--registry" && rawCommand !== "validate") throw new Error("--registry is only supported by the validate command.");
+      if (argument === "--registry" && rawCommand === "analyze") throw new Error("--registry is only supported by the validate, check and report commands.");
+      if (argument === "--project" && rawCommand !== "check" && rawCommand !== "report") throw new Error("--project is only supported by the check and report commands.");
       if (argument === "--pack") {
         packPath = value;
         packExplicit = true;
       } else if (argument === "--profile") profilePath = value;
       else if (argument === "--registry") registryPath = value;
+      else if (argument === "--project") projectId = value;
       else baseRef = value;
       index += 1;
       continue;
@@ -127,12 +142,15 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     repositoryProvided = true;
   }
 
+  if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
+
   return {
     command: rawCommand,
     repositoryPath: path.resolve(repositoryPath),
     packPath,
     packExplicit,
     ...(registryPath ? { registryPath } : {}),
+    ...(projectId ? { projectId } : {}),
     ...(profilePath ? { profilePath } : {}),
     ...(baseRef ? { baseRef } : {}),
     runTools,
@@ -204,13 +222,25 @@ export async function runCli(argv: string[]): Promise<number> {
       return result.context.analysisStatus === "COMPLETE" ? 0 : 1;
     }
 
-    const governancePack = await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
+    // With a registry, the registered project decides which pack and profile apply (unless a flag
+    // names them explicitly), and the pack must actually belong to that project.
+    let registration: ProjectRegistration | undefined;
+    if (args.registryPath) {
+      const records = await loadProjectRegistry(args.repositoryPath, args.registryPath, nodeFileSystem);
+      registration = selectProjectRegistration(records, args.projectId);
+    }
+    const packPath = args.packExplicit ? args.packPath : registration?.governance_pack ?? args.packPath;
+    const governancePack = await loadGovernancePack(args.repositoryPath, packPath, nodeFileSystem);
+    if (registration) assertPackMatchesRegistration(governancePack, registration);
     const architectureProfile = args.profilePath
       ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem)
-      : undefined;
+      : registration
+        ? getRegisteredArchitectureProfile(registration.profiles.architecture)
+        : undefined;
     const result = await runGovernanceCommand({
       snapshot,
       governancePack,
+      ...(registration ? { registration } : {}),
       ...(args.json || (args.command === "report" && args.format === "json") ? { json: true } : {}),
       ...(args.command === "report" && args.format !== "json" ? { markdown: true } : {}),
       ...(architectureProfile ? { architectureProfile } : {}),

@@ -130,13 +130,27 @@ export function formatAnalysisResult(
   return analysisLines(analysis, context).join("\n");
 }
 
+/** The registered project an assessment was run for, when the registry was used. */
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  status: string;
+  criticality: string;
+  data_classification: string;
+}
+
+const projectLine = (project: ProjectSummary): string =>
+  `${project.id} (${project.status}, criticality ${project.criticality}, data ${project.data_classification})`;
+
 export function formatHumanResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
+  project?: ProjectSummary,
 ): string {
   const lines = [
     `Decision: ${evaluation.decision.status}`,
+    ...(project ? [`Project: ${projectLine(project)}`] : []),
     "",
     ...analysisLines(analysis, context),
     "",
@@ -172,6 +186,7 @@ export function formatMarkdownResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
+  project?: ProjectSummary,
 ): string {
   const { decision } = evaluation;
   const list = (items: string[]) => (items.length ? items.join(", ") : "none detected");
@@ -179,6 +194,7 @@ export function formatMarkdownResult(
     "# Governance report",
     "",
     `**Decision:** ${decision.status}`,
+    ...(project ? ["", `**Project:** ${projectLine(project)}`] : []),
     ...(decision.reason ? ["", `**Reason:** ${decision.reason}`] : []),
     "",
     "## Repository analysis",
@@ -227,6 +243,7 @@ export function formatJsonResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
+  project?: ProjectSummary,
 ): string {
   const generatedAt = new Date().toISOString();
   const fingerprint = analysis.snapshotFingerprint?.digest ?? null;
@@ -242,6 +259,7 @@ export function formatJsonResult(
       repositoryFingerprint: fingerprint,
       changeScope: analysis.changeScope ?? null,
       decision: evaluation.decision.status,
+      ...(project ? { project } : {}),
     },
     analysis,
     context,
