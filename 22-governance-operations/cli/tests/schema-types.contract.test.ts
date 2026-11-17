@@ -5,6 +5,7 @@ import type {
   ControlStatus,
   EvidenceStatus,
   EvidenceFreshness,
+  ToolResultStatus,
   FailureDecision,
   GovernanceChange,
   GovernanceChangeType,
@@ -65,7 +66,7 @@ const fieldPresence = {
   evidence: {
     id: "required", type: "required", status: "required", description: "required",
     source: "required", freshness: "required", freshness_status: "optional",
-    supports_controls: "required", tool_version: "optional", generated_at: "optional",
+    supports_controls: "required", result_status: "optional", tool_version: "optional", generated_at: "optional",
     repository_fingerprint: "optional", duration_ms: "optional", exit_code: "optional",
     command: "optional",
   } satisfies FieldPresence<GovernanceEvidence>,
@@ -108,6 +109,7 @@ const enumValues = {
   controlStatus: ["PASS", "FAIL", "WARN", "NOT_APPLICABLE", "UNVERIFIED"],
   evidenceStatus: ["VERIFIED", "PARTIALLY_VERIFIED", "UNVERIFIED", "NOT_APPLICABLE"],
   evidenceFreshness: ["current", "stale", "expired", "unknown"],
+  toolResultStatus: ["PASS", "WARN", "FAIL", "SKIPPED", "UNSUPPORTED", "UNVERIFIED", "ERROR"],
   failureDecision: ["NO-GO", "GO_WITH_CONDITIONS", "REVIEW_REQUIRED", "NONE"],
   changeType: ["feature", "bugfix", "refactor", "security", "database", "infrastructure", "configuration", "release", "emergency"],
   evidenceType: ["E1_DIRECT_VERIFICATION", "E2_INSPECTION", "E3_AUTOMATED_ANALYSIS", "E4_OPERATIONAL", "E5_DOCUMENTARY", "E6_ASSERTION"],
@@ -123,6 +125,7 @@ type _SeverityMatches = Assert<Equal<(typeof enumValues.severity)[number], Sever
 type _ControlStatusMatches = Assert<Equal<(typeof enumValues.controlStatus)[number], ControlStatus>>;
 type _EvidenceStatusMatches = Assert<Equal<(typeof enumValues.evidenceStatus)[number], EvidenceStatus>>;
 type _EvidenceFreshnessMatches = Assert<Equal<(typeof enumValues.evidenceFreshness)[number], EvidenceFreshness>>;
+type _ToolResultStatusMatches = Assert<Equal<(typeof enumValues.toolResultStatus)[number], ToolResultStatus>>;
 type _FailureDecisionMatches = Assert<Equal<(typeof enumValues.failureDecision)[number], FailureDecision>>;
 type _ChangeTypeMatches = Assert<Equal<(typeof enumValues.changeType)[number], GovernanceChangeType>>;
 type _EvidenceTypeMatches = Assert<Equal<(typeof enumValues.evidenceType)[number], GovernanceEvidenceType>>;
@@ -204,6 +207,7 @@ describe("JSON Schema and TypeScript contract alignment", () => {
     expectEnumToMatch(defs.control.properties.failure_decision.enum, enumValues.failureDecision, "failureDecision");
     expectEnumToMatch(defs.evidence.properties.status.enum, enumValues.evidenceStatus, "evidenceStatus");
     expectEnumToMatch(defs.evidence.properties.freshness_status.enum, enumValues.evidenceFreshness, "evidenceFreshness");
+    expectEnumToMatch(defs.evidence.properties.result_status.enum, enumValues.toolResultStatus, "toolResultStatus");
     expectEnumToMatch(defs.change.properties.type.enum, enumValues.changeType, "changeType");
     expectEnumToMatch(defs.evidence.properties.type.enum, enumValues.evidenceType, "evidenceType");
     expectEnumToMatch(defs.decision.properties.type.enum, enumValues.decisionType, "decisionType");

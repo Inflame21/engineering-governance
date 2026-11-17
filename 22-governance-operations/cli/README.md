@@ -80,6 +80,22 @@ For the repository containing this CLI, the example pack path is relative to the
 node 22-governance-operations/cli/dist/cli/src/index.js check . --pack 22-governance-operations/model/example-governance-pack.json --profile 22-governance-operations/model/architecture-profile-clean-architecture.json --base origin/main --run-tools
 ```
 
+## Verification result states
+
+With `--run-tools`, each local check ends in one of seven states. The engine maps each to the GOV-023 section 20 evidence state it can support through an explicit table, so a tool that did not pass can never be recorded as proof:
+
+| Tool result | Meaning | Evidence status it supports |
+|---|---|---|
+| `PASS` | The check ran and found no problem. | `VERIFIED` |
+| `WARN` | The check ran and passed with non-blocking warnings. | `PARTIALLY_VERIFIED` |
+| `FAIL` | The check ran and found a problem. A finding is raised. | `UNVERIFIED` |
+| `SKIPPED` | Deliberately not run, for example a safety or scan limit was reached. | `UNVERIFIED` |
+| `UNSUPPORTED` | Cannot run here, for example no project configuration or no tool installed. | `UNVERIFIED` |
+| `UNVERIFIED` | Ran, but could not establish the property, for example coverage was incomplete. | `UNVERIFIED` |
+| `ERROR` | The tool failed, timed out or returned output that cannot be trusted. | `UNVERIFIED` |
+
+Evidence produced by a check records its result in `result_status`. A governance pack whose evidence claims a stronger status than its recorded result allows (for example `VERIFIED` for a `SKIPPED` check) is rejected as invalid. Results that never ran produce no evidence at all, and the report shows how many results ended in each state (`Results: 1 PASS, 1 UNSUPPORTED`). No current check produces `WARN`; the state exists so a future adapter can report one without a policy change.
+
 ## Exit codes
 
 | Code | Meaning |

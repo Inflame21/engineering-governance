@@ -244,6 +244,44 @@ describe("markdown report", () => {
     expect(output).toContain("## Blocking violations");
     expect(output).toContain("- **[P1] SEC-001**: Authorization is missing.");
     expect(output).toContain("  - Missing evidence: EVD-AUTH");
-    expect(output).toContain("| SEC-001 | FAIL | first \| second third |");
+    expect(output).toContain("| SEC-001 | FAIL | first \\| second third |");
+  });
+});
+
+describe("tool verification result states in reports", () => {
+  const withVerification = {
+    ...analysis,
+    verification: {
+      status: "PARTIAL",
+      results: [
+        { tool: "typescript", status: "PASS", command: ["tsc"], summary: "TypeScript type checking passed.", findings: [], limitations: [] },
+        { tool: "python", status: "UNSUPPORTED", command: ["python"], summary: "Neither python3 nor python was available | not checked.", findings: [], limitations: ["No interpreter."] },
+        { tool: "python", status: "SKIPPED", command: ["python"], summary: "Safety limit reached.", findings: [], limitations: [] },
+        { tool: "python", status: "SKIPPED", command: ["python"], summary: "Safety limit reached again.", findings: [], limitations: [] },
+      ],
+      evidence: [],
+      findings: [],
+      adapterResults: [],
+    },
+  } as unknown as RepositoryAnalysis;
+
+  it("counts results per state in the blueprint's order, omitting states with none", () => {
+    const output = formatHumanResult(withVerification, evaluation, context);
+    expect(output).toContain("Tool verification: PARTIAL");
+    expect(output).toContain("  Results: 1 PASS, 2 SKIPPED, 1 UNSUPPORTED");
+    expect(output).not.toContain("0 FAIL");
+  });
+
+  it("renders a Markdown table with the result of every tool, escaping pipes", () => {
+    const output = formatMarkdownResult(withVerification, evaluation, context);
+    expect(output).toContain("## Tool verification");
+    expect(output).toContain("Results: 1 PASS, 2 SKIPPED, 1 UNSUPPORTED.");
+    expect(output).toContain("| typescript | PASS | TypeScript type checking passed. |");
+    expect(output).toContain("| python | UNSUPPORTED | Neither python3 nor python was available \\| not checked. |");
+  });
+
+  it("adds no verification section when no tools were run", () => {
+    expect(formatHumanResult(analysis, evaluation, context)).not.toContain("Tool verification");
+    expect(formatMarkdownResult(analysis, evaluation, context)).not.toContain("## Tool verification");
   });
 });

@@ -1,7 +1,10 @@
+import { EVIDENCE_STATUS_FOR_RESULT, overstatesToolResult } from "./evidence-policy.js";
 import type { GovernancePack } from "./types.js";
 
 export type GovernanceValidationCode =
   | "DUPLICATE_ID"
+  | "UNKNOWN_RESULT_STATUS"
+  | "EVIDENCE_STATUS_OVERSTATED"
   | "UNKNOWN_STANDARD"
   | "UNKNOWN_EVIDENCE"
   | "UNKNOWN_CONTROL"
@@ -117,6 +120,23 @@ export function validateGovernancePackSemantics(
   });
 
   pack.evidence.forEach((item, index) => {
+    // Evidence may not claim more than the tool result it came from can support: a SKIPPED, ERROR or
+    // FAIL result cannot be recorded as VERIFIED.
+    if (item.result_status !== undefined) {
+      if (!(item.result_status in EVIDENCE_STATUS_FOR_RESULT)) {
+        issues.push({
+          code: "UNKNOWN_RESULT_STATUS",
+          path: `/evidence/${index}/result_status`,
+          message: `Evidence '${item.id}' has unknown tool result status '${String(item.result_status)}'.`,
+        });
+      } else if (overstatesToolResult(item.status, item.result_status)) {
+        issues.push({
+          code: "EVIDENCE_STATUS_OVERSTATED",
+          path: `/evidence/${index}/status`,
+          message: `Evidence '${item.id}' claims status ${item.status}, but its tool result ${item.result_status} supports at most ${EVIDENCE_STATUS_FOR_RESULT[item.result_status]}.`,
+        });
+      }
+    }
     for (const controlId of item.supports_controls) {
       if (!controlIds.has(controlId)) {
         issues.push({

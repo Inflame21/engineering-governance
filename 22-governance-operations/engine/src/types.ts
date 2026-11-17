@@ -2,6 +2,8 @@ export type Severity = "P0" | "P1" | "P2" | "P3";
 export type ControlStatus = "PASS" | "FAIL" | "WARN" | "NOT_APPLICABLE" | "UNVERIFIED";
 export type EvidenceStatus = "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
 export type EvidenceFreshness = "current" | "stale" | "expired" | "unknown";
+/** What a verification tool or adapter reported; mapped to an EvidenceStatus by an explicit policy. */
+export type ToolResultStatus = "PASS" | "WARN" | "FAIL" | "SKIPPED" | "UNSUPPORTED" | "UNVERIFIED" | "ERROR";
 export type FailureDecision = "NO-GO" | "GO_WITH_CONDITIONS" | "REVIEW_REQUIRED" | "NONE";
 
 export type GovernanceChangeType =
@@ -69,6 +71,8 @@ export interface GovernanceEvidence {
   freshness: string;
   freshness_status?: EvidenceFreshness;
   supports_controls: string[];
+  /** The tool's own result. When present, status may not be stronger than the policy allows for it. */
+  result_status?: ToolResultStatus;
   tool_version?: string;
   generated_at?: string;
   repository_fingerprint?: string;

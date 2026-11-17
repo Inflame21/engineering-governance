@@ -82,8 +82,7 @@ describe("analyze command", () => {
         },
         files: ["main.py", "routers/users.py", "pyproject.toml"],
         fileContents: {
-          "pyproject.toml": '[project]\
-dependencies = ["fastapi>=0.115"]',
+          "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
           "main.py": "print('ok')",
           "routers/users.py": "from fastapi import APIRouter",
         },
