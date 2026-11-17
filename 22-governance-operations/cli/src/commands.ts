@@ -5,7 +5,7 @@ import type { VerificationToolRunner } from "../../analyzer/src/verification.js"
 import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack, GovernanceViolation } from "../../engine/src/types.js";
-import { assessPackAgainstCatalog } from "./catalog.js";
+import { assessPackAgainstCatalog, nonExceptionableCatalogControls } from "./catalog.js";
 import type { ControlCatalog, ProjectRegistration } from "./config.js";
 import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "./output.js";
 
@@ -50,6 +50,11 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
   }
 
   const context = toGovernanceContext(analysis);
+  // Controls the catalog marks NON_EXCEPTIONABLE (EXC-021 section 7) can never be waived by an exception.
+  if (input.controlCatalog) {
+    const nonExceptionable = nonExceptionableCatalogControls(input.controlCatalog);
+    if (nonExceptionable.length > 0) context.nonExceptionableControls = nonExceptionable;
+  }
   const assessmentPack: GovernancePack = {
     ...input.governancePack,
     evidence: [

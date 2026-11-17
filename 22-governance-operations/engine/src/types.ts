@@ -197,6 +197,11 @@ export interface GovernanceContext {
   changedFiles?: string[];
   /** ISO-8601 timestamp supplied by the caller so exception evaluation is reproducible. */
   evaluatedAt?: string;
+  /**
+   * Control ids that an exception can never waive (EXC-021 section 7), supplied by the caller, for
+   * example from the control catalog. Listing a control here makes every exception for it invalid.
+   */
+  nonExceptionableControls?: string[];
 }
 
 export type ApplicabilityStatus = "APPLICABLE" | "NOT_APPLICABLE" | "UNVERIFIED";

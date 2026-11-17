@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateGovernance } from "../src/decision.js";
-import type { GovernancePack } from "../src/types.js";
+import type { GovernanceContext, GovernancePack } from "../src/types.js";
 
 const basePack: GovernancePack = {
   version: "1.0.0",
@@ -664,5 +664,59 @@ describe("evidence linkage and determinism", () => {
 
     expect(reversed).toEqual(forward);
     expect(evaluateGovernance({ ...basePack, evidence: [basePack.evidence[0]!, extra] }, context)).toEqual(forward);
+  });
+});
+
+describe("non-exceptionable controls", () => {
+  const exceptionFor = (control: string) => ({
+    id: "EXC-NX",
+    status: "APPROVED" as const,
+    control,
+    reason: "Temporary, bounded exception for a scheduled migration.",
+    project_id: "test",
+    change_id: "CHG-1",
+    requested_by: "engineering",
+    requested_at: "2026-10-10T00:00:00Z",
+    approved_by: "security-owner",
+    approved_at: "2026-10-11T00:00:00Z",
+    expires_at: "2026-10-20T00:00:00Z",
+  });
+  // An unverified P2 control with a complete, current, correctly scoped exception: waivable on its own.
+  const waivable = (): GovernancePack => ({
+    ...basePack,
+    controls: [{ ...basePack.controls[0]!, severity: "P2" }],
+    evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
+    exceptions: [exceptionFor("SEC-AUTH-001")],
+  });
+  const run = (extra: Partial<GovernanceContext> = {}) =>
+    evaluateGovernance(waivable(), { ...applicableContext, analysisStatus: "COMPLETE", evaluatedAt: "2026-10-13T00:00:00Z", ...extra });
+
+  it("baseline: the exception waives the control when nothing marks it non-exceptionable", () => {
+    const result = run();
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.blockingViolations).toHaveLength(0);
+  });
+
+  it("refuses to let an otherwise valid exception waive a listed control", () => {
+    const result = run({ nonExceptionableControls: ["SEC-AUTH-001"] });
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.map((v) => v.controlId)).toContain("SEC-AUTH-001");
+    const warning = result.decision.warnings.find((w) => w.controlId === "EXCEPTION:EXC-NX");
+    expect(warning?.message).toContain("was not applied");
+    expect(warning?.message).toContain("Control SEC-AUTH-001 is non-exceptionable (EXC-021 section 7)");
+  });
+
+  it("is not affected by other controls being listed, or by an empty list", () => {
+    expect(run({ nonExceptionableControls: ["SOME-OTHER-CONTROL"] }).decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(run({ nonExceptionableControls: [] }).decision.status).toBe("GO_WITH_CONDITIONS");
+  });
+
+  it("does not change the outcome for a control that passes", () => {
+    const passing = evaluateGovernance(basePack, {
+      ...applicableContext,
+      analysisStatus: "COMPLETE",
+      nonExceptionableControls: ["SEC-AUTH-001"],
+    });
+    expect(passing.decision.status).toBe("GO");
   });
 });

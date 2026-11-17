@@ -432,6 +432,72 @@ describe("built governance CLI", () => {
     expect(analyze.stderr).toContain("--catalog is only supported by the validate, check and report commands");
   });
 
+  it("a catalog's NON_EXCEPTIONABLE control cannot be waived by an exception, through the built CLI", async () => {
+    const root = await createCompleteFixture();
+    const base = pack() as Record<string, any>;
+    const waivable = {
+      ...base,
+      controls: [{ ...base.controls[0], severity: "P2" }],
+      evidence: [{ ...base.evidence[0], status: "UNVERIFIED" }],
+      exceptions: [{
+        id: "EXC-E2E",
+        status: "APPROVED",
+        control: "E2E-001",
+        reason: "Temporary, bounded exception.",
+        project_id: "e2e",
+        change_id: "CHG-E2E",
+        requested_by: "engineering",
+        requested_at: "2026-01-01T00:00:00Z",
+        approved_by: "security-owner",
+        approved_at: "2026-01-02T00:00:00Z",
+        expires_at: "2999-01-01T00:00:00Z",
+      }],
+    };
+    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(waivable));
+
+    const catalogWith = (exceptionPolicy: string) => ({
+      version: "1.0.0",
+      catalog_id: "e2e-catalog",
+      catalog_version: "0.1.0",
+      description: "E2E catalog.",
+      controls: [{
+        id: "E2E-001",
+        standard_id: "SEC-007",
+        standard_version: "1.0.0",
+        source_file: "07-security/07-security-engineering-standard.md",
+        source_section: "1. Example",
+        source_text: "an example requirement",
+        title: "Blocker: an example requirement",
+        description: "Blocks when this is present: an example requirement.",
+        mandatory: true,
+        severity: "P2",
+        failure_decision: "NO-GO",
+        verification_capabilities: [],
+        required_evidence_classes: [],
+        exception_policy: exceptionPolicy,
+        owner: { name: "UNASSIGNED" },
+        status: "DRAFT",
+      }],
+    });
+    await mkdir(path.join(root, "catalog"), { recursive: true });
+
+    // Without a catalog the exception waives the control, so the result is conditional.
+    const baseline = await runCli(["check", root]);
+    expect(baseline.exitCode).toBe(1);
+    expect(baseline.stdout).toContain("Decision: GO_WITH_CONDITIONS");
+    expect(baseline.stdout).toContain("EXCEPTION:EXC-E2E");
+
+    await writeFile(path.join(root, "catalog", "allowed.json"), JSON.stringify(catalogWith("ALLOWED")));
+    const allowed = await runCli(["check", root, "--catalog", "catalog/allowed.json"]);
+    expect(allowed.exitCode).toBe(1);
+
+    await writeFile(path.join(root, "catalog", "fixed.json"), JSON.stringify(catalogWith("NON_EXCEPTIONABLE")));
+    const blocked = await runCli(["check", root, "--catalog", "catalog/fixed.json"]);
+    expect(blocked.exitCode).toBe(2);
+    expect(blocked.stdout).toContain("Decision: NO-GO");
+    expect(blocked.stdout).toContain("non-exceptionable (EXC-021 section 7)");
+  });
+
   it("reports partial analysis in JSON and exits with the documented conditional status", async () => {
     const root = await createRoot("governance-cli-partial-");
     await writeFile(path.join(root, "main.go"), "package main\nfunc main() {}\n");
