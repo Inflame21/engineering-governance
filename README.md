@@ -238,6 +238,6 @@ The standards layer is intentionally frozen at GOV-023 while the framework moves
 
 **Current baseline:** GOV-023 standards plus the executable governance platform on `main`
 **Implemented:** deterministic, fail-closed control evaluation; schema-validated governance packs; repository analysis for TypeScript/JavaScript and Python; architecture-boundary verification; a runnable CLI (`check`, `validate`, `report`, `analyze`); and CI for the governance packages
-**Not yet done:** registered projects (the registry schema and validation exist, but it is empty), control catalog, approver-authority modelling for P1 exceptions, security and dependency scanners, a reusable CI workflow for other repositories, and a pilot on real projects
+**Not yet done:** registered projects (the registry schema and validation exist, but it is empty), an approved control catalog (a draft of 39 controls exists, none enforced), approver-authority modelling for P1 exceptions, security and dependency scanners, a reusable CI workflow for other repositories, and a pilot on real projects
 **Direction:** a draft operating blueprint in [docs/](docs/engineering-governance-operating-blueprint.md) proposes the next steps. It is pending leadership approval and is not policy.
 **Detail:** see the status table in the [master implementation plan](22-governance-operations/MASTER-IMPLEMENTATION-PLAN.md) and the [debt register](22-governance-operations/KNOWN-DEBT.md).

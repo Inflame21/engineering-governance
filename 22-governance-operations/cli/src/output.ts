@@ -139,18 +139,34 @@ export interface ProjectSummary {
   data_classification: string;
 }
 
+/** The control catalog an assessment was checked against, when one was supplied. */
+export interface CatalogSummary {
+  id: string;
+  version: string;
+  controls: number;
+}
+
+/** What an assessment was scoped by, beyond the repository itself. */
+export interface AssessmentScope {
+  project?: ProjectSummary;
+  catalog?: CatalogSummary;
+}
+
 const projectLine = (project: ProjectSummary): string =>
   `${project.id} (${project.status}, criticality ${project.criticality}, data ${project.data_classification})`;
+const catalogLine = (catalog: CatalogSummary): string =>
+  `${catalog.id} ${catalog.version} (${catalog.controls} controls)`;
 
 export function formatHumanResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
-  project?: ProjectSummary,
+  scope?: AssessmentScope,
 ): string {
   const lines = [
     `Decision: ${evaluation.decision.status}`,
-    ...(project ? [`Project: ${projectLine(project)}`] : []),
+    ...(scope?.project ? [`Project: ${projectLine(scope.project)}`] : []),
+    ...(scope?.catalog ? [`Catalog: ${catalogLine(scope.catalog)}`] : []),
     "",
     ...analysisLines(analysis, context),
     "",
@@ -186,7 +202,7 @@ export function formatMarkdownResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
-  project?: ProjectSummary,
+  scope?: AssessmentScope,
 ): string {
   const { decision } = evaluation;
   const list = (items: string[]) => (items.length ? items.join(", ") : "none detected");
@@ -194,7 +210,8 @@ export function formatMarkdownResult(
     "# Governance report",
     "",
     `**Decision:** ${decision.status}`,
-    ...(project ? ["", `**Project:** ${projectLine(project)}`] : []),
+    ...(scope?.project ? ["", `**Project:** ${projectLine(scope.project)}`] : []),
+    ...(scope?.catalog ? ["", `**Catalog:** ${catalogLine(scope.catalog)}`] : []),
     ...(decision.reason ? ["", `**Reason:** ${decision.reason}`] : []),
     "",
     "## Repository analysis",
@@ -243,7 +260,7 @@ export function formatJsonResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
   context: GovernanceContext,
-  project?: ProjectSummary,
+  scope?: AssessmentScope,
 ): string {
   const generatedAt = new Date().toISOString();
   const fingerprint = analysis.snapshotFingerprint?.digest ?? null;
@@ -259,7 +276,8 @@ export function formatJsonResult(
       repositoryFingerprint: fingerprint,
       changeScope: analysis.changeScope ?? null,
       decision: evaluation.decision.status,
-      ...(project ? { project } : {}),
+      ...(scope?.project ? { project: scope.project } : {}),
+      ...(scope?.catalog ? { catalog: scope.catalog } : {}),
     },
     analysis,
     context,

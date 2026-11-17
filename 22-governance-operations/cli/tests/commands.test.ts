@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runAnalyzeCommand, runGovernanceCommand } from "../src/commands.js";
 import type { GovernancePack } from "../../engine/src/types.js";
-import type { ProjectRegistration } from "../src/config.js";
+import type { CatalogControl, ControlCatalog, ProjectRegistration } from "../src/config.js";
 
 const pack: GovernancePack = {
   version: "1.0.0",
@@ -277,5 +277,96 @@ describe("registry ownership gap", () => {
     expect(markdown.output).toContain("**Project:** demo (ONBOARDING, criticality HIGH, data CONFIDENTIAL)");
     const json = await runGovernanceCommand({ snapshot, governancePack: pack, registration: registration(), json: true });
     expect(JSON.parse(json.output).report.project).toMatchObject({ id: "demo", status: "ONBOARDING", criticality: "HIGH" });
+  });
+});
+
+describe("control catalog", () => {
+  const snapshot = {
+    rootPath: "/repo",
+    changedFiles: ["main.py"],
+    changeScope: { status: "VERIFIED" as const, baseRef: "origin/main", headRef: "head-sha", files: ["main.py"] },
+    files: ["main.py", "routers/users.py", "pyproject.toml"],
+    fileContents: {
+      "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
+      "main.py": "print('ok')",
+      "routers/users.py": "from fastapi import APIRouter",
+    },
+  };
+  const control = (overrides: Partial<CatalogControl> = {}): CatalogControl => ({
+    id: "API-001",
+    standard_id: "API-006",
+    standard_version: "1.0.0",
+    source_file: "06-api/06-api-governance-standard.md",
+    source_section: "1. Example",
+    source_text: "an example requirement",
+    title: "Blocker: an example requirement",
+    description: "Blocks when this is present: an example requirement.",
+    mandatory: true,
+    severity: "P1",
+    failure_decision: "NO-GO",
+    verification_capabilities: [],
+    required_evidence_classes: [],
+    exception_policy: "ALLOWED",
+    owner: { name: "UNASSIGNED" },
+    status: "DRAFT",
+    ...overrides,
+  });
+  const catalog = (...controls: CatalogControl[]): ControlCatalog => ({
+    version: "1.0.0",
+    catalog_id: "test-catalog",
+    catalog_version: "0.1.0",
+    description: "Test catalog.",
+    controls,
+  });
+  const approved = { status: "APPROVED" as const, effective_from: "2026-11-17", owner: { name: "Control Owner" } };
+
+  it("is unchanged when no catalog is supplied", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack });
+    expect(result.evaluation.decision.status).toBe("GO");
+    expect(result.output).not.toContain("Catalog:");
+  });
+
+  it("keeps GO when the pack defines every approved control without weakening it", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, controlCatalog: catalog(control(approved)) });
+    expect(result.evaluation.decision.status).toBe("GO");
+    expect(result.evaluation.decision.warnings).toEqual([]);
+    expect(result.output).toContain("Catalog: test-catalog 0.1.0 (1 controls)");
+  });
+
+  it("downgrades GO to GO_WITH_CONDITIONS for DRAFT controls the pack does not define, without blocking", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, controlCatalog: catalog(control({ id: "NEW-001" })) });
+    const { decision } = result.evaluation;
+    expect(decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(decision.blockingViolations).toEqual([]);
+    expect(decision.warnings.map((w) => w.controlId)).toEqual(["CATALOG:test-catalog:DRAFT-CONTROLS-NOT-DEFINED"]);
+    expect(decision.reason).toContain("Draft catalog controls are not satisfied");
+  });
+
+  it("blocks when an APPROVED control is missing from the pack", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, controlCatalog: catalog(control({ id: "NEW-001", ...approved })) });
+    const { decision } = result.evaluation;
+    expect(decision.status).toBe("NO-GO");
+    expect(decision.blockingViolations.map((v) => v.controlId)).toEqual(["CATALOG:NEW-001:NOT-DEFINED"]);
+    expect(decision.reason).toContain("APPROVED catalog control(s) are missing from, or weakened by");
+  });
+
+  it("blocks when the pack weakens an APPROVED control", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, controlCatalog: catalog(control({ severity: "P0", ...approved })) });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.blockingViolations.map((v) => v.controlId)).toEqual(["CATALOG:API-001:WEAKENED"]);
+  });
+
+  it("never softens a NO-GO, and still reports the draft conditions", async () => {
+    const blocked = { ...pack, risks: [{ id: "RSK-1", severity: "P1" as const, title: "Open risk", status: "OPEN" as const }] };
+    const result = await runGovernanceCommand({ snapshot, governancePack: blocked, controlCatalog: catalog(control({ id: "NEW-001" })) });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.warnings.map((w) => w.controlId)).toContain("CATALOG:test-catalog:DRAFT-CONTROLS-NOT-DEFINED");
+  });
+
+  it("records the catalog in markdown and JSON output", async () => {
+    const markdown = await runGovernanceCommand({ snapshot, governancePack: pack, controlCatalog: catalog(control(approved)), markdown: true });
+    expect(markdown.output).toContain("**Catalog:** test-catalog 0.1.0 (1 controls)");
+    const json = await runGovernanceCommand({ snapshot, governancePack: pack, controlCatalog: catalog(control(approved)), json: true });
+    expect(JSON.parse(json.output).report.catalog).toEqual({ id: "test-catalog", version: "0.1.0", controls: 1 });
   });
 });

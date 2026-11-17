@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Inflame21/engineering-governance/blob/main/22-governance-operations/model/control-catalog.schema.json",
+  "title": "Engineering Governance Control Catalog",
+  "description": "Versioned catalog of mandatory controls, each traced to the exact standard text that requires it. Proposed in the operating blueprint (Release 2, Appendix B).",
+  "type": "object",
+  "required": ["version", "catalog_id", "catalog_version", "description", "controls"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Version of this catalog schema the file conforms to.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "catalog_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "catalog_version": {
+      "type": "string",
+      "description": "Version of this catalog's content.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/control" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "control": {
+      "type": "object",
+      "required": [
+        "id",
+        "standard_id",
+        "standard_version",
+        "source_file",
+        "source_section",
+        "source_text",
+        "title",
+        "description",
+        "mandatory",
+        "severity",
+        "failure_decision",
+        "verification_capabilities",
+        "required_evidence_classes",
+        "exception_policy",
+        "owner",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier. A governance pack defines the control under this same id.",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "standard_id": {
+          "type": "string",
+          "pattern": "^[A-Z]{2,6}-\\d{3}$"
+        },
+        "standard_version": {
+          "type": "string",
+          "description": "Version of the standard the control is defined against, or the word unversioned when the standard states none.",
+          "minLength": 1
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Repository-relative path of the standard.",
+          "minLength": 1
+        },
+        "source_section": {
+          "type": "string",
+          "description": "Heading of the section that requires the control.",
+          "minLength": 1
+        },
+        "source_text": {
+          "type": "string",
+          "description": "The requirement, quoted verbatim from the section. A test verifies it still exists there.",
+          "minLength": 1
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "mandatory": {
+          "type": "boolean",
+          "description": "Whether failure can block a gate."
+        },
+        "severity": {
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "failure_decision": {
+          "enum": ["NO-GO", "GO_WITH_CONDITIONS", "REVIEW_REQUIRED", "NONE"]
+        },
+        "applies_when": {
+          "description": "Normalized signals under which the control applies. Empty or absent means always.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "verification_capabilities": {
+          "type": "array",
+          "description": "Checks or adapters able to verify the control. Empty means no automated verifier exists yet.",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "required_evidence_classes": {
+          "type": "array",
+          "description": "GOV-023 evidence classes (E1 to E6) the control requires. Empty means not yet specified.",
+          "items": { "type": "string", "pattern": "^E[1-6]$" },
+          "uniqueItems": true
+        },
+        "exception_policy": {
+          "type": "string",
+          "description": "NON_EXCEPTIONABLE only where EXC-021 section 7 names the requirement. Not yet consulted by the engine.",
+          "enum": ["ALLOWED", "NON_EXCEPTIONABLE"]
+        },
+        "owner": {
+          "type": "object",
+          "description": "Control owner. Use the name UNASSIGNED as an explicit placeholder; it is never accepted for an APPROVED control.",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "handle": { "type": "string", "pattern": "^@?[A-Za-z0-9][A-Za-z0-9-]*$" }
+          },
+          "additionalProperties": false
+        },
+        "status": {
+          "type": "string",
+          "description": "DRAFT controls are reported but not enforced. Only APPROVED controls block.",
+          "enum": ["DRAFT", "APPROVED", "DEPRECATED", "RETIRED"]
+        },
+        "effective_from": { "type": "string", "format": "date" },
+        "retired_at": { "type": "string", "format": "date" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "APPROVED" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["effective_from"],
+            "properties": {
+              "effective_from": { "type": "string" },
+              "owner": {
+                "type": "object",
+                "properties": { "name": { "type": "string", "not": { "const": "UNASSIGNED" } } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "RETIRED" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["retired_at"],
+            "properties": { "retired_at": { "type": "string" } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -46,6 +46,13 @@ node dist/cli/src/index.js report ../.. --pack 22-governance-operations/model/ex
 node dist/cli/src/index.js report ../.. --pack 22-governance-operations/model/example-governance-pack.json --format json
 ```
 
+Check a governance pack against the control catalog (see `model/catalog/README.md`). `--catalog` takes one catalog file. The pack must define every mandatory catalog control under the same id and may not weaken it (lower severity, softer failure decision, different standard). `APPROVED` controls missing or weakened give `NO-GO`; `DRAFT` controls give one `GO WITH CONDITIONS` condition and are not enforced. `validate --catalog` checks the catalog file alone:
+
+```bash
+node dist/cli/src/index.js validate ../.. --catalog 22-governance-operations/model/catalog/organization-controls.json
+node dist/cli/src/index.js check ../.. --catalog 22-governance-operations/model/catalog/organization-controls.json
+```
+
 Assess a registered project. With `--registry`, `check` and `report` look the project up in the registry and let the record decide which governance pack and architecture profile apply:
 
 ```bash

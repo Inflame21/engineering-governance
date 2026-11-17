@@ -5,7 +5,8 @@ import type { VerificationToolRunner } from "../../analyzer/src/verification.js"
 import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack, GovernanceViolation } from "../../engine/src/types.js";
-import type { ProjectRegistration } from "./config.js";
+import { assessPackAgainstCatalog } from "./catalog.js";
+import type { ControlCatalog, ProjectRegistration } from "./config.js";
 import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "./output.js";
 
 export interface AnalyzeCommandInput {
@@ -17,6 +18,8 @@ export interface AnalyzeCommandInput {
   verificationRunner?: VerificationToolRunner;
   /** The registered project being assessed, when the registry was used. */
   registration?: ProjectRegistration;
+  /** A control catalog the governance pack must satisfy. */
+  controlCatalog?: ControlCatalog;
 }
 
 export async function runGovernanceCommand(input: AnalyzeCommandInput) {
@@ -120,6 +123,26 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
     evaluation.violations.push(...profileControlViolations);
   }
 
+  // The pack must define every mandatory catalog control and may not weaken it. APPROVED controls
+  // block; DRAFT controls are reported as one condition each and not enforced.
+  if (input.controlCatalog) {
+    const assessed = assessPackAgainstCatalog(input.governancePack, input.controlCatalog);
+    if (assessed.blocking.length > 0) {
+      evaluation.decision.status = "NO-GO";
+      evaluation.decision.blockingViolations.push(...assessed.blocking);
+      evaluation.violations.push(...assessed.blocking);
+      evaluation.decision.reason = `${evaluation.decision.reason} ${assessed.blocking.length} APPROVED catalog control(s) are missing from, or weakened by, the governance pack.`;
+    }
+    if (assessed.warnings.length > 0) {
+      evaluation.decision.warnings.push(...assessed.warnings);
+      evaluation.violations.push(...assessed.warnings);
+      if (evaluation.decision.status === "GO") {
+        evaluation.decision.status = "GO_WITH_CONDITIONS";
+        evaluation.decision.reason = `${evaluation.decision.reason} Draft catalog controls are not satisfied (not enforced until approved).`;
+      }
+    }
+  }
+
   // An unassigned owner is an explicit ownership gap, not a pass: the assessment cannot be an
   // unconditional GO while the registry says nobody is accountable for the project.
   const registration = input.registration;
@@ -156,11 +179,23 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
         data_classification: registration.data_classification,
       }
     : undefined;
+  const scope = {
+    ...(project ? { project } : {}),
+    ...(input.controlCatalog
+      ? {
+          catalog: {
+            id: input.controlCatalog.catalog_id,
+            version: input.controlCatalog.catalog_version,
+            controls: input.controlCatalog.controls.length,
+          },
+        }
+      : {}),
+  };
   const output = input.json
-    ? formatJsonResult(analysis, evaluation, context, project)
+    ? formatJsonResult(analysis, evaluation, context, scope)
     : input.markdown
-      ? formatMarkdownResult(analysis, evaluation, context, project)
-      : formatHumanResult(analysis, evaluation, context, project);
+      ? formatMarkdownResult(analysis, evaluation, context, scope)
+      : formatHumanResult(analysis, evaluation, context, scope);
 
   return { analysis, context, evaluation, output };
 }
