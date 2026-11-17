@@ -149,16 +149,28 @@ export interface CatalogSummary {
   controls: number;
 }
 
+/** The approver-authority policy an assessment used, when one was supplied. */
+export interface AuthoritySummary {
+  id: string;
+  version: string;
+  roles: number;
+  /** Roles that confer authority; the rest are DRAFT, retired or have no named holder. */
+  approved: number;
+}
+
 /** What an assessment was scoped by, beyond the repository itself. */
 export interface AssessmentScope {
   project?: ProjectSummary;
   catalog?: CatalogSummary;
+  authority?: AuthoritySummary;
 }
 
 const projectLine = (project: ProjectSummary): string =>
   `${project.id} (${project.status}, criticality ${project.criticality}, data ${project.data_classification})`;
 const catalogLine = (catalog: CatalogSummary): string =>
   `${catalog.id} ${catalog.version} (${catalog.controls} controls)`;
+const authorityLine = (authority: AuthoritySummary): string =>
+  `${authority.id} ${authority.version} (${authority.approved} of ${authority.roles} roles approved${authority.approved === 0 ? "; none enforced" : ""})`;
 
 export function formatHumanResult(
   analysis: RepositoryAnalysis,
@@ -170,6 +182,7 @@ export function formatHumanResult(
     `Decision: ${evaluation.decision.status}`,
     ...(scope?.project ? [`Project: ${projectLine(scope.project)}`] : []),
     ...(scope?.catalog ? [`Catalog: ${catalogLine(scope.catalog)}`] : []),
+    ...(scope?.authority ? [`Authority: ${authorityLine(scope.authority)}`] : []),
     "",
     ...analysisLines(analysis, context),
     "",
@@ -224,6 +237,7 @@ export function formatMarkdownResult(
     `**Decision:** ${decision.status}`,
     ...(scope?.project ? ["", `**Project:** ${projectLine(scope.project)}`] : []),
     ...(scope?.catalog ? ["", `**Catalog:** ${catalogLine(scope.catalog)}`] : []),
+    ...(scope?.authority ? ["", `**Authority:** ${authorityLine(scope.authority)}`] : []),
     ...(decision.reason ? ["", `**Reason:** ${decision.reason}`] : []),
     "",
     "## Repository analysis",
@@ -303,6 +317,7 @@ export function formatJsonResult(
       decision: evaluation.decision.status,
       ...(scope?.project ? { project: scope.project } : {}),
       ...(scope?.catalog ? { catalog: scope.catalog } : {}),
+      ...(scope?.authority ? { authority: scope.authority } : {}),
     },
     analysis,
     context,

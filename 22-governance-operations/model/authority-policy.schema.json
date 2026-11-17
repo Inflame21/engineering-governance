@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Inflame21/engineering-governance/blob/main/22-governance-operations/model/authority-policy.schema.json",
+  "title": "Engineering Governance Approver Authority Policy",
+  "description": "Who may approve an exception or accept a risk, by severity (EXC-021 section 15). Roles and their holders are data, so leadership can change them without a code change. P0 is never approvable through this flow (EXC-021 section 8) and cannot appear here.",
+  "type": "object",
+  "required": ["version", "policy_id", "policy_version", "description", "roles"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Version of this policy schema the file conforms to.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "policy_version": {
+      "type": "string",
+      "description": "Version of this policy's content.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/role" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "role": {
+      "type": "object",
+      "required": ["id", "title", "severities", "source_file", "source_section", "source_text", "holders", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable role id. An exception's approver_role and a risk's acceptance_role name it.",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "severities": {
+          "type": "array",
+          "description": "Severities this role may approve. EXC-021 gives a minimum authority per severity, so a role covers its own severity and every lower one. P0 is not allowed.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["P1", "P2", "P3"] }
+        },
+        "source_file": { "type": "string", "minLength": 1 },
+        "source_section": { "type": "string", "minLength": 1 },
+        "source_text": {
+          "type": "string",
+          "description": "The row of the standard that defines the role, quoted verbatim. A test verifies it still exists.",
+          "minLength": 1
+        },
+        "holders": {
+          "type": "array",
+          "description": "People who hold the role. Use the name UNASSIGNED as an explicit placeholder; it never counts as a holder.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "handle": { "type": "string", "pattern": "^@?[A-Za-z0-9][A-Za-z0-9-]*$" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "DRAFT roles are reported but confer no authority. Only APPROVED roles are enforced.",
+          "enum": ["DRAFT", "APPROVED", "DEPRECATED", "RETIRED"]
+        },
+        "effective_from": { "type": "string", "format": "date" },
+        "retired_at": { "type": "string", "format": "date" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "APPROVED" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["effective_from"],
+            "properties": {
+              "effective_from": { "type": "string" },
+              "holders": {
+                "type": "array",
+                "contains": {
+                  "type": "object",
+                  "properties": { "name": { "type": "string", "not": { "const": "UNASSIGNED" } } }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "RETIRED" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["retired_at"],
+            "properties": { "retired_at": { "type": "string" } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

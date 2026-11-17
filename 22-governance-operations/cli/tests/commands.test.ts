@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runAnalyzeCommand, runGovernanceCommand } from "../src/commands.js";
 import type { GovernancePack } from "../../engine/src/types.js";
-import type { CatalogControl, ControlCatalog, ProjectRegistration } from "../src/config.js";
+import type { AuthorityPolicy, CatalogControl, ControlCatalog, ProjectRegistration } from "../src/config.js";
 
 const pack: GovernancePack = {
   version: "1.0.0",
@@ -464,5 +464,102 @@ describe("non-exceptionable catalog controls", () => {
     const entry = control({ exception_policy: "NON_EXCEPTIONABLE" });
     const result = await runGovernanceCommand({ snapshot, governancePack: waivable, controlCatalog: catalog(entry), json: true });
     expect(JSON.parse(result.output).context.nonExceptionableControls).toEqual(["API-001"]);
+  });
+});
+
+describe("approver authority", () => {
+  const snapshot = {
+    rootPath: "/repo",
+    changedFiles: ["main.py"],
+    changeScope: { status: "VERIFIED" as const, baseRef: "origin/main", headRef: "head-sha", files: ["main.py"] },
+    files: ["main.py", "routers/users.py", "pyproject.toml"],
+    fileContents: {
+      "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
+      "main.py": "print('ok')",
+      "routers/users.py": "from fastapi import APIRouter",
+    },
+  };
+  // API-001 is an unverified P1 control with a complete, current exception naming an authority role.
+  const p1Waiver = (overrides: Record<string, unknown> = {}): GovernancePack => ({
+    ...pack,
+    evidence: [{ ...pack.evidence[0]!, status: "UNVERIFIED" }],
+    exceptions: [{
+      id: "EXC-1",
+      status: "APPROVED",
+      control: "API-001",
+      reason: "Temporary, bounded exception.",
+      project_id: "demo",
+      change_id: "CHG-1",
+      requested_by: "Rita Requester",
+      requested_at: "2026-01-01T00:00:00Z",
+      approved_by: "Sam Senior",
+      approver_role: "SENIOR_ENGINEERING_AUTHORITY",
+      approved_at: "2026-01-02T00:00:00Z",
+      expires_at: "2999-01-01T00:00:00Z",
+      ...overrides,
+    }],
+  });
+  const policy = (status: "DRAFT" | "APPROVED", holder = "Sam Senior"): AuthorityPolicy => ({
+    version: "1.0.0",
+    policy_id: "test-authority",
+    policy_version: "0.1.0",
+    description: "Test policy.",
+    roles: [{
+      id: "SENIOR_ENGINEERING_AUTHORITY",
+      title: "Senior/Staff Engineering authority",
+      severities: ["P1", "P2", "P3"],
+      source_file: "21-exceptions/21-engineering-exception-standard.md",
+      source_section: "15. Approval Authority",
+      source_text: "| P1 | Senior/Staff Engineering authority |",
+      holders: [{ name: holder }],
+      status,
+      ...(status === "APPROVED" ? { effective_from: "2026-11-17" } : {}),
+    }],
+  });
+
+  it("baseline: a P1 waiver is refused when no authority policy is supplied", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: p1Waiver() });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.output).not.toContain("Authority:");
+  });
+
+  it("a DRAFT policy confers nothing: the waiver is still refused, and the report says none is enforced", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: p1Waiver(), authorityPolicy: policy("DRAFT") });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.output).toContain("Authority: test-authority 0.1.0 (0 of 1 roles approved; none enforced)");
+  });
+
+  it("an APPROVED policy lets a holder's P1 waiver hold, as a visible condition", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: p1Waiver(), authorityPolicy: policy("APPROVED") });
+    const { decision } = result.evaluation;
+    expect(decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(decision.blockingViolations).toEqual([]);
+    expect(decision.warnings.find((w) => w.controlId === "EXCEPTION:EXC-1")?.message).toContain("authority role SENIOR_ENGINEERING_AUTHORITY");
+    expect(result.output).toContain("Authority: test-authority 0.1.0 (1 of 1 roles approved)");
+  });
+
+  it("an APPROVED policy still refuses an approver who is not a holder", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: p1Waiver(), authorityPolicy: policy("APPROVED", "Someone Else") });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+    expect(result.evaluation.decision.warnings.find((w) => w.controlId === "EXCEPTION:EXC-1")?.message).toContain("is not a holder");
+  });
+
+  it("an APPROVED policy never lets the requester approve their own exception", async () => {
+    const result = await runGovernanceCommand({
+      snapshot,
+      governancePack: p1Waiver({ requested_by: "Sam Senior" }),
+      authorityPolicy: policy("APPROVED"),
+    });
+    expect(result.evaluation.decision.status).toBe("NO-GO");
+  });
+
+  it("records the policy in markdown and JSON output", async () => {
+    const markdown = await runGovernanceCommand({ snapshot, governancePack: p1Waiver(), authorityPolicy: policy("APPROVED"), markdown: true });
+    expect(markdown.output).toContain("**Authority:** test-authority 0.1.0 (1 of 1 roles approved)");
+    const json = await runGovernanceCommand({ snapshot, governancePack: p1Waiver(), authorityPolicy: policy("APPROVED"), json: true });
+    expect(JSON.parse(json.output).report.authority).toEqual({ id: "test-authority", version: "0.1.0", roles: 1, approved: 1 });
+    expect(JSON.parse(json.output).context.approverAuthority).toEqual([
+      { role: "SENIOR_ENGINEERING_AUTHORITY", severities: ["P1", "P2", "P3"], holders: ["Sam Senior"] },
+    ]);
   });
 });

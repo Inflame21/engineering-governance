@@ -498,6 +498,101 @@ describe("built governance CLI", () => {
     expect(blocked.stdout).toContain("non-exceptionable (EXC-021 section 7)");
   });
 
+  it("an approved authority policy lets a P1 exception waiver hold, through the built CLI", async () => {
+    const root = await createCompleteFixture();
+    const base = pack() as Record<string, any>;
+    // E2E-001 is already P1; make its evidence unverified so only the exception can waive it.
+    const p1Waiver = {
+      ...base,
+      evidence: [{ ...base.evidence[0], status: "UNVERIFIED" }],
+      exceptions: [{
+        id: "EXC-E2E",
+        status: "APPROVED",
+        control: "E2E-001",
+        reason: "Temporary, bounded exception.",
+        project_id: "e2e",
+        change_id: "CHG-E2E",
+        requested_by: "Rita Requester",
+        requested_at: "2026-01-01T00:00:00Z",
+        approved_by: "Sam Senior",
+        approver_role: "SENIOR_ENGINEERING_AUTHORITY",
+        approved_at: "2026-01-02T00:00:00Z",
+        expires_at: "2999-01-01T00:00:00Z",
+      }],
+    };
+    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify(p1Waiver));
+
+    const policyWith = (status: string, holder: string) => ({
+      version: "1.0.0",
+      policy_id: "e2e-authority",
+      policy_version: "0.1.0",
+      description: "E2E policy.",
+      roles: [{
+        id: "SENIOR_ENGINEERING_AUTHORITY",
+        title: "Senior/Staff Engineering authority",
+        severities: ["P1", "P2", "P3"],
+        source_file: "21-exceptions/21-engineering-exception-standard.md",
+        source_section: "15. Approval Authority",
+        source_text: "| P1 | Senior/Staff Engineering authority |",
+        holders: [{ name: holder }],
+        status,
+        ...(status === "APPROVED" ? { effective_from: "2026-11-17" } : {}),
+      }],
+    });
+    await mkdir(path.join(root, "authority"), { recursive: true });
+    const write = (name: string, value: unknown) => writeFile(path.join(root, "authority", name), JSON.stringify(value));
+    await write("approved.json", policyWith("APPROVED", "Sam Senior"));
+    await write("draft.json", policyWith("DRAFT", "Sam Senior"));
+    await write("other-holder.json", policyWith("APPROVED", "Someone Else"));
+
+    // No policy, or a draft one: a P1 waiver never holds.
+    const none = await runCli(["check", root]);
+    expect(none.exitCode).toBe(2);
+    expect(none.stdout).toContain("without an approved approver-authority policy");
+    const draft = await runCli(["check", root, "--authority", "authority/draft.json"]);
+    expect(draft.exitCode).toBe(2);
+    expect(draft.stdout).toContain("Authority: e2e-authority 0.1.0 (0 of 1 roles approved; none enforced)");
+
+    // An approved policy whose role this approver holds: the waiver holds, visibly, as a condition.
+    const ok = await runCli(["check", root, "--authority", "authority/approved.json"]);
+    expect(ok.exitCode).toBe(1);
+    expect(ok.stdout).toContain("Decision: GO_WITH_CONDITIONS");
+    expect(ok.stdout).toContain("Authority: e2e-authority 0.1.0 (1 of 1 roles approved)");
+    expect(ok.stdout).toContain("authority role SENIOR_ENGINEERING_AUTHORITY");
+
+    // The same policy, but this approver is not a holder: refused.
+    const other = await runCli(["check", root, "--authority", "authority/other-holder.json"]);
+    expect(other.exitCode).toBe(2);
+    expect(other.stdout).toContain("is not a holder of role SENIOR_ENGINEERING_AUTHORITY");
+  });
+
+  it("validate --authority checks the policy alone, and the flag is rejected on analyze", async () => {
+    const root = await createCompleteFixture();
+    const committed = await readFile(path.resolve("../model/authority/organization-authority.json"), "utf8");
+    await mkdir(path.join(root, "authority"), { recursive: true });
+    await writeFile(path.join(root, "authority", "policy.json"), committed);
+
+    const ok = await runCli(["validate", root, "--authority", "authority/policy.json"]);
+    expect(ok.exitCode).toBe(0);
+    expect(ok.stdout).toContain("Valid: authority policy organization-authority 0.1.0 (3 roles, 0 approved)");
+
+    const broken = JSON.parse(committed);
+    broken.roles[0].severities = ["P0"];
+    await writeFile(path.join(root, "authority", "policy.json"), JSON.stringify(broken));
+    const bad = await runCli(["validate", root, "--authority", "authority/policy.json"]);
+    expect(bad.exitCode).toBe(3);
+    expect(bad.stdout).toBe("");
+    expect(bad.stderr).toContain("Authority policy schema validation failed");
+
+    const missing = await runCli(["validate", root, "--authority", "authority/nope.json"]);
+    expect(missing.exitCode).toBe(3);
+    expect(missing.stderr).toContain("Authority policy not found");
+
+    const analyze = await runCli(["analyze", root, "--authority", "authority/policy.json"]);
+    expect(analyze.exitCode).toBe(3);
+    expect(analyze.stderr).toContain("--authority is only supported by the validate, check and report commands");
+  });
+
   it("reports partial analysis in JSON and exits with the documented conditional status", async () => {
     const root = await createRoot("governance-cli-partial-");
     await writeFile(path.join(root, "main.go"), "package main\nfunc main() {}\n");

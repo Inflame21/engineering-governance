@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "policy_id": "organization-authority",
+  "policy_version": "0.1.0",
+  "description": "Draft approver-authority policy taken from the minimum-authority table in EXC-021 section 15. Each role quotes its row verbatim. All roles are DRAFT with unassigned holders pending leadership approval, so none confers authority yet. P0 is not approvable through the normal exception flow (EXC-021 section 8) and has no role here.",
+  "roles": [
+    {
+      "id": "SENIOR_ENGINEERING_AUTHORITY",
+      "title": "Senior/Staff Engineering authority",
+      "severities": ["P1", "P2", "P3"],
+      "source_file": "21-exceptions/21-engineering-exception-standard.md",
+      "source_section": "15. Approval Authority",
+      "source_text": "| P1 | Senior/Staff Engineering authority |",
+      "holders": [{ "name": "UNASSIGNED" }],
+      "status": "DRAFT"
+    },
+    {
+      "id": "ENGINEERING_REVIEWER_OWNER",
+      "title": "Designated engineering reviewer/owner",
+      "severities": ["P2", "P3"],
+      "source_file": "21-exceptions/21-engineering-exception-standard.md",
+      "source_section": "15. Approval Authority",
+      "source_text": "| P2 | Designated engineering reviewer/owner |",
+      "holders": [{ "name": "UNASSIGNED" }],
+      "status": "DRAFT"
+    },
+    {
+      "id": "TEAM_ENGINEERING_AUTHORITY",
+      "title": "Team engineering authority",
+      "severities": ["P3"],
+      "source_file": "21-exceptions/21-engineering-exception-standard.md",
+      "source_section": "15. Approval Authority",
+      "source_text": "| P3 | Team engineering authority |",
+      "holders": [{ "name": "UNASSIGNED" }],
+      "status": "DRAFT"
+    }
+  ]
+}

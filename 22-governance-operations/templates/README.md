@@ -35,6 +35,7 @@ For pull requests, the changed files are verified against the base branch, so a 
 | `pack_path` | no | registry, else `.governance/governance-pack.json` | Overrides the pack. |
 | `profile_path` | no | registry | Overrides the architecture profile. |
 | `use_catalog` | no | `true` | Check the pack against the control catalog of the pinned baseline. |
+| `use_authority` | no | `true` | Apply the approver-authority policy of the pinned baseline, which decides who may approve exceptions and accept risks. Its roles are draft until approved, so it changes no result yet. Needs a baseline that contains `model/authority/`; set `false` for older ones. |
 | `diff_scope` | no | `true` | Verify the changed-file scope against the base. |
 | `base_ref` | no | PR base | A base revision such as a release tag, for non-PR events. |
 | `run_tools` | no | `false` | Run your installed TypeScript and Python checks. This executes repository code. |

@@ -5,6 +5,7 @@ import {
   assertPackMatchesRegistration,
   getRegisteredArchitectureProfile,
   loadArchitectureProfile,
+  loadAuthorityPolicy,
   loadControlCatalog,
   loadGovernancePack,
   loadProjectRegistry,
@@ -17,7 +18,7 @@ import { nodeVerificationToolRunner } from "./verification-runner.js";
 import { loadGitChangeScope } from "./git-scope.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
-export { loadArchitectureProfile, loadControlCatalog, loadGovernancePack, loadProjectRegistry } from "./config.js";
+export { loadArchitectureProfile, loadAuthorityPolicy, loadControlCatalog, loadGovernancePack, loadProjectRegistry } from "./config.js";
 export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
@@ -32,6 +33,7 @@ interface ParsedArguments {
   profilePath?: string;
   registryPath?: string;
   catalogPath?: string;
+  authorityPath?: string;
   projectId?: string;
   packExplicit: boolean;
   baseRef?: string;
@@ -45,9 +47,9 @@ function usage(): string {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
-    "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>]",
-    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
+    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance --help",
     "  governance --version",
@@ -65,6 +67,9 @@ function usage(): string {
     "             requires the pack to belong to the project, rejects RETIRED projects and reports unassigned owners as conditions.",
     "  --catalog  Control catalog JSON file. validate: checks it (alone, skips the pack check). check/report: the pack must",
     "             define every mandatory catalog control and may not weaken it; APPROVED controls block, DRAFT controls are conditions.",
+    "  --authority Approver-authority policy JSON file. validate: checks it (alone, skips the pack check). check/report: only APPROVED",
+    "             roles with a named holder confer authority; they let a P1 exception waiver or P1 risk acceptance hold. Without any,",
+    "             P1 waivers and acceptances never hold.",
     "  --project  Registered project id for check/report with --registry (required when the registry holds several projects).",
     "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
@@ -100,6 +105,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let profilePath: string | undefined;
   let registryPath: string | undefined;
   let catalogPath: string | undefined;
+  let authorityPath: string | undefined;
   let projectId: string | undefined;
   let packExplicit = false;
   let baseRef: string | undefined;
@@ -126,10 +132,11 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       index += 1;
       continue;
     }
-    if (argument === "--pack" || argument === "--profile" || argument === "--base" || argument === "--registry" || argument === "--catalog" || argument === "--project") {
+    if (argument === "--pack" || argument === "--profile" || argument === "--base" || argument === "--registry" || argument === "--catalog" || argument === "--authority" || argument === "--project") {
       const value = rest[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a relative path.`);
       if (argument === "--catalog" && rawCommand === "analyze") throw new Error("--catalog is only supported by the validate, check and report commands.");
+      if (argument === "--authority" && rawCommand === "analyze") throw new Error("--authority is only supported by the validate, check and report commands.");
       if (argument === "--registry" && rawCommand === "analyze") throw new Error("--registry is only supported by the validate, check and report commands.");
       if (argument === "--project" && rawCommand !== "check" && rawCommand !== "report") throw new Error("--project is only supported by the check and report commands.");
       if (argument === "--pack") {
@@ -138,6 +145,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       } else if (argument === "--profile") profilePath = value;
       else if (argument === "--registry") registryPath = value;
       else if (argument === "--catalog") catalogPath = value;
+      else if (argument === "--authority") authorityPath = value;
       else if (argument === "--project") projectId = value;
       else baseRef = value;
       index += 1;
@@ -158,6 +166,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     packExplicit,
     ...(registryPath ? { registryPath } : {}),
     ...(catalogPath ? { catalogPath } : {}),
+    ...(authorityPath ? { authorityPath } : {}),
     ...(projectId ? { projectId } : {}),
     ...(profilePath ? { profilePath } : {}),
     ...(baseRef ? { baseRef } : {}),
@@ -189,13 +198,18 @@ export async function runCli(argv: string[]): Promise<number> {
     if (args.command === "validate") {
       // Validate what was named: the pack by default, or only the registry when --registry is given alone.
       const validated: string[] = [];
-      if (args.packExplicit || (!args.registryPath && !args.catalogPath)) {
+      if (args.packExplicit || (!args.registryPath && !args.catalogPath && !args.authorityPath)) {
         await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
         validated.push(args.packPath);
       }
       if (args.profilePath) {
         await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem);
         validated.push(args.profilePath);
+      }
+      if (args.authorityPath) {
+        const authority = await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem);
+        const approved = authority.roles.filter((role) => role.status === "APPROVED").length;
+        validated.push(`authority policy ${authority.policy_id} ${authority.policy_version} (${authority.roles.length} roles, ${approved} approved)`);
       }
       if (args.catalogPath) {
         const catalog = await loadControlCatalog(args.repositoryPath, args.catalogPath, nodeFileSystem);
@@ -249,6 +263,9 @@ export async function runCli(argv: string[]): Promise<number> {
       : registration
         ? getRegisteredArchitectureProfile(registration.profiles.architecture)
         : undefined;
+    const authorityPolicy = args.authorityPath
+      ? await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem)
+      : undefined;
     const controlCatalog = args.catalogPath
       ? await loadControlCatalog(args.repositoryPath, args.catalogPath, nodeFileSystem)
       : undefined;
@@ -256,6 +273,7 @@ export async function runCli(argv: string[]): Promise<number> {
       snapshot,
       governancePack,
       ...(controlCatalog ? { controlCatalog } : {}),
+      ...(authorityPolicy ? { authorityPolicy } : {}),
       ...(registration ? { registration } : {}),
       ...(args.json || (args.command === "report" && args.format === "json") ? { json: true } : {}),
       ...(args.command === "report" && args.format !== "json" ? { markdown: true } : {}),

@@ -5,8 +5,9 @@ import type { VerificationToolRunner } from "../../analyzer/src/verification.js"
 import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack, GovernanceViolation } from "../../engine/src/types.js";
+import { authoritySummary, effectiveApproverAuthority } from "./authority.js";
 import { assessPackAgainstCatalog, nonExceptionableCatalogControls } from "./catalog.js";
-import type { ControlCatalog, ProjectRegistration } from "./config.js";
+import type { AuthorityPolicy, ControlCatalog, ProjectRegistration } from "./config.js";
 import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "./output.js";
 
 export interface AnalyzeCommandInput {
@@ -20,6 +21,8 @@ export interface AnalyzeCommandInput {
   registration?: ProjectRegistration;
   /** A control catalog the governance pack must satisfy. */
   controlCatalog?: ControlCatalog;
+  /** Who may approve exceptions and accept risks. Only APPROVED roles with a named holder confer authority. */
+  authorityPolicy?: AuthorityPolicy;
 }
 
 export async function runGovernanceCommand(input: AnalyzeCommandInput) {
@@ -50,6 +53,12 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
   }
 
   const context = toGovernanceContext(analysis);
+  // Approved authority roles let the engine verify who approved a waiver or accepted a risk
+  // (EXC-021 section 15). Without any, P1 waivers and P1 acceptances cannot hold.
+  if (input.authorityPolicy) {
+    const approverAuthority = effectiveApproverAuthority(input.authorityPolicy);
+    if (approverAuthority.length > 0) context.approverAuthority = approverAuthority;
+  }
   // Controls the catalog marks NON_EXCEPTIONABLE (EXC-021 section 7) can never be waived by an exception.
   if (input.controlCatalog) {
     const nonExceptionable = nonExceptionableCatalogControls(input.controlCatalog);
@@ -186,6 +195,7 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
     : undefined;
   const scope = {
     ...(project ? { project } : {}),
+    ...(input.authorityPolicy ? { authority: authoritySummary(input.authorityPolicy) } : {}),
     ...(input.controlCatalog
       ? {
           catalog: {

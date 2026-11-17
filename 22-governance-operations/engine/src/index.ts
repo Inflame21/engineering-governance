@@ -10,3 +10,5 @@ export {
 export { validateGovernancePackSemantics } from "./validation.js";
 export type { GovernancePackValidationIssue, GovernanceValidationCode } from "./validation.js";
 export type * from "./types.js";
+export { checkApproverAuthority } from "./authority.js";
+export type { AuthorityCheck } from "./authority.js";

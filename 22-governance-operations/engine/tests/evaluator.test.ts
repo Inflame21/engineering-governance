@@ -603,7 +603,7 @@ describe("rule and control engine", () => {
     { severity: "P1" as const, expected: "NO-GO" as const, open: 1 },
     { severity: "P2" as const, expected: "GO" as const, open: 0 },
   ])("a valid, time-bounded acceptance of a $severity risk gives $expected", ({ severity, expected, open }) => {
-    // P0/P1 acceptance stays blocking until approver authority can be verified (EXC-021 section 15).
+    // Without an approved authority policy, P1 acceptance never holds (EXC-021 section 15); see authority.test.ts.
     const pack: GovernancePack = {
       ...basePack,
       risks: [{
