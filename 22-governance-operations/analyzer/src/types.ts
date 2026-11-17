@@ -85,6 +85,11 @@ export interface RepositoryAdapterOutput {
   limitations?: string[];
 }
 
+/** What one adapter contributes; the pipeline merges it over the base facts. */
+export type AdapterAnalysis = Omit<RepositoryAnalysis, "facts"> & {
+  facts: Partial<RepositoryFacts>;
+};
+
 export interface RepositoryAnalyzerAdapter {
   readonly id: string;
   readonly version: string;

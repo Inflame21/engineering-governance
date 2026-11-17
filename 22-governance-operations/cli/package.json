@@ -12,6 +12,7 @@
     "governance": "node dist/cli/src/index.js"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "typescript": "^5.9.2",
     "vitest": "^5.0.4",
     "@types/node": "^22.15.30"

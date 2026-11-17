@@ -14,6 +14,7 @@ const snapshot = {
     "backend/tests/test_users.py",
     "src/App.tsx",
     "src/api/users.ts",
+    "src/components/UserList.tsx",
     "tests/App.test.tsx",
     ".github/workflows/ci.yml",
     "Dockerfile",

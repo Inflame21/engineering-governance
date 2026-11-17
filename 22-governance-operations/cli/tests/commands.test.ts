@@ -200,5 +200,6 @@ describe("analyze command", () => {
     expect(result).toContain("Decision: GO_WITH_CONDITIONS");
     expect(result).toContain("CHANGE-SCOPE:NOT-REQUESTED");
     expect(result).toContain("fastapi");
+    expect(result).toContain("Blocking violations: 0");
   });
 });

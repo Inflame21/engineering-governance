@@ -25,6 +25,7 @@ function toViolation(
   const definition = pack.controls.find((item) => item.id === control.controlId);
   return {
     controlId: control.controlId,
+    status: control.status,
     severity: control.severity,
     decision: control.failureDecision,
     message:
@@ -183,8 +184,17 @@ export function deriveDecision(
       };
     });
 
+  // An unrecognized severity is treated as P0 so malformed packs fail closed.
+  const isLowSeverity = (severity: string) =>
+    severity === "P1" || severity === "P2" || severity === "P3";
+
   const blockingControlViolations = violations.filter(
-    (item) => item.decision === "NO-GO" || item.severity === "P0",
+    (item) =>
+      !isLowSeverity(item.severity) ||
+      (!applicableExceptions.has(item.controlId) &&
+        (item.status === "UNVERIFIED" ||
+          item.status === "FAIL" ||
+          item.decision === "NO-GO")),
   );
   const controlWarnings = violations.filter(
     (item) => !blockingControlViolations.includes(item),

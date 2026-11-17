@@ -143,7 +143,6 @@ export function formatHumanResult(
     `Controls evaluated: ${evaluation.controls.length}`,
     `Blocking violations: ${evaluation.decision.blockingViolations.length}`,
     `Warnings: ${evaluation.decision.warnings.length}`,
-    `Open risks: ${evaluation.decision.openRisks.length}`,
   ];
 
   if (evaluation.decision.reason) lines.push("", `Reason: ${evaluation.decision.reason}`);

@@ -45,7 +45,6 @@ const evaluation: GovernanceEvaluation = {
     reason: "All applicable controls passed.",
     blockingViolations: [],
     warnings: [],
-    openRisks: [],
   },
 };
 
