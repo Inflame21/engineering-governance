@@ -275,7 +275,21 @@ export function deriveDecision(
     }
   }
 
-  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations]
+  // GOV-022 section 10: unknown is not safe. If no control applied, nothing was assessed, so an
+  // empty pack or a context that matches no control must not read as GO (DEBT-GOV-003).
+  const scopeViolations: GovernanceViolation[] = evaluations.some((item) => item.applicable)
+    ? []
+    : [{
+        controlId: "SCOPE:NO_APPLICABLE_CONTROLS",
+        status: "UNVERIFIED",
+        severity: "P1",
+        decision: "NO-GO",
+        message: "No governance control applied to this change, so nothing was evaluated.",
+        missingEvidence: [],
+        missingSignals: [],
+      }];
+
+  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations, ...scopeViolations]
     .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
   const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings]
     .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
@@ -286,7 +300,9 @@ export function deriveDecision(
       reason:
         blockingControlViolations.length > 0
           ? `Production blocked by ${blockingControlViolations.length} blocking control violation(s) and ${blockingRiskViolations.length} blocking risk(s).`
-          : `Production blocked by ${blockingRiskViolations.length} open or unaccepted P0/P1 risk(s).`,
+          : blockingRiskViolations.length > 0
+            ? `Production blocked by ${blockingRiskViolations.length} open or unaccepted P0/P1 risk(s).`
+            : "Production blocked: no applicable control was evaluated, so the change is unassessed.",
       blockingViolations,
       warnings,
       openRisks,

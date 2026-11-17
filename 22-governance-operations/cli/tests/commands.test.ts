@@ -78,10 +78,12 @@ describe("analyze command", () => {
           headRef: "head-sha",
           files: ["main.py"],
         },
-        files: ["main.py", "pyproject.toml"],
+        files: ["main.py", "routers/users.py", "pyproject.toml"],
         fileContents: {
-          "pyproject.toml": '[project]\\ndependencies = ["fastapi>=0.115"]',
+          "pyproject.toml": '[project]\
+dependencies = ["fastapi>=0.115"]',
           "main.py": "print('ok')",
+          "routers/users.py": "from fastapi import APIRouter",
         },
       },
       governancePack: pack,
