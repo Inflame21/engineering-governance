@@ -22,7 +22,7 @@ function pack(
 ): GovernancePack {
   const evidenceStatus = {
     PASS: "VERIFIED",
-    WARN: "PARTIALLY_VERIFIED",
+    WARN: "VERIFIED",
     FAIL: "NOT_APPLICABLE",
     UNVERIFIED: "UNVERIFIED",
     NOT_APPLICABLE: "VERIFIED",
@@ -40,6 +40,7 @@ function pack(
       applies_when: ["applicable"],
       required_evidence: ["EVD-1"],
       failure_decision: failureDecision,
+      ...(state === "WARN" ? { status: "WARN" as const } : {}),
     }],
     evidence: [{
       id: "EVD-1",
@@ -55,17 +56,32 @@ function pack(
   };
 }
 
+const EVALUATED_AT = "2026-11-17T00:00:00Z";
 const decide = (p: GovernancePack, signals: string[] = SIGNALS) =>
-  evaluateGovernance(p, { signals });
+  evaluateGovernance(p, { signals, evaluatedAt: EVALUATED_AT });
 const decideFor = (state: ControlState, severity: Severity, fd: FailureDecision, risks: GovernanceRisk[] = []) =>
   decide(pack(state, severity, fd, risks), state === "NOT_APPLICABLE" ? [] : SIGNALS);
-const risk = (severity: Severity, status: GovernanceRisk["status"]): GovernanceRisk =>
-  ({ id: `RSK-${severity}-${status}`, severity, title: "Risk", status });
+// ACCEPTED risks carry complete, unexpired acceptance metadata: valid paperwork must still not
+// un-block P0/P1, because the engine cannot verify the approver's authority.
+const risk = (severity: Severity, status: GovernanceRisk["status"]): GovernanceRisk => ({
+  id: `RSK-${severity}-${status}`,
+  severity,
+  title: "Risk",
+  status,
+  ...(status === "ACCEPTED"
+    ? {
+        accepted_by: "approver",
+        accepted_at: "2026-01-01T00:00:00Z",
+        acceptance_reason: "test",
+        acceptance_expires_at: "2999-01-01T00:00:00Z",
+      }
+    : {}),
+});
 
 describe("decision matrix: single control", () => {
   const cases: Array<[ControlState, Severity, FailureDecision, Outcome]> = [
     // Inapplicable controls never influence the decision, whatever their severity.
-    ["NOT_APPLICABLE", "P0", "NO-GO", "GO"],
+    ["NOT_APPLICABLE", "P0", "NO-GO", "NO-GO"],
     // A verified control passes at every severity.
     ["PASS", "P0", "NO-GO", "GO"],
     ["PASS", "P3", "NONE", "GO"],
@@ -99,7 +115,8 @@ describe("decision matrix: risk acceptance", () => {
     ["P1", "ACCEPTED", "NO-GO"],
     ["P0", "MITIGATED", "GO"],
     ["P1", "CLOSED", "GO"],
-    ["P2", "OPEN", "GO"],
+    // Unresolved P2/P3 risks stay visible as conditions; valid P2/P3 acceptance is resolved.
+    ["P2", "OPEN", "GO_WITH_CONDITIONS"],
     ["P3", "ACCEPTED", "GO"],
   ];
 
@@ -113,16 +130,49 @@ describe("decision matrix: risk acceptance", () => {
     expect(result.decision.blockingViolations.map((v) => v.controlId)).toEqual(["RISK:RSK-P1-ACCEPTED"]);
   });
 
-  it("ignores approved exceptions until exceptions are evaluated (fails closed)", () => {
+  const exception = (overrides: Record<string, unknown> = {}) => ({
+    id: "EXC-1",
+    status: "APPROVED",
+    control: "CTL-1",
+    project_id: "matrix",
+    change_id: "CHG-MATRIX",
+    reason: "Tracked remediation.",
+    requested_by: "requester",
+    requested_at: "2026-01-01T00:00:00Z",
+    approved_by: "approver",
+    approved_at: "2026-01-02T00:00:00Z",
+    expires_at: "2999-01-01T00:00:00Z",
+    ...overrides,
+  }) as unknown as NonNullable<GovernancePack["exceptions"]>[number];
+
+  it("does not let a complete, unexpired exception waive a P1 control (approver authority is unverifiable)", () => {
     const blocked = pack("UNVERIFIED", "P1", "NO-GO");
-    blocked.exceptions = [{ id: "EXC-1", status: "APPROVED", control: "CTL-1", expires_at: "2999-01-01T00:00:00Z" }];
+    blocked.exceptions = [exception()];
+    const result = decide(blocked);
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.warnings.map((w) => w.message).join(" ")).toContain("cannot be waived");
+  });
+
+  it("does not let an approved exception waive a P0 control", () => {
+    const blocked = pack("UNVERIFIED", "P0", "NO-GO");
+    blocked.exceptions = [exception()];
     expect(decide(blocked).decision.status).toBe("NO-GO");
   });
 
-  it("ignores an approved exception that references an accepted P1 risk (fails closed)", () => {
-    const p = pack("PASS", "P1", "NO-GO", [risk("P1", "ACCEPTED")]);
-    p.exceptions = [{ id: "EXC-2", status: "APPROVED", risk: "RSK-P1-ACCEPTED", expires_at: "2999-01-01T00:00:00Z" }];
-    expect(decide(p).decision.status).toBe("NO-GO");
+  it("lets a valid exception turn an unverified P2 control into a condition, but not when the requester approves it", () => {
+    const waived = pack("UNVERIFIED", "P2", "NO-GO");
+    waived.exceptions = [exception()];
+    expect(decide(waived).decision.status).toBe("GO_WITH_CONDITIONS");
+
+    const selfApproved = pack("UNVERIFIED", "P2", "NO-GO");
+    selfApproved.exceptions = [exception({ approved_by: "Requester" })];
+    expect(decide(selfApproved).decision.status).toBe("NO-GO");
+  });
+
+  it("rejects a pack whose approved exception has expired instead of letting it waive anything", () => {
+    const expired = pack("UNVERIFIED", "P2", "NO-GO");
+    expired.exceptions = [exception({ expires_at: "2026-06-01T00:00:00Z" })];
+    expect(() => decide(expired)).toThrow("expired time window");
   });
 
   it.each([
@@ -165,8 +215,11 @@ describe("decision matrix: exhaustive cross-check", () => {
     const controlBlocks =
       state === "UNVERIFIED" || state === "FAIL" ||
       (state === "WARN" && (severity === "P0" || fd === "NO-GO"));
-    if (controlBlocks || riskBlocks) return "NO-GO";
-    return state === "WARN" ? "GO_WITH_CONDITIONS" : "GO";
+    // A one-control pack where nothing applies assessed nothing (DEBT-GOV-003): never GO.
+    if (controlBlocks || riskBlocks || state === "NOT_APPLICABLE") return "NO-GO";
+    // Unresolved P2/P3 risks are conditions; valid ACCEPTED P2/P3 risks are resolved.
+    const riskWarns = risks.some((r) => r.status === "OPEN" && (r.severity === "P2" || r.severity === "P3"));
+    return state === "WARN" || riskWarns ? "GO_WITH_CONDITIONS" : "GO";
   }
 
   it("matches the policy for every state, severity, failure decision and risk combination", () => {

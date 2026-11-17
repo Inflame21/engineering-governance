@@ -42,9 +42,8 @@ const controlDecisionCases = (["P0", "P1", "P2", "P3"] as const).flatMap((severi
   (["NO-GO", "GO_WITH_CONDITIONS", "REVIEW_REQUIRED", "NONE"] as const).map((failureDecision) => ({
     severity,
     failureDecision,
-    expected: severity === "P0" || failureDecision === "NO-GO"
-      ? "NO-GO" as const
-      : "GO_WITH_CONDITIONS" as const,
+    // A control that failed blocks whatever failure_decision it declares (PR #4 fail-closed rule).
+    expected: "NO-GO" as const,
   })),
 );
 
@@ -291,10 +290,10 @@ describe("rule and control engine", () => {
     })).toThrow("must include accepted_by");
   });
 
-  it("honors only current, scoped, approved exceptions for non-P0 controls", () => {
+  it("honors only current, scoped, approved exceptions for P2/P3 controls", () => {
     const pack: GovernancePack = {
       ...basePack,
-      controls: [{ ...basePack.controls[0]!, severity: "P1" }],
+      controls: [{ ...basePack.controls[0]!, severity: "P2" }],
       evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
       exceptions: [{
         id: "EXC-1",
@@ -389,7 +388,32 @@ describe("rule and control engine", () => {
 
     expect(result.decision.status).toBe("NO-GO");
     expect(result.decision.blockingViolations.some((item) => item.controlId === "SEC-AUTH-001")).toBe(true);
-    expect(result.decision.warnings.some((item) => item.message.includes("P0 controls cannot be waived"))).toBe(true);
+    expect(result.decision.warnings.some((item) => item.message.includes("cannot be waived"))).toBe(true);
+  });
+
+  it("does not let an exception waive a P1 control or let a requester approve their own exception", () => {
+    const exception = {
+      id: "EXC-P1",
+      status: "APPROVED" as const,
+      control: "SEC-AUTH-001",
+      reason: "Attempted P1 exception.",
+      project_id: "test",
+      change_id: "CHG-1",
+      requested_by: "engineering",
+      requested_at: "2026-10-10T00:00:00Z",
+      approved_by: "security-owner",
+      approved_at: "2026-10-11T00:00:00Z",
+      expires_at: "2026-10-20T00:00:00Z",
+    };
+    const run = (severity: "P1" | "P2", override: Record<string, string> = {}) => evaluateGovernance({
+      ...basePack,
+      controls: [{ ...basePack.controls[0]!, severity }],
+      evidence: [{ ...basePack.evidence[0]!, status: "UNVERIFIED" }],
+      exceptions: [{ ...exception, ...override }],
+    }, { ...applicableContext, evaluatedAt: "2026-10-13T00:00:00Z" });
+
+    expect(run("P1").decision.status).toBe("NO-GO");
+    expect(run("P2", { approved_by: "Engineering" }).decision.status).toBe("NO-GO");
   });
 
 
@@ -513,9 +537,9 @@ describe("rule and control engine", () => {
   it.each([
     { severity: "P0" as const, failureDecision: "NONE" as const, expected: "NO-GO" as const },
     { severity: "P1" as const, failureDecision: "NO-GO" as const, expected: "NO-GO" as const },
-    { severity: "P1" as const, failureDecision: "GO_WITH_CONDITIONS" as const, expected: "GO_WITH_CONDITIONS" as const },
+    { severity: "P1" as const, failureDecision: "GO_WITH_CONDITIONS" as const, expected: "NO-GO" as const },
     { severity: "P2" as const, failureDecision: "NO-GO" as const, expected: "NO-GO" as const },
-    { severity: "P3" as const, failureDecision: "REVIEW_REQUIRED" as const, expected: "GO_WITH_CONDITIONS" as const },
+    { severity: "P3" as const, failureDecision: "REVIEW_REQUIRED" as const, expected: "NO-GO" as const },
   ])(
     "derives $expected for a $severity control with $failureDecision policy",
     ({ severity, failureDecision, expected }) => {
@@ -566,12 +590,16 @@ describe("rule and control engine", () => {
     },
   );
 
-  it("honors a valid, current, time-bounded risk acceptance", () => {
+  it.each([
+    { severity: "P1" as const, expected: "NO-GO" as const, open: 1 },
+    { severity: "P2" as const, expected: "GO" as const, open: 0 },
+  ])("a valid, time-bounded acceptance of a $severity risk gives $expected", ({ severity, expected, open }) => {
+    // P0/P1 acceptance stays blocking until approver authority can be verified (EXC-021 section 15).
     const pack: GovernancePack = {
       ...basePack,
       risks: [{
         id: "RSK-ACCEPTED",
-        severity: "P1",
+        severity,
         title: "Bounded accepted risk",
         status: "ACCEPTED",
         accepted_by: "security-owner",
@@ -586,8 +614,8 @@ describe("rule and control engine", () => {
       evaluatedAt: "2026-10-13T00:00:00Z",
     });
 
-    expect(result.decision.status).toBe("GO");
-    expect(result.decision.openRisks).toEqual([]);
+    expect(result.decision.status).toBe(expected);
+    expect(result.decision.openRisks).toHaveLength(open);
   });
 
   it("blocks on an open P1 risk even when controls pass", () => {

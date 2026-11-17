@@ -134,11 +134,18 @@ function assessApprovedException(
       reason: "Exception has an invalid, future, or expired approval time window.",
     };
   }
-  if (control.severity === "P0") {
+  if (exception.requested_by.trim().toLowerCase() === exception.approved_by.trim().toLowerCase()) {
     return {
       valid: false,
       controlSeverity: control.severity,
-      reason: "P0 controls cannot be waived by an exception.",
+      reason: "The requester cannot approve their own exception (EXC-021 section 15).",
+    };
+  }
+  if (control.severity === "P0" || control.severity === "P1") {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "P0/P1 controls cannot be waived by an exception until approver authority can be verified (EXC-021 sections 8 and 15).",
     };
   }
 
@@ -200,21 +207,25 @@ export function deriveDecision(
     (item) => !blockingControlViolations.includes(item),
   );
 
+  // A risk is resolved only when MITIGATED/CLOSED, or ACCEPTED at P2/P3 with valid acceptance.
+  // Anything else, including a missing or unrecognised status, is open so malformed records fail
+  // closed. ACCEPTED P0/P1 stays open: the engine cannot verify approver authority (EXC-021
+  // section 15) and P0 is not approvable (section 8).
+  const isLowRisk = (risk: GovernanceRisk) => risk.severity === "P2" || risk.severity === "P3";
   const openRisks: GovernanceRisk[] = pack.risks
     .filter((risk) =>
-      risk.status === "OPEN" ||
-      (risk.status === "ACCEPTED" && !isRiskAcceptanceValid(risk, context)),
+      risk.status !== "MITIGATED" &&
+      risk.status !== "CLOSED" &&
+      !(risk.status === "ACCEPTED" && isLowRisk(risk) && isRiskAcceptanceValid(risk, context)),
     )
-    .map((risk) => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk);
+    .map((risk): GovernanceRisk => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk)
+    .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.id.localeCompare(b.id));
 
   const riskViolations: GovernanceViolation[] = openRisks.map((risk) => ({
     controlId: `RISK:${risk.id}`,
-    status: (risk.severity === "P0" || risk.severity === "P1") ? "FAIL" : "WARN",
+    status: isLowRisk(risk) ? "WARN" : "FAIL",
     severity: risk.severity,
-    decision:
-      risk.severity === "P0" || risk.severity === "P1"
-        ? "NO-GO"
-        : "GO_WITH_CONDITIONS",
+    decision: isLowRisk(risk) ? "GO_WITH_CONDITIONS" : "NO-GO",
     message:
       pack.risks.some((sourceRisk) => sourceRisk.id === risk.id && sourceRisk.status === "ACCEPTED")
         ? `Risk ${risk.id} has an invalid or expired acceptance and is treated as open.`
@@ -222,12 +233,8 @@ export function deriveDecision(
     missingEvidence: [],
     missingSignals: [],
   }));
-  const blockingRiskViolations = riskViolations.filter(
-    (item) => item.severity === "P0" || item.severity === "P1",
-  );
-  const riskWarnings = riskViolations.filter(
-    (item) => item.severity === "P2" || item.severity === "P3",
-  );
+  const blockingRiskViolations = riskViolations.filter((item) => item.decision === "NO-GO");
+  const riskWarnings = riskViolations.filter((item) => item.decision !== "NO-GO");
 
   const exceptionWarnings: GovernanceViolation[] = [];
   for (const exception of pack.exceptions ?? []) {
@@ -269,9 +276,9 @@ export function deriveDecision(
   }
 
   const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations]
-    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+    .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
   const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings]
-    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+    .sort((a, b) => (severityRank[a.severity] ?? 0) - (severityRank[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
 
   if (blockingViolations.length > 0) {
     return {
