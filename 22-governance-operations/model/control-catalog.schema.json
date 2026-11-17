@@ -115,7 +115,7 @@
         },
         "exception_policy": {
           "type": "string",
-          "description": "NON_EXCEPTIONABLE only where EXC-021 section 7 names the requirement. Not yet consulted by the engine.",
+          "description": "NON_EXCEPTIONABLE only where EXC-021 section 7 names the requirement. check --catalog passes these controls to the engine, which never lets an exception waive them.",
           "enum": ["ALLOWED", "NON_EXCEPTIONABLE"]
         },
         "owner": {

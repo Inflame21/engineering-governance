@@ -85,6 +85,13 @@ function assessApprovedException(
   if (!control) {
     return { valid: false, reason: "Exception references an unknown control." };
   }
+  if (context.nonExceptionableControls?.includes(control.id)) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: `Control ${control.id} is non-exceptionable (EXC-021 section 7); an exception cannot waive it.`,
+    };
+  }
   if (
     exception.project_id !== pack.project.id ||
     exception.change_id !== pack.change.id

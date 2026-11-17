@@ -11,6 +11,18 @@ export interface CatalogAssessment {
   warnings: GovernanceViolation[];
 }
 
+/**
+ * Ids of the catalog controls whose exception_policy is NON_EXCEPTIONABLE. DRAFT controls count:
+ * the rule comes from EXC-021 section 7, not from the control's approval. DEPRECATED and RETIRED
+ * controls no longer apply.
+ */
+export function nonExceptionableCatalogControls(catalog: ControlCatalog): string[] {
+  return catalog.controls
+    .filter((control) => control.exception_policy === "NON_EXCEPTIONABLE" && (control.status === "DRAFT" || control.status === "APPROVED"))
+    .map((control) => control.id)
+    .sort();
+}
+
 const preview = (ids: string[]): string =>
   ids.length <= 6 ? ids.join(", ") : `${ids.slice(0, 6).join(", ")} and ${ids.length - 6} more`;
 

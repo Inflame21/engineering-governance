@@ -370,3 +370,100 @@ describe("control catalog", () => {
     expect(JSON.parse(json.output).report.catalog).toEqual({ id: "test-catalog", version: "0.1.0", controls: 1 });
   });
 });
+
+describe("non-exceptionable catalog controls", () => {
+  const snapshot = {
+    rootPath: "/repo",
+    changedFiles: ["main.py"],
+    changeScope: { status: "VERIFIED" as const, baseRef: "origin/main", headRef: "head-sha", files: ["main.py"] },
+    files: ["main.py", "routers/users.py", "pyproject.toml"],
+    fileContents: {
+      "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]',
+      "main.py": "print('ok')",
+      "routers/users.py": "from fastapi import APIRouter",
+    },
+  };
+  // API-001 is an unverified P2 control with a complete, current exception: waivable on its own.
+  const waivable: GovernancePack = {
+    ...pack,
+    controls: [{ ...pack.controls[0]!, severity: "P2" }],
+    evidence: [{ ...pack.evidence[0]!, status: "UNVERIFIED" }],
+    exceptions: [{
+      id: "EXC-1",
+      status: "APPROVED",
+      control: "API-001",
+      reason: "Temporary, bounded exception.",
+      project_id: "demo",
+      change_id: "CHG-1",
+      requested_by: "engineering",
+      requested_at: "2026-01-01T00:00:00Z",
+      approved_by: "security-owner",
+      approved_at: "2026-01-02T00:00:00Z",
+      expires_at: "2999-01-01T00:00:00Z",
+    }],
+  };
+  const control = (overrides: Partial<CatalogControl> = {}): CatalogControl => ({
+    id: "API-001",
+    standard_id: "API-006",
+    standard_version: "1.0.0",
+    source_file: "06-api/06-api-governance-standard.md",
+    source_section: "1. Example",
+    source_text: "an example requirement",
+    title: "Blocker: an example requirement",
+    description: "Blocks when this is present: an example requirement.",
+    mandatory: true,
+    severity: "P2",
+    failure_decision: "NO-GO",
+    verification_capabilities: [],
+    required_evidence_classes: [],
+    exception_policy: "ALLOWED",
+    owner: { name: "UNASSIGNED" },
+    status: "DRAFT",
+    ...overrides,
+  });
+  const catalog = (entry: CatalogControl): ControlCatalog => ({
+    version: "1.0.0",
+    catalog_id: "test-catalog",
+    catalog_version: "0.1.0",
+    description: "Test catalog.",
+    controls: [entry],
+  });
+
+  it("baseline: without a catalog the exception waives the control", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: waivable });
+    expect(result.evaluation.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.evaluation.decision.blockingViolations).toEqual([]);
+  });
+
+  it("an ALLOWED catalog control can still be waived", async () => {
+    const result = await runGovernanceCommand({ snapshot, governancePack: waivable, controlCatalog: catalog(control()) });
+    expect(result.evaluation.decision.status).toBe("GO_WITH_CONDITIONS");
+  });
+
+  it.each(["DRAFT", "APPROVED"] as const)("a NON_EXCEPTIONABLE %s catalog control can never be waived", async (status) => {
+    const entry = control({
+      exception_policy: "NON_EXCEPTIONABLE",
+      status,
+      ...(status === "APPROVED" ? { effective_from: "2026-11-17", owner: { name: "Control Owner" } } : {}),
+    });
+    const result = await runGovernanceCommand({ snapshot, governancePack: waivable, controlCatalog: catalog(entry) });
+    const { decision } = result.evaluation;
+    expect(decision.status).toBe("NO-GO");
+    expect(decision.blockingViolations.map((v) => v.controlId)).toContain("API-001");
+    expect(decision.warnings.find((w) => w.controlId === "EXCEPTION:EXC-1")?.message).toContain("non-exceptionable (EXC-021 section 7)");
+  });
+
+  it("ignores a NON_EXCEPTIONABLE control that is RETIRED or DEPRECATED", async () => {
+    for (const status of ["RETIRED", "DEPRECATED"] as const) {
+      const entry = control({ exception_policy: "NON_EXCEPTIONABLE", status, ...(status === "RETIRED" ? { retired_at: "2026-11-17" } : {}) });
+      const result = await runGovernanceCommand({ snapshot, governancePack: waivable, controlCatalog: catalog(entry) });
+      expect(result.evaluation.decision.status).toBe("GO_WITH_CONDITIONS");
+    }
+  });
+
+  it("lists the non-exceptionable ids in the JSON report context", async () => {
+    const entry = control({ exception_policy: "NON_EXCEPTIONABLE" });
+    const result = await runGovernanceCommand({ snapshot, governancePack: waivable, controlCatalog: catalog(entry), json: true });
+    expect(JSON.parse(result.output).context.nonExceptionableControls).toEqual(["API-001"]);
+  });
+});
