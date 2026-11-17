@@ -5,12 +5,13 @@ import type { VerificationToolRunner } from "../../analyzer/src/verification.js"
 import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack, GovernanceViolation } from "../../engine/src/types.js";
-import { formatAnalysisResult, formatHumanResult, formatJsonResult } from "./output.js";
+import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "./output.js";
 
 export interface AnalyzeCommandInput {
   snapshot: Parameters<typeof analyzeRepository>[0];
   governancePack: GovernancePack;
   json?: boolean;
+  markdown?: boolean;
   architectureProfile?: ArchitectureProfile;
   verificationRunner?: VerificationToolRunner;
 }
@@ -118,7 +119,9 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
 
   const output = input.json
     ? formatJsonResult(analysis, evaluation, context)
-    : formatHumanResult(analysis, evaluation, context);
+    : input.markdown
+      ? formatMarkdownResult(analysis, evaluation, context)
+      : formatHumanResult(analysis, evaluation, context);
 
   return { analysis, context, evaluation, output };
 }
