@@ -1,0 +1,211 @@
+name: Governance Check
+
+# Reusable workflow: assesses the calling repository with the engineering governance CLI, publishes a
+# Markdown summary and a machine-readable report, and fails the check according to the caller's explicit
+# policy. See 22-governance-operations/templates/README.md for how to call it.
+#
+# Security model:
+#   - Read-only token (contents: read); no secrets are used or required.
+#   - Every input reaches shell code only through env:, never interpolated into a script, and is
+#     validated by .github/scripts/governance-check.sh before use.
+#   - The governance baseline must be pinned to a full commit SHA or a vMAJOR.MINOR.PATCH tag.
+#   - Third-party actions are pinned to commit SHAs.
+#   - With run_tools: true the repository's own installed TypeScript and Python checks execute, which is
+#     the same trust you already give that repository's CI. It is off by default.
+
+on:
+  workflow_call:
+    inputs:
+      governance_ref:
+        description: >
+          Commit SHA (40 hex characters) or vMAJOR.MINOR.PATCH tag of the governance baseline to run.
+          Use the same value after the @ in the uses: line. Branch names are refused.
+        required: true
+        type: string
+      conditions:
+        description: >
+          Whether a GO WITH CONDITIONS result passes this pipeline: 'pass' or 'fail'. Required, so the
+          choice is explicit rather than implied.
+        required: true
+        type: string
+      governance_repository:
+        description: Repository that holds the governance baseline.
+        required: false
+        type: string
+        default: Inflame21/engineering-governance
+      pack_path:
+        description: >
+          Repository-relative governance pack. Leave empty to use the registered project's pack, or
+          .governance/governance-pack.json without a registry.
+        required: false
+        type: string
+        default: ""
+      registry_path:
+        description: Repository-relative project registration file (or directory) in the assessed repository.
+        required: false
+        type: string
+        default: ""
+      project_id:
+        description: Registered project id. Required when the registry holds more than one project.
+        required: false
+        type: string
+        default: ""
+      profile_path:
+        description: Repository-relative architecture profile. Overrides the registered project's profile.
+        required: false
+        type: string
+        default: ""
+      use_catalog:
+        description: Check the pack against the control catalog of the pinned governance baseline.
+        required: false
+        type: boolean
+        default: true
+      diff_scope:
+        description: >
+          Verify the changed-file scope against a base revision. For pull requests the base branch is
+          used unless base_ref is set.
+        required: false
+        type: boolean
+        default: true
+      base_ref:
+        description: Base revision for diff scope, for example a release tag. Empty means the pull request base.
+        required: false
+        type: string
+        default: ""
+      run_tools:
+        description: Execute the repository's installed TypeScript and Python checks. Runs repository code.
+        required: false
+        type: boolean
+        default: false
+      artifact_name:
+        description: Name of the uploaded report artifact. Must be unique within a workflow run.
+        required: false
+        type: string
+        default: governance-report
+      artifact_retention_days:
+        description: Days to keep the report artifact.
+        required: false
+        type: number
+        default: 30
+    outputs:
+      decision:
+        description: GO, GO_WITH_CONDITIONS, NO-GO or ERROR.
+        value: ${{ jobs.governance.outputs.decision }}
+      exit_code:
+        description: The governance CLI exit code (0 GO, 1 conditions, 2 NO-GO, 3 invalid input or error).
+        value: ${{ jobs.governance.outputs.exit_code }}
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    # Callers' required status checks are named "<caller job> / Governance check".
+    name: Governance check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      decision: ${{ steps.check.outputs.decision }}
+      exit_code: ${{ steps.check.outputs.exit_code }}
+    steps:
+      - name: Validate workflow inputs
+        env:
+          GOVERNANCE_REF: ${{ inputs.governance_ref }}
+          GOVERNANCE_REPOSITORY: ${{ inputs.governance_repository }}
+          CONDITIONS: ${{ inputs.conditions }}
+        run: |
+          fail() { echo "::error title=Invalid workflow input::$1"; exit 1; }
+          [[ "$GOVERNANCE_REF" =~ ^[0-9a-f]{40}$ || "$GOVERNANCE_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || fail "governance_ref must be a full 40-character commit SHA or a vMAJOR.MINOR.PATCH tag, not a branch name."
+          [[ "$GOVERNANCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
+            || fail "governance_repository must look like owner/repository."
+          [[ "$CONDITIONS" == "pass" || "$CONDITIONS" == "fail" ]] \
+            || fail "conditions must be 'pass' or 'fail'."
+
+      - name: Check out the governance baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.governance_repository }}
+          ref: ${{ inputs.governance_ref }}
+          path: _governance
+          persist-credentials: false
+
+      - name: Check out the repository to assess
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: _governance/22-governance-operations/cli/package-lock.json
+
+      - name: Build the governance CLI
+        working-directory: _governance/22-governance-operations/cli
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Resolve the base revision
+        id: base
+        env:
+          DIFF_SCOPE: ${{ inputs.diff_scope }}
+          INPUT_BASE_REF: ${{ inputs.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_REF: ${{ github.base_ref }}
+        run: |
+          base=""
+          if [[ "$DIFF_SCOPE" == "true" ]]; then
+            if [[ -n "$INPUT_BASE_REF" ]]; then
+              base="$INPUT_BASE_REF"
+            elif [[ "$EVENT_NAME" == "pull_request" && -n "$PR_BASE_REF" ]]; then
+              base="origin/$PR_BASE_REF"
+            fi
+          fi
+          echo "base_ref=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Place the control catalog from the governance baseline
+        id: catalog
+        if: ${{ inputs.use_catalog }}
+        run: |
+          # The CLI reads files inside the assessed repository, so the catalog is copied in and excluded
+          # from git so it is not mistaken for a change under review.
+          mkdir -p _target/.governance-baseline
+          cp _governance/22-governance-operations/model/catalog/organization-controls.json _target/.governance-baseline/
+          echo ".governance-baseline/" >> _target/.git/info/exclude
+          echo "catalog_path=.governance-baseline/organization-controls.json" >> "$GITHUB_OUTPUT"
+
+      - name: Run the governance check
+        id: check
+        env:
+          GOVERNANCE_CLI: ${{ github.workspace }}/_governance/22-governance-operations/cli/dist/cli/src/index.js
+          TARGET_DIR: ${{ github.workspace }}/_target
+          OUT_DIR: ${{ github.workspace }}/_governance-report
+          GOVERNANCE_REF: ${{ inputs.governance_ref }}
+          CONDITIONS: ${{ inputs.conditions }}
+          PACK_PATH: ${{ inputs.pack_path }}
+          REGISTRY_PATH: ${{ inputs.registry_path }}
+          PROJECT_ID: ${{ inputs.project_id }}
+          PROFILE_PATH: ${{ inputs.profile_path }}
+          CATALOG_PATH: ${{ steps.catalog.outputs.catalog_path }}
+          BASE_REF: ${{ steps.base.outputs.base_ref }}
+          RUN_TOOLS: ${{ inputs.run_tools }}
+        run: bash _governance/.github/scripts/governance-check.sh
+
+      - name: Upload the governance report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: _governance-report
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: warn

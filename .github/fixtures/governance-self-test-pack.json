@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "id": "engineering-governance-self-test",
+    "name": "Engineering Governance self-test",
+    "repository": "Inflame21/engineering-governance",
+    "environment": "ci"
+  },
+  "change": {
+    "id": "CHG-SELF-TEST",
+    "type": "feature",
+    "title": "Exercise the reusable governance workflow on this repository",
+    "risk_class": "A",
+    "files": []
+  },
+  "standards": [
+    {
+      "id": "GOV-022",
+      "title": "Governance Lifecycle and Operating Standard",
+      "version": "1.0.0",
+      "source": "22-governance-operations/22-governance-lifecycle-standard.md"
+    }
+  ],
+  "controls": [
+    {
+      "id": "SELF-TEST-001",
+      "standard": "GOV-022",
+      "title": "The reusable workflow produces a report",
+      "severity": "P3",
+      "required_evidence": ["EVD-SELF-TEST"],
+      "failure_decision": "NO-GO"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVD-SELF-TEST",
+      "type": "E3_AUTOMATED_ANALYSIS",
+      "status": "VERIFIED",
+      "description": "Fixture evidence for the workflow self-test. It proves nothing about this repository's quality.",
+      "source": ".github/fixtures/governance-self-test-pack.json",
+      "freshness": "current",
+      "supports_controls": ["SELF-TEST-001"]
+    }
+  ],
+  "risks": [],
+  "decisions": []
+}

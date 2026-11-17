@@ -6,10 +6,16 @@ on:
     paths:
       - "22-governance-operations/**"
       - ".github/workflows/governance-operations.yml"
+      - ".github/workflows/governance-check.yml"
+      - ".github/scripts/**"
+      - ".github/fixtures/**"
   pull_request:
     paths:
       - "22-governance-operations/**"
       - ".github/workflows/governance-operations.yml"
+      - ".github/workflows/governance-check.yml"
+      - ".github/scripts/**"
+      - ".github/fixtures/**"
   workflow_dispatch:
 
 permissions:
@@ -231,3 +237,20 @@ jobs:
           ' "$RUNNER_TEMP/repository-analyze.json" "$RUNNER_TEMP/repository-check.json"
 
           echo "CLI failure-path exit-code smoke tests passed: invalid_args=$invalid_args_status missing_pack=$missing_pack_status"
+
+  reusable-workflow:
+    # Exercises the reusable governance workflow end to end on this repository, so a wiring mistake is
+    # caught here before a project calls it. It uses a fixture pack, so it proves the workflow runs, not
+    # that this repository is compliant. Not a required check. Fork pull requests cannot run it (their
+    # head commit is not in this repository).
+    name: Reusable workflow self-test
+    uses: ./.github/workflows/governance-check.yml
+    permissions:
+      contents: read
+    with:
+      governance_ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      conditions: pass
+      pack_path: .github/fixtures/governance-self-test-pack.json
+      diff_scope: false
+      artifact_name: governance-self-test-report
+      artifact_retention_days: 3

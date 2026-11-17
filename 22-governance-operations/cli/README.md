@@ -66,6 +66,8 @@ node dist/cli/src/index.js check ../.. --registry 22-governance-operations/regis
 - **Ownership gaps:** an `UNASSIGNED` technical owner or governance representative is reported as a `REGISTRY:<id>:OWNERSHIP-GAP` condition, so an otherwise passing assessment exits `1`, not `0`. It never turns a `NO-GO` into anything better.
 - **Output:** a `Project:` line in human and Markdown output, and `report.project` in JSON.
 
+Run the CLI in CI for another repository with the reusable workflow in `.github/workflows/governance-check.yml`; see [templates/README.md](../templates/README.md). `npm run test:e2e` also tests the script behind it, `.github/scripts/governance-check.sh`, which needs bash (it runs on Linux CI; on Windows set `GOVERNANCE_TEST_BASH` to a Git Bash path to run it locally, otherwise those tests are skipped).
+
 Run the built-artifact CLI contract suite after building:
 
 ```bash
