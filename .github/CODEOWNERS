@@ -1,0 +1,21 @@
+# Independent review for governance-sensitive paths (GOV-022 section 18, blueprint section 10.2).
+# Owners are placeholders: replace @Inflame21 with the governance maintainers' team before
+# enabling "Require review from Code Owners" in the ruleset. With a single owner who is also
+# the author, that setting would block every PR, so it is intentionally not required yet.
+
+# Default owner
+*                                  @Inflame21
+
+# Policy and standards
+/00-governance/                    @Inflame21
+/README.md                         @Inflame21
+/AGENTS.md                         @Inflame21
+
+# Governance engine, schemas and decision logic
+/22-governance-operations/engine/  @Inflame21
+/22-governance-operations/model/   @Inflame21
+
+# CI enforcement, repository rules and contribution policy
+/.github/                          @Inflame21
+/CONTRIBUTING.md                   @Inflame21
+/SECURITY.md                       @Inflame21
