@@ -44,9 +44,26 @@ function pack(openRisk = false): Record<string, unknown> {
     version: "1.0.0",
     project: { id: "e2e", name: "CLI E2E", repository: "example/e2e", environment: "test" },
     change: { id: "CHG-E2E", type: "feature", title: "CLI contract", risk_class: "D", files: [] },
-    standards: [],
-    controls: [],
-    evidence: [],
+    // One always-applicable control with verified evidence, so the assessment is not vacuous:
+    // a pack where nothing applies is NO-GO (DEBT-GOV-003).
+    standards: [{ id: "SEC-007", title: "Security Engineering", version: "1.0.0", source: "tests/end-to-end.test.ts" }],
+    controls: [{
+      id: "E2E-001",
+      standard: "SEC-007",
+      title: "E2E control",
+      severity: "P1",
+      required_evidence: ["EVD-E2E"],
+      failure_decision: "NO-GO",
+    }],
+    evidence: [{
+      id: "EVD-E2E",
+      type: "E3_AUTOMATED_ANALYSIS",
+      status: "VERIFIED",
+      description: "E2E evidence.",
+      source: "tests/end-to-end.test.ts",
+      freshness: "current",
+      supports_controls: ["E2E-001"],
+    }],
     risks: openRisk ? [{ id: "RSK-E2E", severity: "P1", title: "Intentional E2E blocker", status: "OPEN" }] : [],
     decisions: [],
   };
@@ -101,6 +118,17 @@ describe("built governance CLI", () => {
     const missingRoot = await runCli(["analyze", path.join(root, "missing"), "--json"]);
     expect(missingRoot.exitCode).toBe(3);
     expect(missingRoot.stderr).toContain("Governance CLI error:");
+  });
+
+  it("exits NO-GO for a pack where no control applies instead of reporting a vacuous GO", async () => {
+    const root = await createCompleteFixture();
+    await writeFile(path.join(root, ".governance", "governance-pack.json"), JSON.stringify({ ...pack(), controls: [], evidence: [] }));
+
+    const result = await runCli(["check", root, "--base", "HEAD", "--json"]);
+    expect(result.exitCode).toBe(2);
+    const decision = JSON.parse(result.stdout).evaluation.decision;
+    expect(decision.status).toBe("NO-GO");
+    expect(decision.blockingViolations.map((v: { controlId: string }) => v.controlId)).toContain("SCOPE:NO_APPLICABLE_CONTROLS");
   });
 
   it("reports partial analysis in JSON and exits with the documented conditional status", async () => {

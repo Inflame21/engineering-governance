@@ -87,6 +87,23 @@ describe("rule and control engine", () => {
       analysisStatus: "COMPLETE",
     });
     expect(result.controls[0]?.status).toBe("NOT_APPLICABLE");
+    // Nothing applied, so nothing was assessed: not a vacuous GO (DEBT-GOV-003).
+    expect(result.decision.status).toBe("NO-GO");
+    expect(result.decision.blockingViolations.map((v) => v.controlId)).toContain("SCOPE:NO_APPLICABLE_CONTROLS");
+  });
+
+  it("does not return GO for an empty pack, with or without analysis status", () => {
+    const empty: GovernancePack = { ...basePack, controls: [], evidence: [] };
+    expect(evaluateGovernance(empty, { signals: [], analysisStatus: "COMPLETE" }).decision.status).toBe("NO-GO");
+    expect(evaluateGovernance(empty, { signals: [] }).decision.status).toBe("NO-GO");
+  });
+
+  it("still returns GO when an inapplicable control sits beside a verified applicable one", () => {
+    const pack: GovernancePack = {
+      ...basePack,
+      controls: [...basePack.controls, { ...basePack.controls[0]!, id: "SEC-OTHER", applies_when: ["never_present"] }],
+    };
+    const result = evaluateGovernance(pack, { ...applicableContext, analysisStatus: "COMPLETE" });
     expect(result.decision.status).toBe("GO");
   });
 
@@ -429,7 +446,7 @@ describe("rule and control engine", () => {
       unsupportedCapabilities: ["language-specific-analysis:go"],
     });
 
-    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(result.decision.status).toBe("NO-GO");
     expect(result.decision.warnings.some((item) => item.controlId === "ANALYSIS:COMPLETENESS")).toBe(true);
   });
 
@@ -473,12 +490,8 @@ describe("rule and control engine", () => {
   });
 
   it("does not block on resolved findings", () => {
-    const result = evaluateGovernance({
-      ...basePack,
-      controls: [],
-      evidence: [],
-    }, {
-      signals: [],
+    const result = evaluateGovernance(basePack, {
+      ...applicableContext,
       analysisStatus: "COMPLETE",
       findings: [{
         id: "FND-ARCH-002",
@@ -496,12 +509,8 @@ describe("rule and control engine", () => {
 
 
   it("does not return unconditional GO when requested change scope is unverified", () => {
-    const result = evaluateGovernance({
-      ...basePack,
-      controls: [],
-      evidence: [],
-    }, {
-      signals: [],
+    const result = evaluateGovernance(basePack, {
+      ...applicableContext,
       analysisStatus: "COMPLETE",
       changeScopeStatus: "UNVERIFIED",
       changeScopeReason: "Base revision is unavailable.",
