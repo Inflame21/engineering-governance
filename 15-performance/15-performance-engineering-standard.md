@@ -1080,7 +1080,7 @@ Improving latency by weakening correctness, security, or reliability.
 
 ## 58. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] Performance requirements are measurable.
 - [ ] Workload assumptions are explicit.

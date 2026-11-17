@@ -1088,7 +1088,7 @@ Treating AI-generated hypotheses as confirmed incident facts.
 
 ## 58. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] Incident severity model exists.
 - [ ] Incident ownership is defined.

@@ -770,7 +770,7 @@ Committing outputs that are reproducible, environment-specific, or temporary wit
 
 ## 35. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] The change is traceable to an approved purpose.
 - [ ] The branch strategy is respected.

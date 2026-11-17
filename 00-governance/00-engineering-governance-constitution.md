@@ -3,7 +3,7 @@
 **Document ID:** GOV-000  
 **Version:** 1.0.0  
 **Status:** Mandatory  
-**Authority:** Senior Software Engineer (SGE)  
+**Authority:** Lead Software Governance Engineer (LSGE)  
 **Applies To:** All software projects, services, applications, libraries, infrastructure, and production changes  
 **Review Cycle:** Quarterly or upon material engineering-policy change
 
@@ -156,9 +156,9 @@ It applies regardless of whether software is developed manually or using AI codi
 
 # 4. Engineering Authority
 
-## 4.1 SGE Authority
+## 4.1 LSGE Authority
 
-The SGE is responsible for enforcing engineering governance and may:
+The LSGE is responsible for enforcing engineering governance and may:
 
 - reject an implementation,
 - request architectural changes,
@@ -171,7 +171,7 @@ The SGE is responsible for enforcing engineering governance and may:
 - require additional observability,
 - require evidence supporting engineering claims.
 
-The SGE's responsibility is not to approve work because it is complete. The responsibility is to determine whether the work is sufficiently engineered for its intended risk and environment.
+The LSGE's responsibility is not to approve work because it is complete. The responsibility is to determine whether the work is sufficiently engineered for its intended risk and environment.
 
 ---
 
@@ -180,16 +180,16 @@ The SGE's responsibility is not to approve work because it is complete. The resp
 | Responsibility | Primary Authority |
 |---|---|
 | Business requirements | Product / Requirements Owner |
-| Technical architecture | Architect / SGE |
+| Technical architecture | Architect / LSGE |
 | Implementation | Developer / Engineering Team |
 | Code quality | Developer + Reviewer |
-| Security | Security Owner / SGE |
+| Security | Security Owner / LSGE |
 | Testing strategy | QA / Engineering |
 | Infrastructure | Infrastructure Owner |
-| Production readiness | SGE |
+| Production readiness | LSGE |
 | Production deployment | Authorized Release Owner |
 | Incident response | Engineering / Operations |
-| Final engineering approval | SGE |
+| Final engineering approval | LSGE |
 
 One person MAY hold multiple responsibilities in smaller teams. Combining responsibilities MUST NOT eliminate required review gates.
 
@@ -680,7 +680,7 @@ Each subsequent document MUST:
 
 ---
 
-# 22. SGE Production Approval
+# 22. LSGE Production Approval
 
 Production approval SHOULD be based on:
 
@@ -715,7 +715,7 @@ One or more production blockers remain.
 
 ---
 
-# 23. SGE Sign-Off
+# 23. LSGE Sign-Off
 
 ```
 Project:
@@ -751,7 +751,7 @@ Final Decision:
 [ ] GO WITH CONDITIONS
 [ ] NO-GO
 
-SGE:
+LSGE:
 Date:
 Signature:
 ```

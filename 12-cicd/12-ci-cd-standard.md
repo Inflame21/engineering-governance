@@ -862,7 +862,7 @@ Using quarantine indefinitely instead of fixing unreliable validation.
 
 ## 37. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] Pipeline stages have explicit purposes.
 - [ ] Required quality gates are enforced.
