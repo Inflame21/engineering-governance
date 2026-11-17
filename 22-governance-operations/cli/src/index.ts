@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { loadArchitectureProfile, loadGovernancePack } from "./config.js";
+import { loadArchitectureProfile, loadGovernancePack, loadProjectRegistry } from "./config.js";
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
 import { loadGitChangeScope } from "./git-scope.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
-export { loadArchitectureProfile, loadGovernancePack } from "./config.js";
+export { loadArchitectureProfile, loadGovernancePack, loadProjectRegistry } from "./config.js";
 export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
@@ -21,6 +21,8 @@ interface ParsedArguments {
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
+  registryPath?: string;
+  packExplicit: boolean;
   baseRef?: string;
   runTools: boolean;
   json: boolean;
@@ -33,7 +35,7 @@ function usage(): string {
     "",
     "Usage:",
     "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
-    "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>]",
+    "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>]",
     "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance --help",
@@ -41,12 +43,13 @@ function usage(): string {
     "",
     "Commands:",
     "  check     Analyze a repository, validate its governance pack, and derive a decision.",
-    "  validate  Validate the governance pack (and architecture profile) against their schemas; no analysis.",
+    "  validate  Validate the governance pack, architecture profile and/or project registry; no analysis.",
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
     "",
     "Options:",
     `  --pack    Governance pack JSON path relative to the repository root (default: ${DEFAULT_PACK_PATH})`,
+    "  --registry Project registration file or directory of .json records (validate only). Alone, it skips the pack check.",
     "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
     "  --run-tools Execute installed local TypeScript/Python checks (never installs dependencies).",
@@ -65,10 +68,10 @@ function usage(): string {
 
 export function parseCliArguments(argv: string[]): ParsedArguments {
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
-    return { command: "help", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, runTools: false, json: false };
+    return { command: "help", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   if (argv.includes("--version") || argv.includes("-v")) {
-    return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, runTools: false, json: false };
+    return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
 
   const [rawCommand, ...rest] = argv;
@@ -79,6 +82,8 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let repositoryPath = ".";
   let packPath = DEFAULT_PACK_PATH;
   let profilePath: string | undefined;
+  let registryPath: string | undefined;
+  let packExplicit = false;
   let baseRef: string | undefined;
   let runTools = false;
   let json = false;
@@ -103,11 +108,15 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       index += 1;
       continue;
     }
-    if (argument === "--pack" || argument === "--profile" || argument === "--base") {
+    if (argument === "--pack" || argument === "--profile" || argument === "--base" || argument === "--registry") {
       const value = rest[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a relative path.`);
-      if (argument === "--pack") packPath = value;
-      else if (argument === "--profile") profilePath = value;
+      if (argument === "--registry" && rawCommand !== "validate") throw new Error("--registry is only supported by the validate command.");
+      if (argument === "--pack") {
+        packPath = value;
+        packExplicit = true;
+      } else if (argument === "--profile") profilePath = value;
+      else if (argument === "--registry") registryPath = value;
       else baseRef = value;
       index += 1;
       continue;
@@ -122,6 +131,8 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     command: rawCommand,
     repositoryPath: path.resolve(repositoryPath),
     packPath,
+    packExplicit,
+    ...(registryPath ? { registryPath } : {}),
     ...(profilePath ? { profilePath } : {}),
     ...(baseRef ? { baseRef } : {}),
     runTools,
@@ -150,9 +161,21 @@ export async function runCli(argv: string[]): Promise<number> {
 
   try {
     if (args.command === "validate") {
-      await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
-      if (args.profilePath) await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem);
-      process.stdout.write(`Valid: ${args.packPath}${args.profilePath ? ` and ${args.profilePath}` : ""}
+      // Validate what was named: the pack by default, or only the registry when --registry is given alone.
+      const validated: string[] = [];
+      if (args.packExplicit || !args.registryPath) {
+        await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
+        validated.push(args.packPath);
+      }
+      if (args.profilePath) {
+        await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem);
+        validated.push(args.profilePath);
+      }
+      if (args.registryPath) {
+        const records = await loadProjectRegistry(args.repositoryPath, args.registryPath, nodeFileSystem);
+        validated.push(`${records.length} project registration${records.length === 1 ? "" : "s"} in ${args.registryPath}`);
+      }
+      process.stdout.write(`Valid: ${validated.join(" and ")}
 `);
       return 0;
     }

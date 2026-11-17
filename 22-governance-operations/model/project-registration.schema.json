@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Inflame21/engineering-governance/blob/main/22-governance-operations/model/project-registration.schema.json",
+  "title": "Engineering Governance Project Registration",
+  "description": "One record per governed project: identity, repositories, accountable owners, risk attributes and the approved architecture and technology profiles. Proposed in the operating blueprint (GOV-F09).",
+  "type": "object",
+  "required": [
+    "version",
+    "id",
+    "name",
+    "status",
+    "criticality",
+    "data_classification",
+    "repositories",
+    "owners",
+    "environments",
+    "profiles"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Version of this registration schema the record conforms to.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "description": "Stable project identifier; matches project.id in the project's governance pack.",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "description": "ONBOARDING projects may have unassigned owners (an explicit ownership gap). ACTIVE projects must name a technical owner and governance representative.",
+      "enum": ["ONBOARDING", "ACTIVE", "RETIRED"]
+    },
+    "criticality": {
+      "type": "string",
+      "description": "Business criticality, used to scale enforcement and audit frequency.",
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "data_classification": {
+      "type": "string",
+      "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"]
+    },
+    "repositories": {
+      "type": "array",
+      "description": "Repositories that belong to this project. A repository may belong to only one registered project.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "owner/repository",
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+          },
+          "default_branch": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "owners": {
+      "type": "object",
+      "description": "Accountable people. Use the name UNASSIGNED as an explicit placeholder; it is never accepted for an ACTIVE project's technical owner or governance representative.",
+      "required": ["technical_owner", "governance_representative", "escalation_contact"],
+      "properties": {
+        "technical_owner": { "$ref": "#/$defs/contact" },
+        "governance_representative": { "$ref": "#/$defs/contact" },
+        "escalation_contact": { "$ref": "#/$defs/contact" },
+        "remediation_owner": { "$ref": "#/$defs/contact" }
+      },
+      "additionalProperties": false
+    },
+    "environments": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "required": ["architecture", "technology"],
+      "properties": {
+        "architecture": {
+          "type": "string",
+          "description": "Approved architecture profile id; must match a profile in model/architecture-profile-*.json.",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "technology": {
+          "type": "array",
+          "description": "Technology profile tags, for example typescript or python-fastapi.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.+-]*$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "governance_pack": {
+      "type": "string",
+      "description": "Repository-relative path to the project's governance pack.",
+      "minLength": 1,
+      "default": ".governance/governance-pack.json"
+    },
+    "governance_baseline": {
+      "type": "string",
+      "description": "Pinned tag or commit of the governance baseline the project consumes.",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "ACTIVE" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "owners": {
+            "type": "object",
+            "properties": {
+              "technical_owner": {
+                "type": "object",
+                "properties": { "name": { "type": "string", "not": { "const": "UNASSIGNED" } } }
+              },
+              "governance_representative": {
+                "type": "object",
+                "properties": { "name": { "type": "string", "not": { "const": "UNASSIGNED" } } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "contact": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handle": {
+          "type": "string",
+          "description": "Source-control handle, for example a GitHub username.",
+          "pattern": "^@?[A-Za-z0-9][A-Za-z0-9-]*$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
