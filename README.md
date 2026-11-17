@@ -126,7 +126,9 @@ Enforcement
 - [Example Governance Pack](22-governance-operations/model/example-governance-pack.json)
 - [Rule & Control Engine](22-governance-operations/engine/)
 - [Repository Analyzer](22-governance-operations/analyzer/)
-- [Rule & Control Engine](22-governance-operations/engine/)
+- [Governance CLI](22-governance-operations/cli/)
+- [Architecture Profiles](22-governance-operations/model/)
+- [Known Technical Debt](22-governance-operations/KNOWN-DEBT.md)
 
 The schema defines the canonical model for:
 
@@ -142,16 +144,17 @@ The schema defines the canonical model for:
 
 The example pack demonstrates a real change flowing through controls and evidence to a **NO-GO** production decision because a P1 idempotency requirement remains unverified.
 
-### Planned execution layers
+### Execution layers
 
-1. **Governance Model** — machine-readable policy objects
-2. **Rule Engine** — determine which controls apply to a change and derive deterministic decisions
-3. **Repository Analyzer** — detect languages/frameworks and normalize implementation evidence
-4. **Governance CLI** — execute analysis and emit deterministic governance results
-4. **Governance CLI** — expose evaluation locally
-5. **CI Enforcement** — block unsafe changes automatically
-6. **AI Context Generator** — produce task-specific governance context
-7. **Governance UI** — visualize risk, evidence, debt, exceptions, and readiness
+Status uses the vocabulary in the [master implementation plan](22-governance-operations/MASTER-IMPLEMENTATION-PLAN.md).
+
+1. **Governance Model** — machine-readable policy objects (`TEST_VERIFIED`)
+2. **Rule Engine** — determine which controls apply to a change and derive deterministic decisions (`TEST_VERIFIED`)
+3. **Repository Analyzer** — detect languages/frameworks and normalize implementation evidence (`TEST_VERIFIED`)
+4. **Governance CLI** — `check`, `validate`, `report` and `analyze` with stable exit codes (`RUNTIME_VERIFIED`)
+5. **CI Enforcement** — block unsafe changes automatically (`IMPLEMENTED` for this repository only; no reusable workflow yet)
+6. **AI Context Generator** — produce task-specific governance context (`PLANNED`)
+7. **Governance UI** — visualize risk, evidence, debt, exceptions, and readiness (`PLANNED`)
 
 The goal is to prevent the framework from becoming documentation-only governance.
 
@@ -231,9 +234,10 @@ engineering-governance/
 
 ## Status
 
-The standards layer is intentionally frozen at GOV-023 while the framework moves into executable governance.
+The standards layer is intentionally frozen at GOV-023 while the framework moves into executable governance. Role naming uses the Lead Software Governance Engineer (LSGE).
 
-**Current baseline:** GOV-023 + machine-readable governance model  
-**Current phase:** Executable Governance — Governance CLI  
-**Implemented:** deterministic control evaluation, repository analysis, language/framework detection, normalized evidence, and CLI evaluation/output contracts  
-**Next:** filesystem repository loading and CI enforcement
+**Current baseline:** GOV-023 standards plus the executable governance platform on `main`
+**Implemented:** deterministic, fail-closed control evaluation; schema-validated governance packs; repository analysis for TypeScript/JavaScript and Python; architecture-boundary verification; a runnable CLI (`check`, `validate`, `report`, `analyze`); and CI for the governance packages
+**Not yet done:** project registry, control catalog, approver-authority modelling for P1 exceptions, security and dependency scanners, a reusable CI workflow for other repositories, and a pilot on real projects
+**Direction:** a draft operating blueprint in [docs/](docs/engineering-governance-operating-blueprint.md) proposes the next steps. It is pending leadership approval and is not policy.
+**Detail:** see the status table in the [master implementation plan](22-governance-operations/MASTER-IMPLEMENTATION-PLAN.md) and the [debt register](22-governance-operations/KNOWN-DEBT.md).
