@@ -363,6 +363,75 @@ describe("built governance CLI", () => {
     expect(wrongCommand.stderr).toContain("only supported by the report command");
   });
 
+  async function writeCatalog(root: string, change: (catalog: any) => void = () => {}): Promise<void> {
+    const catalog = JSON.parse(await readFile(path.resolve("../model/catalog/organization-controls.json"), "utf8"));
+    change(catalog);
+    await mkdir(path.join(root, "catalog"), { recursive: true });
+    await writeFile(path.join(root, "catalog", "organization-controls.json"), JSON.stringify(catalog));
+    // --base HEAD treats untracked files as changes, so commit the catalog like a real one would be.
+    for (const args of [["add", "-A"], ["commit", "--quiet", "--allow-empty", "-m", "catalog"]]) {
+      const result = await run("git", args, root);
+      if (result.exitCode !== 0) throw new Error(`Could not commit the catalog fixture: ${result.stderr}`);
+    }
+  }
+  const CATALOG = ["--catalog", "catalog/organization-controls.json"];
+
+  it("validate --catalog checks the catalog alone, and exits 3 for an invalid or missing one", async () => {
+    const root = await createCompleteFixture();
+    await writeCatalog(root);
+    const ok = await runCli(["validate", root, ...CATALOG]);
+    expect(ok.exitCode).toBe(0);
+    expect(ok.stdout).toContain("Valid: catalog organization-controls 0.1.0 (39 controls)");
+
+    await writeCatalog(root, (c) => { delete c.controls[0].source_text; });
+    const bad = await runCli(["validate", root, ...CATALOG]);
+    expect(bad.exitCode).toBe(3);
+    expect(bad.stdout).toBe("");
+    expect(bad.stderr).toContain("Control catalog schema validation failed");
+
+    const missing = await runCli(["validate", root, "--catalog", "catalog/nope.json"]);
+    expect(missing.exitCode).toBe(3);
+    expect(missing.stderr).toContain("Control catalog not found");
+  });
+
+  it("check --catalog with the draft catalog adds a condition but does not block", async () => {
+    const root = await createCompleteFixture();
+    await writeCatalog(root);
+
+    const plain = await runCli(["check", root, "--base", "HEAD"]);
+    expect(plain.exitCode).toBe(0);
+
+    const result = await runCli(["check", root, ...CATALOG, "--base", "HEAD"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("Decision: GO_WITH_CONDITIONS");
+    expect(result.stdout).toContain("Catalog: organization-controls 0.1.0 (39 controls)");
+    expect(result.stdout).toContain("CATALOG:organization-controls:DRAFT-CONTROLS-NOT-DEFINED");
+    expect(result.stdout).toContain("39 mandatory DRAFT control(s)");
+  });
+
+  it("check --catalog blocks when a catalog control is APPROVED and the pack does not define it", async () => {
+    const root = await createCompleteFixture();
+    await writeCatalog(root, (c) => {
+      Object.assign(c.controls[0], { status: "APPROVED", effective_from: "2026-11-17", owner: { name: "Control Owner" } });
+    });
+    const result = await runCli(["check", root, ...CATALOG, "--base", "HEAD"]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toContain("Decision: NO-GO");
+    expect(result.stdout).toContain("CATALOG:GOV000-SEC-01:NOT-DEFINED");
+  });
+
+  it("report supports the catalog, and --catalog is rejected on analyze", async () => {
+    const root = await createCompleteFixture();
+    await writeCatalog(root);
+    const report = await runCli(["report", root, ...CATALOG, "--base", "HEAD"]);
+    expect(report.exitCode).toBe(1);
+    expect(report.stdout).toContain("**Catalog:** organization-controls 0.1.0 (39 controls)");
+
+    const analyze = await runCli(["analyze", root, ...CATALOG]);
+    expect(analyze.exitCode).toBe(3);
+    expect(analyze.stderr).toContain("--catalog is only supported by the validate, check and report commands");
+  });
+
   it("reports partial analysis in JSON and exits with the documented conditional status", async () => {
     const root = await createRoot("governance-cli-partial-");
     await writeFile(path.join(root, "main.go"), "package main\nfunc main() {}\n");

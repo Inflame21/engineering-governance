@@ -1,10 +1,11 @@
 import { createRequire } from "node:module";
-import type { GovernancePack } from "../../engine/src/types.js";
+import type { FailureDecision, GovernancePack, Severity } from "../../engine/src/types.js";
 import { validateArchitectureProfile, type ArchitectureProfile } from "../../analyzer/src/architecture.js";
 import { validateGovernancePackSemantics } from "../../engine/src/validation.js";
 import governanceSchema from "../../model/governance-model.schema.json" with { type: "json" };
 import architectureProfileSchema from "../../model/architecture-profile.schema.json" with { type: "json" };
 import projectRegistrationSchema from "../../model/project-registration.schema.json" with { type: "json" };
+import controlCatalogSchema from "../../model/control-catalog.schema.json" with { type: "json" };
 import cleanArchitectureProfile from "../../model/architecture-profile-clean-architecture.json" with { type: "json" };
 import hexagonalProfile from "../../model/architecture-profile-hexagonal.json" with { type: "json" };
 import microservicesProfile from "../../model/architecture-profile-microservices.json" with { type: "json" };
@@ -43,6 +44,7 @@ addFormats(ajv);
 const validateSchema = ajv.compile(governanceSchema);
 const validateArchitectureProfileSchema = ajv.compile(architectureProfileSchema);
 const validateProjectRegistrationSchema = ajv.compile(projectRegistrationSchema);
+const validateControlCatalogSchema = ajv.compile(controlCatalogSchema);
 
 // shortcut: the approved profiles are listed here, so a new model/architecture-profile-*.json
 // needs one import and one entry; upgrade to directory discovery when profiles change often.
@@ -267,4 +269,66 @@ export function assertPackMatchesRegistration(pack: GovernancePack, registration
     issues.push(`pack repository '${pack.project.repository}' is not one of the repositories registered for '${registration.id}' (${registration.repositories.map((r) => r.name).join(", ")})`);
   }
   if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
+}
+
+export interface CatalogControl {
+  id: string;
+  standard_id: string;
+  standard_version: string;
+  source_file: string;
+  source_section: string;
+  source_text: string;
+  title: string;
+  description: string;
+  mandatory: boolean;
+  severity: Severity;
+  failure_decision: FailureDecision;
+  applies_when?: string | string[];
+  verification_capabilities: string[];
+  required_evidence_classes: string[];
+  exception_policy: "ALLOWED" | "NON_EXCEPTIONABLE";
+  owner: ProjectContact;
+  status: "DRAFT" | "APPROVED" | "DEPRECATED" | "RETIRED";
+  effective_from?: string;
+  retired_at?: string;
+}
+
+export interface ControlCatalog {
+  version: string;
+  catalog_id: string;
+  catalog_version: string;
+  description: string;
+  controls: CatalogControl[];
+}
+
+/** Load and validate a control catalog from a repository-relative JSON path. */
+export async function loadControlCatalog(
+  rootPath: string,
+  path: string,
+  fs: ConfigFileSystemPort,
+): Promise<ControlCatalog> {
+  const content = await fs.readTextFile(rootPath, path);
+  if (content === undefined) throw new Error(`Control catalog not found: ${path}`);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content) as unknown;
+  } catch (error) {
+    throw new Error(`Control catalog is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!validateControlCatalogSchema(parsed)) {
+    throw new Error(`Control catalog schema validation failed: ${formatSchemaErrors(validateControlCatalogSchema.errors ?? [])}`);
+  }
+
+  const catalog = parsed as ControlCatalog;
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const control of catalog.controls) {
+    if (seen.has(control.id)) duplicates.add(control.id);
+    seen.add(control.id);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(`Control catalog validation failed: duplicate control id(s): ${[...duplicates].sort().join(", ")}`);
+  }
+  return catalog;
 }
