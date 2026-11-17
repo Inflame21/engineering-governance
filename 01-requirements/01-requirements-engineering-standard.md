@@ -3,7 +3,7 @@
 **Document ID:** REQ-001  
 **Version:** 1.0.0  
 **Status:** Mandatory  
-**Authority:** Senior Software Engineer (SGE)  
+**Authority:** Lead Software Governance Engineer (LSGE)  
 **Applies To:** All new projects, major features, system changes, integrations, and production-impacting work  
 **Parent Standard:** GOV-000 — Engineering Governance Constitution  
 **Review Cycle:** Quarterly or upon material process change
@@ -888,9 +888,9 @@ The following SHOULD block progression to implementation:
 
 ---
 
-# 34. SGE Review Checklist
+# 34. LSGE Review Checklist
 
-The SGE reviewing requirements MUST ask:
+The LSGE reviewing requirements MUST ask:
 
 ### Business
 
@@ -1118,7 +1118,7 @@ Conditions:
 
 ____________________________________
 
-SGE Reviewer:
+LSGE Reviewer:
 Date:
 Approval:
 ```

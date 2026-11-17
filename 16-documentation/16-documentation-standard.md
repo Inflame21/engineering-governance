@@ -1016,7 +1016,7 @@ Production SHALL be blocked when:
 
 ## 52. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] Documentation impact was assessed.
 - [ ] Relevant requirements were updated.

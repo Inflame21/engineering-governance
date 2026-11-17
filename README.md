@@ -96,7 +96,7 @@ Maintenance
 
 > **Anyone can build. Anyone can use AI. Anyone can propose an implementation. Production approval requires engineering evidence.**
 
-The SGE acts as the engineering quality gate, protecting the system from unacceptable technical risk while allowing the team to move quickly within defined boundaries.
+The LSGE acts as the engineering quality gate, protecting the system from unacceptable technical risk while allowing the team to move quickly within defined boundaries.
 
 ## Executable Governance Layer
 

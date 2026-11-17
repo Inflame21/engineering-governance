@@ -1019,7 +1019,7 @@ Assuming an alert works because its configuration exists.
 
 ## 56. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] Critical failure modes have observable signals.
 - [ ] Logs are structured and useful.

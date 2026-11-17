@@ -3,7 +3,7 @@
 **Document ID:** ARC-002  
 **Version:** 1.0.0  
 **Status:** Mandatory  
-**Authority:** Senior Software Engineer (SGE)  
+**Authority:** Lead Software Governance Engineer (LSGE)  
 **Applies To:** All new systems, major features, significant refactors, integrations, infrastructure changes, and production-impacting architectural changes  
 **Parent Standard:** GOV-000 — Engineering Governance Constitution  
 **Depends On:** REQ-001 — Requirements Engineering Standard  
@@ -464,7 +464,7 @@ Documentation depth MUST match system risk.
 
 # 40. Architecture Review Checklist
 
-The SGE MUST evaluate:
+The LSGE MUST evaluate:
 
 ### Requirements Alignment
 - Does architecture satisfy approved requirements?
@@ -572,7 +572,7 @@ AI MAY assist with architecture alternatives, trade-off analysis, diagrams, risk
 
 AI MUST NOT be treated as the architecture authority.
 
-The SGE MUST independently evaluate requirements alignment, trade-offs, failure modes, security, scalability, operational complexity, and long-term maintainability.
+The LSGE MUST independently evaluate requirements alignment, trade-offs, failure modes, security, scalability, operational complexity, and long-term maintainability.
 
 An AI-generated architecture is a proposal, not an approved architecture.
 
@@ -635,7 +635,7 @@ The change MUST identify:
     Conditions:
     ____________________________________
 
-    SGE Reviewer:
+    LSGE Reviewer:
     Date:
     Approval:
 

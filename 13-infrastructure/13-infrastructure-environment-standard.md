@@ -960,7 +960,7 @@ Allowing an AI agent broad production infrastructure access without bounded perm
 
 ## 47. Reviewer Checklist
 
-A reviewer or SGE SHOULD verify:
+A reviewer or LSGE SHOULD verify:
 
 - [ ] Environment topology is clear.
 - [ ] Production is appropriately isolated.
