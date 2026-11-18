@@ -48,3 +48,11 @@ Parts:
 Tests: the area definitions against the standards index; the bundled standards against their sources; the required rules in the instructions; and the pack recipe through the CLI from the standalone bundle (a finding is accepted, a dangling evidence reference is rejected, a P1 finding blocks `check`, a P2 finding is a warning, and only `RESOLVED` clears a finding).
 
 Not verified: the command has not been run in a live Claude Code session, so the quality and accuracy of the reviews it produces are unobserved.
+
+## 7. Addendum: `summarize` and `/engineering-governance:summary`
+
+A review covers one area, so nothing showed the whole picture. The owner asked for one report that covers everything and says what else to add.
+
+- **`governance summarize <repository>`** (CLI, deterministic) computes one status report per repository from the repository, its pack and its saved review reports: the decision and controls (from the engine), open findings, and a coverage table over the eight areas with a "possible gap" flag. It writes only with `--write`, to a new dated file, and never overwrites. It runs the same assessment as `check` (no `--base`, no tools).
+- **`/engineering-governance:summary`** runs it for each repository and then appends a section headed `## Suggestions (AI-written)`: what to do first, which reviews to run, controls the pack does not have, each grounded in a fact from the report or a repository document, capped at 10. The factual part is never edited by the model, and no suggestion is added to the pack.
+- **Limits.** The area list in the CLI is a constant that a test keeps equal to `review-areas.json`. A "possible gap" is a heuristic over directory names and scripts, not a finding. The coverage table says an area was reviewed, not how well; the coverage line each review recorded is shown beside it. Summaries are snapshots: they go stale as the pack and code change.

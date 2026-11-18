@@ -127,6 +127,16 @@ node dist/cli/src/index.js discover <folder> [--json]
 
 `discover` finds the git repositories in a folder and reports facts about each: branch, head commit, uncommitted changes, origin (with any credentials removed), package manager, `package.json` scripts, the single-line `run:` commands of CI workflows, guidance documents, and whether a pack already exists. It is read-only: it runs only `git` with fixed arguments, never follows symlinks, never enters `node_modules` or a repository it has already found, searches three levels deep, and executes nothing the repositories define. It exits `0` even when it finds none. The plugin's `setup` and `review` commands use it so repository facts come from code.
 
+## One status report per repository: `summarize`
+
+```bash
+node dist/cli/src/index.js summarize <repository> [--json] [--write]
+```
+
+`summarize` builds a status report for the repository at `<repository>` (its top level): the snapshot (commit, uncommitted changes), the decision and its blocking violations and conditions, every control with its status and missing evidence, open findings by severity, and a table of the eight review areas (`security`, `architecture`, `api`, `data`, `testing`, `cicd`, `frontend`, `observability`) showing the latest review, the controls and open findings for the area, and a "possible gap" flag where a repository signal (a `migrations/`, `contracts/` or `tests/` directory, a test script, CI workflows) is present but the pack has no control for the area. Everything is computed from the repository, its pack and its saved review reports under `.governance/reports/`; nothing is estimated, and a repository with no pack is reported as not assessed.
+
+Without `--write` it prints Markdown (or JSON with `--json`) and writes nothing. With `--write` it creates `.governance/reports/summary-<date>.md`, never overwriting: a second run the same day writes `-2`. It exits `0`, or `3` for a folder that is not a repository root. The plugin's `summary` command uses it and appends AI suggestions in a separate section.
+
 ## Exit codes
 
 | Code | Meaning |
