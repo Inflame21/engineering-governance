@@ -3237,8 +3237,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path8) {
-      let input = path8;
+    function removeDotSegments(path9) {
+      let input = path9;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3312,11 +3312,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path8) {
-      if (path8 === "" || path8[0] === "/") {
-        return removeDotSegments(path8);
+    function removeDotSegmentsRelative(path9) {
+      if (path9 === "" || path9[0] === "/") {
+        return removeDotSegments(path9);
       }
-      const segments = path8.split("/");
+      const segments = path9.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3679,8 +3679,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
+        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -8055,7 +8055,7 @@ var require_dist = __commonJS({
 });
 
 // src/index.ts
-import path7 from "node:path";
+import path8 from "node:path";
 import { pathToFileURL } from "node:url";
 
 // ../analyzer/src/architecture.ts
@@ -10774,10 +10774,10 @@ var KNOWN_ARCHITECTURE_PROFILE_IDS = new Set(
 function formatSchemaErrors(errors) {
   return errors.map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`).join("; ");
 }
-async function loadGovernancePack(rootPath, path8, fs) {
-  const content = await fs.readTextFile(rootPath, path8);
+async function loadGovernancePack(rootPath, path9, fs) {
+  const content = await fs.readTextFile(rootPath, path9);
   if (content === void 0) {
-    throw new Error(`Governance pack not found: ${path8}`);
+    throw new Error(`Governance pack not found: ${path9}`);
   }
   let parsed;
   try {
@@ -10800,9 +10800,9 @@ async function loadGovernancePack(rootPath, path8, fs) {
   }
   return pack;
 }
-async function loadArchitectureProfile(rootPath, path8, fs) {
-  const content = await fs.readTextFile(rootPath, path8);
-  if (content === void 0) throw new Error(`Architecture profile not found: ${path8}`);
+async function loadArchitectureProfile(rootPath, path9, fs) {
+  const content = await fs.readTextFile(rootPath, path9);
+  if (content === void 0) throw new Error(`Architecture profile not found: ${path9}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10830,8 +10830,8 @@ function getRegisteredArchitectureProfile(id) {
   if (!profile) throw new Error(`Unknown architecture profile '${id}'`);
   return validateArchitectureProfileObject(structuredClone(profile));
 }
-async function loadProjectRegistry(rootPath, path8, fs) {
-  const normalized = path8.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+async function loadProjectRegistry(rootPath, path9, fs) {
+  const normalized = path9.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const files = normalized.endsWith(".json") ? [normalized] : (await fs.listFiles(rootPath)).map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${normalized}/`) && file.endsWith(".json")).sort();
   if (files.length === 0) {
     throw new Error(`No project registration records (*.json) found in ${normalized || "."}`);
@@ -10900,9 +10900,9 @@ function assertPackMatchesRegistration(pack, registration) {
   }
   if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
 }
-async function loadControlCatalog(rootPath, path8, fs) {
-  const content = await fs.readTextFile(rootPath, path8);
-  if (content === void 0) throw new Error(`Control catalog not found: ${path8}`);
+async function loadControlCatalog(rootPath, path9, fs) {
+  const content = await fs.readTextFile(rootPath, path9);
+  if (content === void 0) throw new Error(`Control catalog not found: ${path9}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10924,9 +10924,9 @@ async function loadControlCatalog(rootPath, path8, fs) {
   }
   return catalog;
 }
-async function loadAuthorityPolicy(rootPath, path8, fs) {
-  const content = await fs.readTextFile(rootPath, path8);
-  if (content === void 0) throw new Error(`Authority policy not found: ${path8}`);
+async function loadAuthorityPolicy(rootPath, path9, fs) {
+  const content = await fs.readTextFile(rootPath, path9);
+  if (content === void 0) throw new Error(`Authority policy not found: ${path9}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -12135,13 +12135,13 @@ function parseSemgrepOutput(stdout) {
     if (!isRecord2(entry) || !isRecord2(entry.extra) || !isRecord2(entry.start)) {
       throw new Error("Semgrep result entry is malformed.");
     }
-    const { check_id: checkId, path: path8 } = entry;
+    const { check_id: checkId, path: path9 } = entry;
     const { message, severity } = entry.extra;
     const { line } = entry.start;
-    if (typeof checkId !== "string" || typeof path8 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
+    if (typeof checkId !== "string" || typeof path9 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
       throw new Error("Semgrep result is missing check_id, path, line, message or severity.");
     }
-    return { checkId, path: path8, line, message, severity };
+    return { checkId, path: path9, line, message, severity };
   });
   return { matches, scanErrors: parsed.errors.length };
 }
@@ -13981,9 +13981,195 @@ var nodeVerificationToolRunner = {
   }
 };
 
-// src/init.ts
-import { lstat as lstat2, mkdir, open, realpath as realpath3, stat } from "node:fs/promises";
+// src/discover.ts
+import { execFile as execFile2 } from "node:child_process";
+import { lstat as lstat2, readdir as readdir2, readFile as readFile2, stat } from "node:fs/promises";
 import path6 from "node:path";
+import { promisify } from "node:util";
+var run = promisify(execFile2);
+var MAX_DEPTH = 3;
+var MAX_TEXT_BYTES = 1e6;
+var MAX_CI_COMMANDS = 200;
+var GIT_TIMEOUT_MS = 1e4;
+var SKIPPED_DIRECTORIES = /* @__PURE__ */ new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".next",
+  ".nuxt",
+  ".venv",
+  "venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".tox"
+]);
+var KNOWN_DOCS = ["CLAUDE.md", "AGENTS.md", "README.md", "CONTRIBUTING.md", "SECURITY.md"];
+var KNOWN_DIRECTORIES = ["docs", "contracts", "migrations", "tests", "test", "src", "scripts"];
+var LOCKFILES = [
+  ["pnpm-lock.yaml", "pnpm"],
+  ["package-lock.json", "npm"],
+  ["yarn.lock", "yarn"],
+  ["bun.lock", "bun"],
+  ["bun.lockb", "bun"],
+  ["uv.lock", "uv"],
+  ["poetry.lock", "poetry"],
+  ["requirements.txt", "pip"]
+];
+async function exists(target) {
+  try {
+    await lstat2(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function readSmallText(file) {
+  try {
+    const info = await lstat2(file);
+    if (!info.isFile() || info.size > MAX_TEXT_BYTES) return void 0;
+    return await readFile2(file, "utf8");
+  } catch {
+    return void 0;
+  }
+}
+function sanitizeRemote(remote) {
+  return remote.trim().replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/\s]*@/i, "$1");
+}
+function repositorySlug(remote) {
+  const match = /^(?:[a-z][a-z0-9+.-]*:\/\/(?:[^/]+)\/|[^@\s]+@[^:\s]+:)([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/i.exec(remote.trim());
+  return match?.[1];
+}
+async function git(repository, args) {
+  try {
+    const { stdout } = await run("git", args, {
+      cwd: repository,
+      timeout: GIT_TIMEOUT_MS,
+      windowsHide: true,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
+    });
+    return stdout.trim();
+  } catch {
+    return void 0;
+  }
+}
+async function gitFacts(repository) {
+  const [branch, head, status, rawRemote] = await Promise.all([
+    git(repository, ["branch", "--show-current"]),
+    git(repository, ["rev-parse", "HEAD"]),
+    git(repository, ["status", "--porcelain"]),
+    git(repository, ["remote", "get-url", "origin"])
+  ]);
+  const changes = status === void 0 ? void 0 : status.split("\n").filter((line) => line.trim() && !/^.. "?\.governance\//.test(line)).length;
+  const remote = rawRemote ? sanitizeRemote(rawRemote) : void 0;
+  const slug = remote ? repositorySlug(remote) : void 0;
+  return {
+    ...branch ? { branch } : {},
+    ...head ? { head } : {},
+    ...changes !== void 0 ? { uncommittedChanges: changes } : {},
+    ...remote ? { remote } : {},
+    ...slug ? { repositorySlug: slug } : {}
+  };
+}
+async function readScripts(repository) {
+  const text = await readSmallText(path6.join(repository, "package.json"));
+  if (!text) return {};
+  try {
+    const scripts = JSON.parse(text).scripts;
+    if (typeof scripts !== "object" || scripts === null || Array.isArray(scripts)) return {};
+    return Object.fromEntries(Object.entries(scripts).filter(([, value]) => typeof value === "string"));
+  } catch {
+    return {};
+  }
+}
+async function readCi(repository) {
+  const directory = path6.join(repository, ".github", "workflows");
+  let names;
+  try {
+    names = (await readdir2(directory)).filter((name) => /\.ya?ml$/i.test(name)).sort();
+  } catch {
+    return [];
+  }
+  const workflows = [];
+  for (const name of names) {
+    const text = await readSmallText(path6.join(directory, name));
+    if (text === void 0) continue;
+    const commands = [...text.matchAll(/^[ \t]*(?:-[ \t]+)?run:[ \t]+(?![|> \t])(.+?)[ \t]*$/gm)].map((match) => match[1]).slice(0, MAX_CI_COMMANDS);
+    workflows.push({ file: `.github/workflows/${name}`, commands });
+  }
+  return workflows;
+}
+async function describeRepository(root, repository) {
+  const relative = path6.relative(root, repository).replaceAll("\\", "/") || ".";
+  const packageManager = (await Promise.all(LOCKFILES.map(async ([file, name]) => await exists(path6.join(repository, file)) ? name : void 0))).find(Boolean);
+  return {
+    path: relative,
+    name: path6.basename(repository),
+    git: await gitFacts(repository),
+    ...packageManager ? { packageManager } : {},
+    scripts: await readScripts(repository),
+    ci: await readCi(repository),
+    docs: (await Promise.all(KNOWN_DOCS.map(async (doc) => await exists(path6.join(repository, doc)) ? doc : void 0))).filter((doc) => Boolean(doc)),
+    directories: (await Promise.all(KNOWN_DIRECTORIES.map(async (directory) => {
+      try {
+        return (await stat(path6.join(repository, directory))).isDirectory() ? directory : void 0;
+      } catch {
+        return void 0;
+      }
+    }))).filter((directory) => Boolean(directory)),
+    existingPack: await exists(path6.join(repository, ".governance", "governance-pack.json"))
+  };
+}
+async function discoverRepositories(rootPath) {
+  const root = path6.resolve(rootPath);
+  const info = await stat(root).catch(() => void 0);
+  if (!info?.isDirectory()) throw new Error(`Folder not found: ${rootPath}`);
+  const found = [];
+  async function walk(directory, depth) {
+    if (await exists(path6.join(directory, ".git"))) {
+      found.push(directory);
+      return;
+    }
+    if (depth >= MAX_DEPTH) return;
+    let entries;
+    try {
+      entries = await readdir2(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (!entry.isDirectory() || entry.isSymbolicLink() || SKIPPED_DIRECTORIES.has(entry.name)) continue;
+      await walk(path6.join(directory, entry.name), depth + 1);
+    }
+  }
+  await walk(root, 0);
+  return { root, repositories: await Promise.all(found.map((repository) => describeRepository(root, repository))) };
+}
+function formatDiscovery(result) {
+  if (result.repositories.length === 0) {
+    return `No git repositories found under ${result.root} (searched ${MAX_DEPTH} levels deep).`;
+  }
+  const lines = [`Found ${result.repositories.length} git ${result.repositories.length === 1 ? "repository" : "repositories"} under ${result.root}:`, ""];
+  for (const repository of result.repositories) {
+    const { git: facts } = repository;
+    lines.push(
+      `${repository.path}`,
+      `  branch ${facts.branch ?? "unknown"}, head ${facts.head?.slice(0, 7) ?? "unknown"}, uncommitted changes: ${facts.uncommittedChanges ?? "unknown"}`,
+      `  remote ${facts.repositorySlug ?? facts.remote ?? "none"}`,
+      `  package manager ${repository.packageManager ?? "unknown"}; scripts: ${Object.keys(repository.scripts).join(", ") || "none"}`,
+      `  CI: ${repository.ci.map((workflow) => `${workflow.file} (${workflow.commands.length} commands)`).join(", ") || "none"}`,
+      `  docs: ${repository.docs.join(", ") || "none"}; pack: ${repository.existingPack ? "exists" : "none"}`,
+      ""
+    );
+  }
+  return lines.join("\n").trimEnd();
+}
+
+// src/init.ts
+import { lstat as lstat3, mkdir, open, realpath as realpath3, stat as stat2 } from "node:fs/promises";
+import path7 from "node:path";
 var PROJECT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 var UNSET_REPOSITORY = "UNSET";
 var DEFAULT_ENVIRONMENT = "development";
@@ -14012,20 +14198,20 @@ function buildGovernancePackSkeleton(project) {
   };
 }
 function isInside(root, target) {
-  const relative = path6.relative(root, target);
-  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path6.sep}`) && !path6.isAbsolute(relative);
+  const relative = path7.relative(root, target);
+  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path7.sep}`) && !path7.isAbsolute(relative);
 }
 async function createNewFile(rootPath, relativePath, content) {
   const root = await realpath3(rootPath);
-  const target = path6.resolve(root, relativePath);
+  const target = path7.resolve(root, relativePath);
   if (!isInside(root, target)) throw new Error(`Path escapes repository root: ${relativePath}`);
   let directory = root;
-  for (const part of path6.relative(root, path6.dirname(target)).split(path6.sep).filter(Boolean)) {
-    directory = path6.join(directory, part);
+  for (const part of path7.relative(root, path7.dirname(target)).split(path7.sep).filter(Boolean)) {
+    directory = path7.join(directory, part);
     try {
-      const info = await lstat2(directory);
+      const info = await lstat3(directory);
       if (info.isSymbolicLink() || !info.isDirectory()) {
-        throw new Error(`Refusing to write through ${path6.relative(root, directory)}: it is not a plain directory.`);
+        throw new Error(`Refusing to write through ${path7.relative(root, directory)}: it is not a plain directory.`);
       }
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
@@ -14048,15 +14234,15 @@ async function createNewFile(rootPath, relativePath, content) {
   }
 }
 async function initializeGovernancePack(options) {
-  const repositoryPath = path6.resolve(options.repositoryPath);
+  const repositoryPath = path7.resolve(options.repositoryPath);
   let info;
   try {
-    info = await stat(repositoryPath);
+    info = await stat2(repositoryPath);
   } catch {
     throw new Error(`Repository not found: ${options.repositoryPath}`);
   }
   if (!info.isDirectory()) throw new Error(`Repository is not a directory: ${options.repositoryPath}`);
-  const id = options.id ?? slugifyProjectId(path6.basename(repositoryPath));
+  const id = options.id ?? slugifyProjectId(path7.basename(repositoryPath));
   if (id === void 0 || !PROJECT_ID_PATTERN.test(id)) {
     throw new Error(
       options.id === void 0 ? "Could not derive a project id from the directory name; pass --id <lowercase-slug>." : `Invalid --id '${options.id}': use lowercase letters, digits, '.', '_' or '-', starting with a letter or digit.`
@@ -14064,7 +14250,7 @@ async function initializeGovernancePack(options) {
   }
   const project = {
     id,
-    name: options.name?.trim() || path6.basename(repositoryPath) || id,
+    name: options.name?.trim() || path7.basename(repositoryPath) || id,
     repository: options.repository?.trim() || UNSET_REPOSITORY,
     environment: options.environment?.trim() || DEFAULT_ENVIRONMENT
   };
@@ -14096,14 +14282,14 @@ function formatInitResult(result) {
 }
 
 // src/git-scope.ts
-import { execFile as execFile2 } from "node:child_process";
+import { execFile as execFile3 } from "node:child_process";
 import { realpath as realpath4 } from "node:fs/promises";
-var GIT_TIMEOUT_MS = 1e4;
+var GIT_TIMEOUT_MS2 = 1e4;
 var GIT_MAX_BUFFER = 1e6;
 var nodeGitCommandRunner = {
   async run(args, cwd, timeoutMs) {
     return new Promise((resolve, reject) => {
-      execFile2(
+      execFile3(
         "git",
         args,
         {
@@ -14147,7 +14333,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
   }
   try {
     const root = await realpath4(repositoryRoot);
-    const topResult = await runner.run(["rev-parse", "--show-toplevel"], root, GIT_TIMEOUT_MS);
+    const topResult = await runner.run(["rev-parse", "--show-toplevel"], root, GIT_TIMEOUT_MS2);
     if (topResult.exitCode !== 0) {
       return unverifiedScope(normalizedBase, topResult.stderr.trim() || "The scan root is not a Git repository.");
     }
@@ -14158,7 +14344,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
     const baseResult = await runner.run(
       ["rev-parse", "--verify", "--end-of-options", `${normalizedBase}^{commit}`],
       root,
-      GIT_TIMEOUT_MS
+      GIT_TIMEOUT_MS2
     );
     if (baseResult.exitCode !== 0 || !baseResult.stdout.trim()) {
       return unverifiedScope(normalizedBase, baseResult.stderr.trim() || "The base revision could not be resolved.");
@@ -14166,7 +14352,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
     const headResult = await runner.run(
       ["rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"],
       root,
-      GIT_TIMEOUT_MS
+      GIT_TIMEOUT_MS2
     );
     if (headResult.exitCode !== 0 || !headResult.stdout.trim()) {
       return unverifiedScope(normalizedBase, headResult.stderr.trim() || "HEAD could not be resolved.");
@@ -14184,7 +14370,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
     const committedDiff = await runner.run(
       [...diffArguments, `${baseCommit}...${headCommit}`, "--"],
       root,
-      GIT_TIMEOUT_MS
+      GIT_TIMEOUT_MS2
     );
     if (committedDiff.exitCode !== 0) {
       return unverifiedScope(normalizedBase, committedDiff.stderr.trim() || "Git could not compute the committed diff.");
@@ -14192,7 +14378,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
     const workingTreeDiff = await runner.run(
       [...diffArguments, "HEAD", "--"],
       root,
-      GIT_TIMEOUT_MS
+      GIT_TIMEOUT_MS2
     );
     if (workingTreeDiff.exitCode !== 0) {
       return unverifiedScope(normalizedBase, workingTreeDiff.stderr.trim() || "Git could not compute the working-tree diff.");
@@ -14200,7 +14386,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
     const untrackedFiles = await runner.run(
       ["ls-files", "--others", "--exclude-standard", "-z"],
       root,
-      GIT_TIMEOUT_MS
+      GIT_TIMEOUT_MS2
     );
     if (untrackedFiles.exitCode !== 0) {
       return unverifiedScope(normalizedBase, untrackedFiles.stderr.trim() || "Git could not enumerate untracked files.");
@@ -14225,7 +14411,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
 }
 
 // src/index.ts
-var VERSION = "0.2.0";
+var VERSION = "0.4.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 function usage() {
   return [
@@ -14236,6 +14422,7 @@ function usage() {
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
     "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance discover <folder> [--json]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -14245,6 +14432,7 @@ function usage() {
     "  validate  Validate the governance pack, architecture profile and/or project registry; no analysis.",
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
+    "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
     "Options:",
@@ -14282,7 +14470,7 @@ function parseCliArguments(argv) {
     return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}
 
 ${usage()}`);
@@ -14355,7 +14543,7 @@ ${usage()}`);
     repositoryProvided = true;
   }
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
-  if (rawCommand === "init") {
+  if (rawCommand === "init" || rawCommand === "discover") {
     const unsupported = [
       profilePath && "--profile",
       baseRef && "--base",
@@ -14364,14 +14552,15 @@ ${usage()}`);
       authorityPath && "--authority",
       projectId && "--project",
       runTools && "--run-tools",
-      json && "--json",
+      rawCommand === "init" && json && "--json",
       format && "--format"
     ].filter(Boolean);
-    if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the init command.`);
+    if (rawCommand === "discover" && packExplicit) unsupported.unshift("--pack");
+    if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
   }
   return {
     command: rawCommand,
-    repositoryPath: path7.resolve(repositoryPath),
+    repositoryPath: path8.resolve(repositoryPath),
     packPath,
     packExplicit,
     ...registryPath ? { registryPath } : {},
@@ -14406,6 +14595,12 @@ async function runCli(argv) {
     return 0;
   }
   try {
+    if (args.command === "discover") {
+      const result2 = await discoverRepositories(args.repositoryPath);
+      process.stdout.write(`${args.json ? JSON.stringify(result2, null, 2) : formatDiscovery(result2)}
+`);
+      return 0;
+    }
     if (args.command === "init") {
       const result2 = await initializeGovernancePack({
         repositoryPath: args.repositoryPath,
@@ -14495,7 +14690,7 @@ async function runCli(argv) {
     return 3;
   }
 }
-var entrypoint = process.argv[1] ? pathToFileURL(path7.resolve(process.argv[1])).href : void 0;
+var entrypoint = process.argv[1] ? pathToFileURL(path8.resolve(process.argv[1])).href : void 0;
 if (entrypoint === import.meta.url) {
   process.exitCode = await runCli(process.argv.slice(2));
 }

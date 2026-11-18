@@ -15,6 +15,7 @@ import {
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
+import { discoverRepositories, formatDiscovery } from "./discover.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope } from "./git-scope.js";
 
@@ -24,11 +25,11 @@ export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.4.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "init" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -54,6 +55,7 @@ function usage(): string {
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
     "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance discover <folder> [--json]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -63,6 +65,7 @@ function usage(): string {
     "  validate  Validate the governance pack, architecture profile and/or project registry; no analysis.",
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
+    "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
     "Options:",
@@ -102,7 +105,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -176,12 +179,13 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
-  if (rawCommand === "init") {
+  if (rawCommand === "init" || rawCommand === "discover") {
     const unsupported = [
       profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
-      authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", json && "--json", format && "--format",
+      authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", rawCommand === "init" && json && "--json", format && "--format",
     ].filter(Boolean);
-    if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the init command.`);
+    if (rawCommand === "discover" && packExplicit) unsupported.unshift("--pack");
+    if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
   }
 
   return {
@@ -221,6 +225,12 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   try {
+    if (args.command === "discover") {
+      const result = await discoverRepositories(args.repositoryPath);
+      process.stdout.write(`${args.json ? JSON.stringify(result, null, 2) : formatDiscovery(result)}\n`);
+      return 0;
+    }
+
     if (args.command === "init") {
       const result = await initializeGovernancePack({
         repositoryPath: args.repositoryPath,

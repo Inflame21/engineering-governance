@@ -1,0 +1,88 @@
+{
+  "note": "Areas for /engineering-governance:review. Each names the standards to read (from standards-index.json, bundled under standards/) and what to look for. The focus lists are search strategies, not the standard: base every finding on the standard's own text and on code you opened.",
+  "common_standards": ["REV-009"],
+  "areas": {
+    "security": {
+      "title": "Security and tenant isolation",
+      "standards": ["SEC-007", "BE-003"],
+      "focus": [
+        "List every entry point (HTTP routes, handlers, jobs, CLI commands, message consumers). For each, confirm authentication and authorization are enforced on the server before business logic runs. Report any that are not.",
+        "Tenant and workspace isolation: follow each data access path and confirm the tenant or workspace scope is applied. Look for queries, repository methods or cache keys with no scope.",
+        "Secrets: hard-coded credentials, keys, tokens or connection strings in source, tests, fixtures and config. Secrets or personal data written to logs. Never print a secret value in the report.",
+        "Input validation at every boundary. Injection (SQL, NoSQL, command, path), unsafe deserialization, SSRF, open redirects.",
+        "Failing open: error handling that grants access or skips checks on failure. Permissive CORS, insecure defaults, disabled security controls.",
+        "Dependencies: lockfile present and used, obviously outdated or known-risky packages."
+      ]
+    },
+    "architecture": {
+      "title": "Architecture and structure",
+      "standards": ["ARC-002", "BE-003"],
+      "focus": [
+        "Dependency direction and module boundaries stated by the repository's own docs and by the standard. Imports that cross a boundary or reach into another module's internals. Circular dependencies.",
+        "Business logic placed in controllers, route handlers, persistence code or UI components.",
+        "Domain code that imports frameworks, database drivers or HTTP libraries.",
+        "Duplicated sources of truth, hidden global mutable state, speculative abstractions, dead code.",
+        "If the repository has an architecture check (for example dependency-cruiser), read its rules and compare them with the stated architecture. Running it needs the user's permission."
+      ]
+    },
+    "api": {
+      "title": "API contracts",
+      "standards": ["API-006", "BE-003"],
+      "focus": [
+        "Contract first: an OpenAPI or schema file exists and matches the implemented routes, request and response shapes. List routes that are missing from the contract, and the reverse.",
+        "Versioning and compatibility: breaking changes, removed fields, changed status codes.",
+        "Consistent, typed error responses. Input validation against the contract. Correct HTTP semantics.",
+        "State-changing operations: idempotency and duplicate-request behavior. Pagination and filtering on list endpoints."
+      ]
+    },
+    "data": {
+      "title": "Data and persistence",
+      "standards": ["DB-005", "BE-003"],
+      "focus": [
+        "Migrations: destructive operations, missing rollback or recovery, changes that break the previous application version.",
+        "Constraints, indexes and ownership of each table or collection. Tenant scope in the schema.",
+        "Transactions and partial-failure behavior for multi-step writes. Concurrency hazards.",
+        "Query patterns: N+1 queries, unbounded reads, missing limits."
+      ]
+    },
+    "testing": {
+      "title": "Tests and quality gates",
+      "standards": ["QA-008", "AI-010"],
+      "focus": [
+        "Map the main risks (authorization, tenant isolation, money or data integrity, failure paths) to the tests that would catch them. Report risks with no test.",
+        "Negative-path and authorization tests. Tests that cannot fail, assert nothing, or mock away the behavior they claim to test.",
+        "Skipped, flaky or commented-out tests. Whether AI-generated tests were reviewed.",
+        "Which checks run in CI and which are only local."
+      ]
+    },
+    "cicd": {
+      "title": "CI/CD and supply chain",
+      "standards": ["CICD-012", "GIT-011"],
+      "focus": [
+        "Pipeline gates: lint, typecheck, tests, build, security checks run on pull requests. Steps that can be skipped or fail silently.",
+        "Workflow permissions and secrets: least-privilege tokens, secrets exposed to untrusted code, pull_request_target.",
+        "Third-party actions pinned to commit SHAs rather than mutable tags. Installs from a lockfile.",
+        "Whether the same artifact that was tested is the one promoted. Branch protection cannot be seen from the repository, so list it as unverified."
+      ]
+    },
+    "frontend": {
+      "title": "Frontend",
+      "standards": ["FE-004", "SEC-007"],
+      "focus": [
+        "Business rules inside components instead of domain or application code.",
+        "Client-side authorization treated as a security control. Secrets or tokens in the bundle or local storage.",
+        "XSS risks (raw HTML rendering), unvalidated data from APIs, hand-written API types that drift from the contract.",
+        "Error, loading and empty states. Basic accessibility."
+      ]
+    },
+    "observability": {
+      "title": "Observability",
+      "standards": ["OBS-014", "SEC-007"],
+      "focus": [
+        "Structured logging, correlation identifiers, and consistent error information.",
+        "Secrets, tokens or personal data in logs.",
+        "Errors swallowed without a trace. Health and readiness signals. Metrics and tracing for important operations."
+      ]
+    }
+  }
+}

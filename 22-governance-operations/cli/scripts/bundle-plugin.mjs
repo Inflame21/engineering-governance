@@ -103,6 +103,22 @@ if (!customOut) {
     path.join(repositoryRoot, "22-governance-operations", "model", "architecture-profile-clean-architecture.json"),
     path.join(templates, "architecture-profile-clean-architecture.json"),
   );
+
+  // The review command cites the standards, so the ones its areas use ship inside the plugin. The
+  // source of truth stays in the repository; a test checks the copies are identical.
+  const index = JSON.parse(await readFile(path.join(templates, "standards-index.json"), "utf8"));
+  const areas = JSON.parse(await readFile(path.join(templates, "review-areas.json"), "utf8"));
+  const ids = new Set([
+    ...areas.common_standards,
+    ...Object.values(areas.areas).flatMap((area) => area.standards),
+  ]);
+  const standards = path.join(pluginDirectory, "standards");
+  await mkdir(standards, { recursive: true });
+  for (const id of [...ids].sort()) {
+    const entry = index.standards.find((standard) => standard.id === id);
+    if (!entry) throw new Error(`review-areas.json names ${id}, which is not in standards-index.json.`);
+    await copyFile(path.join(repositoryRoot, entry.file), path.join(standards, path.basename(entry.file)));
+  }
 }
 
 console.log(`Wrote ${path.relative(repositoryRoot, outfile)}`);

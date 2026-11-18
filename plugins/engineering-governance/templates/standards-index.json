@@ -1,0 +1,29 @@
+{
+  "note": "The framework's standards, for choosing real standard IDs when drafting a governance pack. A control's `standard` must be one of these ids. Write `source` in a pack as `engineering-governance/<file>`.",
+  "standards": [
+    { "id": "GOV-000", "title": "Engineering Governance Constitution", "file": "00-governance/00-engineering-governance-constitution.md", "use_when": "Authority, production blockers and the overall rules." },
+    { "id": "REQ-001", "title": "Requirements Engineering Standard", "file": "01-requirements/01-requirements-engineering-standard.md", "use_when": "Requirements, acceptance criteria, scope." },
+    { "id": "ARC-002", "title": "Architecture & System Design Standard", "file": "02-architecture/02-architecture-system-design-standard.md", "use_when": "Module boundaries, dependency direction, architecture decisions." },
+    { "id": "BE-003", "title": "Backend Engineering Standard", "file": "03-backend/03-backend-engineering-standard.md", "use_when": "Server code: layering, error handling, business logic placement." },
+    { "id": "FE-004", "title": "Frontend Engineering Standard", "file": "04-frontend/04-frontend-engineering-standard.md", "use_when": "UI code: components, state, accessibility, client-side concerns." },
+    { "id": "DB-005", "title": "Database Engineering Standard", "file": "05-database/05-database-engineering-standard.md", "use_when": "Schemas, migrations, persistence, data integrity." },
+    { "id": "API-006", "title": "API Governance Standard", "file": "06-api/06-api-governance-standard.md", "use_when": "API contracts, versioning, compatibility, OpenAPI." },
+    { "id": "SEC-007", "title": "Security Engineering Standard", "file": "07-security/07-security-engineering-standard.md", "use_when": "Authentication, authorization, tenant isolation, secrets, dependencies." },
+    { "id": "QA-008", "title": "Testing & Quality Engineering Standard", "file": "08-testing/08-testing-quality-engineering-standard.md", "use_when": "Tests, test strategy, quality gates." },
+    { "id": "REV-009", "title": "Code Review Standard", "file": "09-code-review/09-code-review-standard.md", "use_when": "Review requirements and approval." },
+    { "id": "AI-010", "title": "AI-Assisted Development Standard", "file": "10-ai-development/10-ai-assisted-development-standard.md", "use_when": "AI-generated code and tests must be verified." },
+    { "id": "GIT-011", "title": "Git & Version Control Standard", "file": "11-git/11-git-version-control-standard.md", "use_when": "Branches, commits, pull requests." },
+    { "id": "CICD-012", "title": "CI/CD Standard", "file": "12-cicd/12-ci-cd-standard.md", "use_when": "Pipelines, required checks, supply-chain controls." },
+    { "id": "INFRA-013", "title": "Infrastructure & Environment Standard", "file": "13-infrastructure/13-infrastructure-environment-standard.md", "use_when": "Infrastructure as code, environments, deployment." },
+    { "id": "OBS-014", "title": "Observability Standard", "file": "14-observability/14-observability-standard.md", "use_when": "Logs, metrics, tracing, alerts." },
+    { "id": "PERF-015", "title": "Performance Engineering Standard", "file": "15-performance/15-performance-engineering-standard.md", "use_when": "Performance requirements and measurement." },
+    { "id": "DOC-016", "title": "Documentation Standard", "file": "16-documentation/16-documentation-standard.md", "use_when": "Docs, ADRs, runbooks." },
+    { "id": "REL-017", "title": "Release Management Standard", "file": "17-release/17-release-management-standard.md", "use_when": "Release planning and rollback." },
+    { "id": "PRD-018", "title": "Production Readiness Standard", "file": "18-production-readiness/18-production-readiness-standard.md", "use_when": "Production go/no-go decisions." },
+    { "id": "INC-019", "title": "Incident Management Standard", "file": "19-incidents/19-incident-management-standard.md", "use_when": "Incident response." },
+    { "id": "DEBT-020", "title": "Technical Debt Standard", "file": "20-technical-debt/20-technical-debt-standard.md", "use_when": "Recording and tracking known debt." },
+    { "id": "EXC-021", "title": "Engineering Exception Standard", "file": "21-exceptions/21-engineering-exception-standard.md", "use_when": "Waivers and risk acceptance." },
+    { "id": "GOV-022", "title": "Governance Lifecycle & Operating Standard", "file": "22-governance-operations/22-governance-lifecycle-standard.md", "use_when": "How governance is operated." },
+    { "id": "GOV-023", "title": "Engineering Evidence & Traceability Standard", "file": "22-governance-operations/23-engineering-evidence-traceability-standard.md", "use_when": "What counts as evidence and how it is recorded." }
+  ]
+}
