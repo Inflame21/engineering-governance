@@ -48,6 +48,10 @@ Include what changed and why, the standards or debt items it relates to, how you
 
 Use short conventional-style subjects (`fix(engine): ...`, `docs: ...`, `build: ...`) and explain the reason in the body.
 
+## License of contributions
+
+By submitting a contribution you agree to section 8 of the [LICENSE](LICENSE): you grant the maintainer a perpetual, irrevocable license to use, modify and distribute it as part of the project, and you confirm you have the right to do so. Do not submit code or text you cannot license this way, including AI output you have not reviewed.
+
 ## Reporting security issues
 
 Do not open a public issue. See [SECURITY.md](SECURITY.md).

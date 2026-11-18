@@ -1,0 +1,139 @@
+ENGINEERING GOVERNANCE USE-AND-ADAPT LICENSE
+Version 1.0
+
+Copyright (c) 2026 Inflame21. All rights reserved, except for the rights granted below.
+
+This is a custom license. It is not an open-source license, because it does
+not allow redistribution.
+
+
+1. DEFINITIONS
+
+"Materials" means everything in this repository and in any release or plugin
+package made from it: the standards documents, schemas, control and profile
+files, the command-line tool, the Claude Code plugin, templates, workflows,
+examples and documentation.
+
+"Licensor" means Inflame21.
+
+"You" means the individual or organization using the Materials. An
+organization and the entities it controls are treated as one "You".
+
+
+2. WHAT YOU MAY DO
+
+Subject to the conditions below, the Licensor grants You a worldwide,
+non-exclusive, royalty-free, non-transferable license to:
+
+  (a) use the Materials for any purpose, including commercial purposes, such
+      as assessing and governing Your own software projects and delivering
+      Your own products and services;
+
+  (b) copy the Materials as needed for that use; and
+
+  (c) modify the Materials for Your own use.
+
+
+3. REDISTRIBUTION IS NOT ALLOWED
+
+You may not Redistribute the Materials or any modified version of them.
+
+"Redistribute" means to publish, sell, sublicense, rent, lend, or otherwise
+make the Materials, a copy, a fork or a modified version available to anyone
+outside Your organization, whether free or for a fee. This includes offering
+them as a standalone package, as part of another product, or as a hosted
+service whose purpose is to provide the Materials themselves.
+
+
+4. WHAT IS NOT REDISTRIBUTION
+
+  (a) Sharing within Your organization. Making the Materials available to
+      Your own employees, to contractors working for You, and to entities You
+      control.
+
+  (b) Your project files. You may place in Your own project repositories,
+      including public ones, files that the Materials generate or that exist
+      to be copied into a project: governance packs, architecture profiles,
+      registry records, workflow and pull-request templates, and the reports
+      and decisions produced by running the tools. What Your use produces
+      about Your own projects is Yours. This does not permit publishing the
+      command-line tool, the plugin bundle, the standards documents or any
+      other Materials themselves.
+
+  (c) Platform terms. Nothing in this license limits rights that any person
+      has under the terms of service of a code-hosting platform on which the
+      Licensor has published the Materials, such as viewing and forking
+      there.
+
+  (d) Installation channels. Installing the Materials through a channel the
+      Licensor provides, such as the Claude Code plugin marketplace, onto
+      Your own machines and those of Your organization.
+
+  (e) Quotation. Short quotations for commentary, review, teaching or
+      criticism, with attribution, to the extent the law permits.
+
+
+5. CONDITIONS
+
+  (a) Keep this license text and the copyright notice with every copy You
+      make.
+
+  (b) A modified version must state that it was modified, and must not be
+      presented as the Licensor's work or as endorsed by the Licensor.
+
+  (c) Do not remove or obscure the notices of the Licensor or of third
+      parties.
+
+
+6. THIRD-PARTY COMPONENTS
+
+Some components are licensed by others on their own terms. Where the Materials
+include such a component, its notice and license are in THIRD-PARTY-NOTICES.md
+or in the component's own files. This license does not change those terms.
+
+
+7. OUTPUT IS NOT CERTIFICATION
+
+The Materials help assess engineering evidence. A GO decision, a report, or
+any other output is not a certification, an audit, legal or compliance
+advice, or an approval to run a system in production. You are responsible for
+the decisions You make using the Materials.
+
+
+8. CONTRIBUTIONS
+
+If You submit a contribution to the Licensor, such as a pull request, You
+grant the Licensor a perpetual, worldwide, irrevocable, royalty-free license
+to use, modify, sublicense and distribute it as part of the Materials under
+any terms, and You confirm that You have the right to do so.
+
+
+9. TERMINATION
+
+Your rights under this license end automatically if You breach it. If You stop
+the breach and correct it within 30 days after the Licensor notifies You, Your
+rights are reinstated.
+
+
+10. NO WARRANTY
+
+THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, ACCURACY, AND NON-INFRINGEMENT.
+
+
+11. LIMITATION OF LIABILITY
+
+TO THE FULLEST EXTENT THE LAW PERMITS, THE LICENSOR IS NOT LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
+ARISING FROM OR IN CONNECTION WITH THE MATERIALS OR THEIR USE, INCLUDING ANY
+DECISION MADE, OR ANY SOFTWARE RELEASED, ON THE STRENGTH OF THEIR OUTPUT.
+
+
+12. GENERAL
+
+This license is the whole agreement about the Materials. If a provision is
+unenforceable, the rest remains in effect. A failure to enforce a provision is
+not a waiver of it. All rights not expressly granted are reserved. The
+Licensor may release later versions of the Materials under different terms;
+that does not change the terms of a copy You already hold.

@@ -58,7 +58,7 @@ Without a pack, `check` exits with code 3 and says so. It never reports a decisi
 - **The commands run `node` on your machine.** Claude Code asks for permission unless you allow `Bash(node *governance.mjs*)`.
 - **The analysis runs in the current directory.** Start Claude Code at the repository root.
 - Scanner results do not feed any governance control yet (DEBT-GOV-009 in the debt register).
-- No licence file exists in this repository yet.
+- Licensed under the custom [Engineering Governance Use-and-Adapt License](LICENSE): use for any purpose and modify for your own use, no redistribution. It is not open source. Third-party notices for the bundled code are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Maintaining the plugin
 

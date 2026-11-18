@@ -144,6 +144,34 @@ describe("plugin manifests", () => {
   });
 });
 
+describe("plugin licensing", () => {
+  it("ships the repository LICENSE inside the plugin, unchanged, because an install copies only that directory", async () => {
+    const pluginCopy = normalize(await readFile(path.join(pluginDirectory, "LICENSE"), "utf8"));
+    expect(pluginCopy).toBe(normalize(await readFile(path.join(repositoryRoot, "LICENSE"), "utf8")));
+    expect(pluginCopy).toContain("Copyright (c) 2026 Inflame21");
+  });
+
+  it("points the manifest at that file", async () => {
+    const plugin = JSON.parse(await readFile(path.join(pluginDirectory, ".claude-plugin", "plugin.json"), "utf8")) as { license?: string };
+    expect(plugin.license).toBe("SEE LICENSE IN LICENSE");
+  });
+
+  it("has a notice, with its license text, for every third-party package inlined in the bundle", async () => {
+    const bundle = await readFile(committedBundle, "utf8");
+    const bundled = new Set(
+      [...bundle.matchAll(/^\/\/ (?:\.\.\/)*node_modules\/((?:@[^/\n]+\/)?[^/\n]+)\//gm)].map((match) => match[1]!),
+    );
+    expect(bundled.size).toBeGreaterThan(0);
+
+    const notices = normalize(await readFile(path.join(pluginDirectory, "THIRD-PARTY-NOTICES.md"), "utf8"));
+    for (const name of bundled) {
+      const section = new RegExp(`(?:^|\\n)## ${name.replace(/[/.]/g, "\\$&")} \\S+ \\(([^)]+)\\)\\n\\n([\\s\\S]+?)(?=\\n## |(?![\\s\\S]))`).exec(notices);
+      expect(section, `no notice for bundled package ${name}`).not.toBeNull();
+      expect(section![2]!.length, `empty license text for ${name}`).toBeGreaterThan(100);
+    }
+  });
+});
+
 describe("plugin commands", () => {
   const COMMANDS = ["analyze", "check", "init", "report", "validate"];
 
