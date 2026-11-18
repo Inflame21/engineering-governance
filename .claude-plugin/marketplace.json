@@ -9,7 +9,7 @@
       "name": "engineering-governance",
       "source": "./plugins/engineering-governance",
       "description": "Analyze a repository's structure, validate its governance pack and derive a GO, GO WITH CONDITIONS or NO-GO decision from evidence.",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "category": "security",
       "tags": ["governance", "engineering-standards", "ci"]
     }

@@ -16,7 +16,7 @@ import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.j
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
 import { discoverRepositories, formatDiscovery } from "./discover.js";
-import { formatSummaryMarkdown, summarizeRepository, writeSummary } from "./summary.js";
+import { formatSummaryMarkdown, summarizeRepository, writeDatedReport, writeSummary } from "./summary.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope } from "./git-scope.js";
 
@@ -26,7 +26,7 @@ export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
@@ -42,7 +42,7 @@ interface ParsedArguments {
   baseRef?: string;
   runTools: boolean;
   json: boolean;
-  /** summarize only: save the summary under .governance/reports/. */
+  /** summarize and report: save the Markdown under .governance/reports/. */
   write?: boolean;
   format?: "markdown" | "json";
   /** init only: values for the generated pack's project record. */
@@ -56,7 +56,7 @@ function usage(): string {
     "Usage:",
     "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
-    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
+    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
@@ -137,7 +137,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       continue;
     }
     if (argument === "--write") {
-      if (rawCommand !== "summarize") throw new Error("--write is only supported by the summarize command.");
+      if (rawCommand !== "summarize" && rawCommand !== "report") throw new Error("--write is only supported by the summarize and report commands.");
       write = true;
       continue;
     }
@@ -190,6 +190,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
+  if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
   if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize") {
     const unsupported = [
       profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
@@ -353,6 +354,10 @@ export async function runCli(argv: string[]): Promise<number> {
       ...(args.runTools ? { verificationRunner: nodeVerificationToolRunner } : {}),
     });
     process.stdout.write(`${result.output}\n`);
+    if (args.write) {
+      const written = await writeDatedReport(args.repositoryPath, "report", new Date().toISOString().slice(0, 10), `${result.output}\n`);
+      process.stdout.write(`Wrote ${written}\n`);
+    }
 
     if (result.evaluation.decision.status === "NO-GO") return 2;
     if (result.evaluation.decision.status === "GO_WITH_CONDITIONS") return 1;

@@ -14512,13 +14512,10 @@ function formatSummaryMarkdown(summary) {
   );
   return lines.join("\n");
 }
-async function writeSummary(repositoryPath, summary) {
+async function writeDatedReport(repositoryPath, prefix, date, markdown) {
   const root = path8.resolve(repositoryPath);
-  const markdown = `${formatSummaryMarkdown(summary)}
-`;
   for (let attempt = 1; attempt <= 99; attempt += 1) {
-    const name = `summary-${summary.generatedOn}${attempt === 1 ? "" : `-${attempt}`}.md`;
-    const relative = `${REPORTS_DIRECTORY}/${name}`;
+    const relative = `${REPORTS_DIRECTORY}/${prefix}-${date}${attempt === 1 ? "" : `-${attempt}`}.md`;
     try {
       await createNewFile(root, relative, markdown);
       return relative;
@@ -14526,7 +14523,11 @@ async function writeSummary(repositoryPath, summary) {
       if (!(error instanceof Error) || !error.message.includes("already exists")) throw error;
     }
   }
-  throw new Error("Too many summaries for one day; remove old ones.");
+  throw new Error(`Too many ${prefix} reports for one day; remove old ones.`);
+}
+async function writeSummary(repositoryPath, summary) {
+  return writeDatedReport(repositoryPath, "summary", summary.generatedOn, `${formatSummaryMarkdown(summary)}
+`);
 }
 
 // src/git-scope.ts
@@ -14659,7 +14660,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
 }
 
 // src/index.ts
-var VERSION = "0.5.0";
+var VERSION = "0.6.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 function usage() {
   return [
@@ -14668,7 +14669,7 @@ function usage() {
     "Usage:",
     "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
-    "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
+    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
@@ -14747,7 +14748,7 @@ ${usage()}`);
       continue;
     }
     if (argument === "--write") {
-      if (rawCommand !== "summarize") throw new Error("--write is only supported by the summarize command.");
+      if (rawCommand !== "summarize" && rawCommand !== "report") throw new Error("--write is only supported by the summarize and report commands.");
       write = true;
       continue;
     }
@@ -14799,6 +14800,7 @@ ${usage()}`);
     repositoryProvided = true;
   }
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
+  if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
   if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize") {
     const unsupported = [
       profilePath && "--profile",
@@ -14950,6 +14952,12 @@ async function runCli(argv) {
     });
     process.stdout.write(`${result.output}
 `);
+    if (args.write) {
+      const written = await writeDatedReport(args.repositoryPath, "report", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), `${result.output}
+`);
+      process.stdout.write(`Wrote ${written}
+`);
+    }
     if (result.evaluation.decision.status === "NO-GO") return 2;
     if (result.evaluation.decision.status === "GO_WITH_CONDITIONS") return 1;
     return 0;

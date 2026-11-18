@@ -175,6 +175,53 @@ describe("writeSummary", () => {
   });
 });
 
+describe("report --write", () => {
+  function capture() {
+    let stdout = "";
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => { stdout += String(chunk); return true; });
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    return { out: () => stdout };
+  }
+
+  it("prints the report, saves the same Markdown to a dated file, and keeps the decision's exit code", async () => {
+    const root = await repository();
+    await writePack(root, pack());
+    const output = capture();
+
+    expect(await runCli(["report", root, "--write"])).toBe(2);
+    const match = /Wrote (\.governance\/reports\/report-\d{4}-\d{2}-\d{2}\.md)/.exec(output.out());
+    expect(match).not.toBeNull();
+    const saved = await readFile(path.join(root, match![1]!), "utf8");
+    expect(saved).toContain("NO-GO");
+    // What was printed is what was saved.
+    expect(output.out()).toContain(saved.trim());
+  });
+
+  it("never overwrites: a second report the same day is -2", async () => {
+    const root = await repository();
+    await writePack(root, pack());
+    capture();
+    await runCli(["report", root, "--write"]);
+    await runCli(["report", root, "--write"]);
+    const files = await readdir(path.join(root, ".governance", "reports"));
+    expect(files.filter((name) => name.startsWith("report-")).length).toBe(2);
+    expect(files.some((name) => /-2\.md$/.test(name))).toBe(true);
+  });
+
+  it("does not write without --write", async () => {
+    const root = await repository();
+    await writePack(root, pack());
+    capture();
+    await runCli(["report", root]);
+    await expect(readdir(path.join(root, ".governance", "reports"))).rejects.toThrow();
+  });
+
+  it("cannot be combined with --format json, which would save something other than Markdown", () => {
+    expect(() => parseCliArguments(["report", ".", "--write", "--format", "json"])).toThrow("cannot be combined with --format json");
+    expect(parseCliArguments(["report", ".", "--write"])).toMatchObject({ command: "report", write: true });
+  });
+});
+
 describe("summarize through the CLI", () => {
   function capture() {
     let stdout = "";
@@ -220,7 +267,7 @@ describe("summarize through the CLI", () => {
   it("rejects options it does not use, and --write on other commands", () => {
     expect(() => parseCliArguments(["summarize", ".", "--pack", "x.json"])).toThrow("not supported by the summarize command");
     expect(() => parseCliArguments(["summarize", ".", "--run-tools"])).toThrow("not supported by the summarize command");
-    expect(() => parseCliArguments(["check", ".", "--write"])).toThrow("--write is only supported by the summarize command.");
+    expect(() => parseCliArguments(["check", ".", "--write"])).toThrow("--write is only supported by the summarize and report commands.");
     expect(parseCliArguments(["summarize", ".", "--write", "--json"])).toMatchObject({ command: "summarize", write: true, json: true });
   });
 });

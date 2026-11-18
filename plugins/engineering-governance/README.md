@@ -2,7 +2,7 @@
 
 Check a repository's structure and assess it against the Engineering Governance Framework from inside Claude Code. The plugin bundles the governance CLI, so nothing else has to be built or cloned.
 
-**Status: version 0.5.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
+**Status: version 0.6.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
 
 ## Requirements
 
@@ -27,11 +27,12 @@ claude --plugin-dir ./plugins/engineering-governance
 
 ## Commands
 
-Nothing runs automatically. Each command runs only when you type it, against the directory Claude Code is working in. `setup`, `review`, `summary` and `init` are the only commands that write files, and none overwrites one. `setup` runs your project's scripts only after you say yes.
+Nothing runs automatically. Each command runs only when you type it, against the directory Claude Code is working in. `audit`, `setup`, `review`, `summary`, `report` and `init` are the only commands that write files, and none overwrites one. `setup` runs your project's scripts only after you say yes.
 
 | Command | What it does |
 |---|---|
-| `/engineering-governance:setup` | **Start here.** Finds the git repositories in the folder and drafts a governance pack for each. With your permission it runs each repository's own checks (lint, typecheck, tests, build) and records the real results as evidence. Never overwrites an existing pack. The packs are AI-drafted and need human review. |
+| `/engineering-governance:audit [repository]` | **Start here for reports.** Goes through a whole repository and writes an ordered set of Markdown files to `.governance/reports/`, starting from `audit-<date>.md`: documentation of what the repository is (`overview-<date>.md`), a review of each applicable area (`review-<area>-<date>.md`), a status summary, and a prioritized plan of fixes and improvements with what, where, why and how for each. It asks before starting, because it reads a lot of code. |
+| `/engineering-governance:setup` | Finds the git repositories in the folder and drafts a governance pack for each. With your permission it runs each repository's own checks (lint, typecheck, tests, build) and records the real results as evidence. Never overwrites an existing pack. The packs are AI-drafted and need human review. |
 | `/engineering-governance:review <area>` | Reviews one area of a repository (security, architecture, api, data, testing, cicd, frontend, observability) against the governance standards. Writes a report with what, where, why, how to confirm and a fix for each finding to `.governance/reports/`, and adds the findings to the pack so they count in `check`. AI-written: findings are leads for a person to confirm. |
 | `/engineering-governance:summary` | Writes **one status report per repository** to `.governance/reports/summary-<date>.md`: the decision, every control and finding, and a table of which of the eight review areas have been reviewed, with possible gaps flagged. The numbers come from the CLI. Claude then appends clearly labelled AI suggestions on what to review or add next. |
 | `/engineering-governance:init` | Create `.governance/governance-pack.json`: a pack that **asserts nothing** (no controls, evidence, risks or decisions). Never overwrites an existing file. `check` returns NO-GO until real controls are added. |
@@ -46,7 +47,9 @@ Each command prints the CLI's raw output and its exit code (0 GO, 1 conditions o
 
 ## First run
 
-**Quickest:** run `/engineering-governance:setup` in your project folder (or in a folder that holds several repositories). Claude analyzes the repositories, proposes the checks it wants to run and waits for your yes, runs them, and writes `.governance/governance-pack.json` in each repository. Read its report, then review each pack before relying on it: the controls and severities are proposals, and a check that passed was verified only as of the moment it ran. Then run `/engineering-governance:review security` (or another area) for a code-level report. The manual route follows.
+**For a full set of reports:** run `/engineering-governance:audit` in your repository. It documents what the repository is, reviews each area, and leaves you with Markdown reports in `.governance/reports/`; open `audit-<date>.md` first. It asks before starting because it reads a lot and can take a long time.
+
+**For a governance pack with real check results:** run `/engineering-governance:setup` in your project folder (or in a folder that holds several repositories). Claude analyzes the repositories, proposes the checks it wants to run and waits for your yes, runs them, and writes `.governance/governance-pack.json` in each repository. Read its report, then review each pack before relying on it: the controls and severities are proposals, and a check that passed was verified only as of the moment it ran. Then run `/engineering-governance:review security` (or another area) for a code-level report. The manual route follows.
 
 1. Run `/engineering-governance:analyze`. It works on any repository and shows what the framework can and cannot see.
 2. To get a decision, the repository needs a governance pack. Run `/engineering-governance:init` to create `.governance/governance-pack.json`. Options: `--id`, `--name`, `--repo owner/name`, `--environment`, and `--pack` for another path.
@@ -60,6 +63,7 @@ Without a pack, `check` exits with code 3 and says so. It never reports a decisi
 ## Limits
 
 - **Only partly seen in a live session.** `validate` and `check` ran from an installed plugin in Claude Code (so `${CLAUDE_PLUGIN_ROOT}` is substituted and the CLI runs), as reported by a user. The other commands use the same mechanism but have not been seen live, and passing options through `$ARGUMENTS` (for example `--base main`) has not been observed. If a command reports that it cannot find `governance.mjs`, please report it.
+- **`audit` is long and samples.** It runs a review for each area one after another, so it can take a long time and use many tokens, and each review reads a sample of its area and says how much. It has not been run in a live session. Its reports are new, uncommitted files that quote real code: read them before committing (DEBT-GOV-016, ADR-0004).
 - **`summary` separates facts from suggestions.** Its tables come from the CLI and are computed from the repository, the pack and the saved review reports. The suggestions section is AI-written and nothing in it is added to the pack. "Possible gap" is a prompt to check, based on directory names such as `migrations/`, not a verdict.
 - **`setup` and `review` are AI-written.** The CLI checks that a pack is consistent but cannot check that Claude really ran a command or read a file, so review each pack and report, and re-run the recorded commands (DEBT-GOV-013, DEBT-GOV-014, ADR-0002, ADR-0003). A review reads a sample of a large repository, one area at a time, and says how much it covered.
 - **The commands run `node` on your machine.** Claude Code asks for permission unless you allow `Bash(node *governance.mjs*)`.

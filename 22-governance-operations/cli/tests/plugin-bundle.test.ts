@@ -174,11 +174,14 @@ describe("plugin licensing", () => {
 });
 
 describe("plugin commands", () => {
-  const COMMANDS = ["analyze", "check", "init", "report", "review", "setup", "summary", "validate"];
+  const COMMANDS = ["analyze", "audit", "check", "init", "report", "review", "setup", "summary", "validate"];
   // setup and review first run discovery; every other command runs its own CLI command.
-  const INVOCATION: Record<string, string> = { setup: "discover . --json", review: "discover . --json", summary: "discover . --json" };
+  const INVOCATION: Record<string, string> = {
+    setup: "discover . --json", review: "discover . --json", summary: "discover . --json", audit: "discover . --json",
+    report: "report . --write $ARGUMENTS",
+  };
 
-  it("provides exactly the eight commands", async () => {
+  it("provides exactly the nine commands", async () => {
     expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual(COMMANDS);
   });
 
@@ -194,6 +197,45 @@ describe("plugin commands", () => {
     expect(text).toContain('echo "[governance exit code: $?]"');
     // The instructions must forbid altering or inventing evidence to change an outcome.
     expect(text).toMatch(/Do not (change|edit|add)|Never overwrite/);
+  });
+});
+
+describe("audit command", () => {
+  const skill = async () => normalize(await readFile(path.join(pluginDirectory, "skills", "audit", "SKILL.md"), "utf8"));
+
+  it("asks before starting, runs areas one at a time, and keeps the honesty rules", async () => {
+    const text = await skill();
+    expect(text).toContain("wait for a yes");
+    expect(text).toContain("Run areas one after another, never in parallel");
+    expect(text).toContain("Only report what you read");
+    expect(text).toContain("Never overwrite a file");
+    expect(text).toContain("No claim of compliance, completeness or readiness");
+    expect(text).toContain("Not reviewed by a person");
+    expect(text).toContain("Do not read");
+  });
+
+  it("produces the ordered set: overview, each area review, summary, and an entry report that links them", async () => {
+    const text = await skill();
+    for (const file of ["overview-<YYYY-MM-DD>.md", "audit-<YYYY-MM-DD>.md", "summarize <repository> --write"]) expect(text).toContain(file);
+    for (const section of ["Executive summary", "Reading order", "Improvement plan", "Fix now (P0 and P1)", "What else to add", "Coverage and limits"]) {
+      expect(text, section).toContain(section);
+    }
+  });
+
+  it("covers every review area, in order, and reuses the review procedure instead of copying it", async () => {
+    const text = await skill();
+    const areas = JSON.parse(await readFile(path.join(pluginDirectory, "templates", "review-areas.json"), "utf8")) as { areas: Record<string, unknown> };
+    const order = ["security", "architecture", "api", "data", "testing", "cicd", "frontend", "observability"];
+    expect(Object.keys(areas.areas).sort()).toEqual([...order].sort());
+    expect(text).toContain(order.join(", "));
+    expect(text).toContain("${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md");
+    await expect(readFile(path.join(pluginDirectory, "skills", "review", "SKILL.md"), "utf8")).resolves.toContain("Only report what you can show");
+  });
+
+  it("makes the report command save its file", async () => {
+    const text = normalize(await readFile(path.join(pluginDirectory, "skills", "report", "SKILL.md"), "utf8"));
+    expect(text).toContain("report . --write $ARGUMENTS");
+    expect(text).not.toContain("--format markdown|json");
   });
 });
 

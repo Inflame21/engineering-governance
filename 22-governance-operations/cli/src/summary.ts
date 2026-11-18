@@ -300,13 +300,14 @@ export function formatSummaryMarkdown(summary: RepositorySummary): string {
   return lines.join("\n");
 }
 
-/** Write the Markdown summary as a new file; an existing summary for the day is never overwritten. */
-export async function writeSummary(repositoryPath: string, summary: RepositorySummary): Promise<string> {
+/**
+ * Write a Markdown report as a new dated file under .governance/reports/, named `<prefix>-<date>.md`.
+ * An existing report for the day is never overwritten: the next one is `-2`, then `-3`.
+ */
+export async function writeDatedReport(repositoryPath: string, prefix: string, date: string, markdown: string): Promise<string> {
   const root = path.resolve(repositoryPath);
-  const markdown = `${formatSummaryMarkdown(summary)}\n`;
   for (let attempt = 1; attempt <= 99; attempt += 1) {
-    const name = `summary-${summary.generatedOn}${attempt === 1 ? "" : `-${attempt}`}.md`;
-    const relative = `${REPORTS_DIRECTORY}/${name}`;
+    const relative = `${REPORTS_DIRECTORY}/${prefix}-${date}${attempt === 1 ? "" : `-${attempt}`}.md`;
     try {
       await createNewFile(root, relative, markdown);
       return relative;
@@ -314,5 +315,9 @@ export async function writeSummary(repositoryPath: string, summary: RepositorySu
       if (!(error instanceof Error) || !error.message.includes("already exists")) throw error;
     }
   }
-  throw new Error("Too many summaries for one day; remove old ones.");
+  throw new Error(`Too many ${prefix} reports for one day; remove old ones.`);
+}
+
+export async function writeSummary(repositoryPath: string, summary: RepositorySummary): Promise<string> {
+  return writeDatedReport(repositoryPath, "summary", summary.generatedOn, `${formatSummaryMarkdown(summary)}\n`);
 }
