@@ -127,6 +127,10 @@ node dist/cli/src/index.js discover <folder> [--json]
 
 `discover` finds the git repositories in a folder and reports facts about each: branch, head commit, uncommitted changes, origin (with any credentials removed), package manager, `package.json` scripts, the single-line `run:` commands of CI workflows, guidance documents, and whether a pack already exists. It is read-only: it runs only `git` with fixed arguments, never follows symlinks, never enters `node_modules` or a repository it has already found, searches three levels deep, and executes nothing the repositories define. It exits `0` even when it finds none. The plugin's `setup` and `review` commands use it so repository facts come from code.
 
+## Saving the assessment: `report --write`
+
+`governance report <repository> --write` prints the assessment report and also saves the same Markdown to `.governance/reports/report-<date>.md`. It never overwrites: a second report the same day is `-2`. The exit code is still the decision's. `--write` cannot be combined with `--format json`.
+
 ## One status report per repository: `summarize`
 
 ```bash
