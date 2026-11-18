@@ -65,7 +65,7 @@ function isInside(root: string, target: string): boolean {
  * write cannot be redirected outside the repository. The final open is exclusive: an existing file or
  * link is never overwritten or followed.
  */
-async function createNewFile(rootPath: string, relativePath: string, content: string): Promise<void> {
+export async function createNewFile(rootPath: string, relativePath: string, content: string): Promise<void> {
   const root = await realpath(rootPath);
   const target = path.resolve(root, relativePath);
   if (!isInside(root, target)) throw new Error(`Path escapes repository root: ${relativePath}`);

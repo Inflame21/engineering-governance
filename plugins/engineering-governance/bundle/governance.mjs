@@ -3237,8 +3237,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path9) {
-      let input = path9;
+    function removeDotSegments(path10) {
+      let input = path10;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3312,11 +3312,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path9) {
-      if (path9 === "" || path9[0] === "/") {
-        return removeDotSegments(path9);
+    function removeDotSegmentsRelative(path10) {
+      if (path10 === "" || path10[0] === "/") {
+        return removeDotSegments(path10);
       }
-      const segments = path9.split("/");
+      const segments = path10.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3679,8 +3679,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
+        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -8055,7 +8055,7 @@ var require_dist = __commonJS({
 });
 
 // src/index.ts
-import path8 from "node:path";
+import path9 from "node:path";
 import { pathToFileURL } from "node:url";
 
 // ../analyzer/src/architecture.ts
@@ -10774,10 +10774,10 @@ var KNOWN_ARCHITECTURE_PROFILE_IDS = new Set(
 function formatSchemaErrors(errors) {
   return errors.map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`).join("; ");
 }
-async function loadGovernancePack(rootPath, path9, fs) {
-  const content = await fs.readTextFile(rootPath, path9);
+async function loadGovernancePack(rootPath, path10, fs) {
+  const content = await fs.readTextFile(rootPath, path10);
   if (content === void 0) {
-    throw new Error(`Governance pack not found: ${path9}`);
+    throw new Error(`Governance pack not found: ${path10}`);
   }
   let parsed;
   try {
@@ -10800,9 +10800,9 @@ async function loadGovernancePack(rootPath, path9, fs) {
   }
   return pack;
 }
-async function loadArchitectureProfile(rootPath, path9, fs) {
-  const content = await fs.readTextFile(rootPath, path9);
-  if (content === void 0) throw new Error(`Architecture profile not found: ${path9}`);
+async function loadArchitectureProfile(rootPath, path10, fs) {
+  const content = await fs.readTextFile(rootPath, path10);
+  if (content === void 0) throw new Error(`Architecture profile not found: ${path10}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10830,8 +10830,8 @@ function getRegisteredArchitectureProfile(id) {
   if (!profile) throw new Error(`Unknown architecture profile '${id}'`);
   return validateArchitectureProfileObject(structuredClone(profile));
 }
-async function loadProjectRegistry(rootPath, path9, fs) {
-  const normalized = path9.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+async function loadProjectRegistry(rootPath, path10, fs) {
+  const normalized = path10.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const files = normalized.endsWith(".json") ? [normalized] : (await fs.listFiles(rootPath)).map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${normalized}/`) && file.endsWith(".json")).sort();
   if (files.length === 0) {
     throw new Error(`No project registration records (*.json) found in ${normalized || "."}`);
@@ -10900,9 +10900,9 @@ function assertPackMatchesRegistration(pack, registration) {
   }
   if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
 }
-async function loadControlCatalog(rootPath, path9, fs) {
-  const content = await fs.readTextFile(rootPath, path9);
-  if (content === void 0) throw new Error(`Control catalog not found: ${path9}`);
+async function loadControlCatalog(rootPath, path10, fs) {
+  const content = await fs.readTextFile(rootPath, path10);
+  if (content === void 0) throw new Error(`Control catalog not found: ${path10}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10924,9 +10924,9 @@ async function loadControlCatalog(rootPath, path9, fs) {
   }
   return catalog;
 }
-async function loadAuthorityPolicy(rootPath, path9, fs) {
-  const content = await fs.readTextFile(rootPath, path9);
-  if (content === void 0) throw new Error(`Authority policy not found: ${path9}`);
+async function loadAuthorityPolicy(rootPath, path10, fs) {
+  const content = await fs.readTextFile(rootPath, path10);
+  if (content === void 0) throw new Error(`Authority policy not found: ${path10}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -12135,13 +12135,13 @@ function parseSemgrepOutput(stdout) {
     if (!isRecord2(entry) || !isRecord2(entry.extra) || !isRecord2(entry.start)) {
       throw new Error("Semgrep result entry is malformed.");
     }
-    const { check_id: checkId, path: path9 } = entry;
+    const { check_id: checkId, path: path10 } = entry;
     const { message, severity } = entry.extra;
     const { line } = entry.start;
-    if (typeof checkId !== "string" || typeof path9 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
+    if (typeof checkId !== "string" || typeof path10 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
       throw new Error("Semgrep result is missing check_id, path, line, message or severity.");
     }
-    return { checkId, path: path9, line, message, severity };
+    return { checkId, path: path10, line, message, severity };
   });
   return { matches, scanErrors: parsed.errors.length };
 }
@@ -14167,6 +14167,10 @@ function formatDiscovery(result) {
   return lines.join("\n").trimEnd();
 }
 
+// src/summary.ts
+import { readdir as readdir3 } from "node:fs/promises";
+import path8 from "node:path";
+
 // src/init.ts
 import { lstat as lstat3, mkdir, open, realpath as realpath3, stat as stat2 } from "node:fs/promises";
 import path7 from "node:path";
@@ -14279,6 +14283,250 @@ function formatInitResult(result) {
     "  2. governance validate <repository>",
     "  3. governance check <repository>"
   ].join("\n");
+}
+
+// src/summary.ts
+var REVIEW_AREAS = ["security", "architecture", "api", "data", "testing", "cicd", "frontend", "observability"];
+var AREA_STANDARD = {
+  security: "SEC-007",
+  architecture: "ARC-002",
+  api: "API-006",
+  data: "DB-005",
+  testing: "QA-008",
+  cicd: "CICD-012",
+  frontend: "FE-004",
+  observability: "OBS-014"
+};
+var PACK_PATH = ".governance/governance-pack.json";
+var REPORTS_DIRECTORY = ".governance/reports";
+var severityRank4 = { P0: 0, P1: 1, P2: 2, P3: 3 };
+function oneLine2(value, limit = 140) {
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  return collapsed.length > limit ? `${collapsed.slice(0, limit - 1)}\u2026` : collapsed;
+}
+function cell2(value) {
+  return oneLine2(value).replaceAll("|", "\\|");
+}
+function areaSignal(area, repository) {
+  switch (area) {
+    case "data":
+      return repository.directories.includes("migrations") ? "has a migrations/ directory" : void 0;
+    case "api":
+      return repository.directories.includes("contracts") ? "has a contracts/ directory" : void 0;
+    case "testing":
+      return repository.directories.includes("tests") || repository.directories.includes("test") || "test" in repository.scripts ? "has tests or a test script" : void 0;
+    case "cicd":
+      return repository.ci.length > 0 ? "has CI workflows" : void 0;
+    default:
+      return void 0;
+  }
+}
+async function listReviewReports(repositoryPath) {
+  try {
+    return (await readdir3(path8.join(repositoryPath, REPORTS_DIRECTORY))).filter((name) => /^review-.+\.md$/.test(name)).sort();
+  } catch {
+    return [];
+  }
+}
+function lastReviews(reports, pack) {
+  const latest = /* @__PURE__ */ new Map();
+  for (const file of reports) {
+    const match = /^review-([a-z]+)-(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$/.exec(file);
+    const area = REVIEW_AREAS.find((candidate) => candidate === match?.[1]);
+    if (!match || !area) continue;
+    const date = match[2];
+    const run2 = match[3] ? Number(match[3]) : 1;
+    const current = latest.get(area);
+    if (!current || date > current.date || date === current.date && run2 > current.run) {
+      const evidenceId = `EVD-REVIEW-${area.toUpperCase()}-${date.replaceAll("-", "")}`;
+      const coverage = pack?.evidence.find((item) => item.id === evidenceId)?.description;
+      latest.set(area, { date, file, run: run2, ...coverage ? { coverage: oneLine2(coverage, 160) } : {} });
+    }
+  }
+  return new Map([...latest].map(([area, { run: _run, ...review }]) => [area, review]));
+}
+function findingArea(finding) {
+  return REVIEW_AREAS.find((area) => finding.category === area || finding.rule_id === `REVIEW-${area.toUpperCase()}`);
+}
+async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Date()) {
+  const root = path8.resolve(repositoryPath);
+  const discovered = (await discoverRepositories(root)).repositories.find((repository) => repository.path === ".");
+  if (!discovered) throw new Error(`Not a git repository root: ${repositoryPath}. Run summarize at a repository's top level.`);
+  let pack;
+  try {
+    pack = await loadGovernancePack(root, PACK_PATH, nodeFileSystem);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.startsWith("Governance pack not found")) throw error;
+  }
+  let assessment;
+  let evaluated = [];
+  if (pack) {
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem, []);
+    const result = await runGovernanceCommand({ snapshot, governancePack: pack, json: true });
+    evaluated = result.evaluation.controls;
+    const brief = (violation) => ({ id: violation.controlId, severity: violation.severity, message: oneLine2(violation.message, 200) });
+    assessment = {
+      decision: result.evaluation.decision.status,
+      ...result.context.analysisStatus ? { analysisStatus: result.context.analysisStatus } : {},
+      blocking: result.evaluation.decision.blockingViolations.map(brief),
+      conditions: result.evaluation.decision.warnings.map(brief)
+    };
+  }
+  const controls = (pack?.controls ?? []).map((control) => {
+    const evaluation = evaluated.find((item) => item.controlId === control.id);
+    return {
+      id: control.id,
+      standard: control.standard,
+      severity: control.severity,
+      status: evaluation?.status ?? "UNEVALUATED",
+      missingEvidence: evaluation?.missingEvidence ?? []
+    };
+  });
+  const findings = pack?.findings ?? [];
+  const bySeverity = { P0: 0, P1: 0, P2: 0, P3: 0 };
+  const open2 = findings.filter((finding) => finding.status !== "RESOLVED").sort((a, b) => severityRank4[a.severity] - severityRank4[b.severity] || a.id.localeCompare(b.id));
+  for (const finding of open2) bySeverity[finding.severity] += 1;
+  const reports = await listReviewReports(root);
+  const reviews = lastReviews(reports, pack);
+  const areas = REVIEW_AREAS.map((area) => {
+    const standard = AREA_STANDARD[area];
+    const areaControls = controls.filter((control) => control.standard === standard);
+    const signal = areaSignal(area, discovered);
+    const lastReview = reviews.get(area);
+    return {
+      area,
+      standard,
+      controls: areaControls.length,
+      controlsNotPassing: areaControls.filter((control) => control.status !== "PASS").length,
+      ...lastReview ? { lastReview } : {},
+      openFindings: open2.filter((finding) => findingArea(finding) === area).length,
+      ...signal ? { signal } : {},
+      possibleGap: Boolean(signal) && areaControls.length === 0
+    };
+  });
+  return {
+    generatedOn: now.toISOString().slice(0, 10),
+    repository: {
+      path: path8.basename(root),
+      ...discovered.git.branch ? { branch: discovered.git.branch } : {},
+      ...discovered.git.head ? { head: discovered.git.head } : {},
+      ...discovered.git.uncommittedChanges !== void 0 ? { uncommittedChanges: discovered.git.uncommittedChanges } : {}
+    },
+    ...pack ? {
+      pack: {
+        project: pack.project.id,
+        change: pack.change.id,
+        standards: pack.standards.length,
+        controls: pack.controls.length,
+        evidence: pack.evidence.length,
+        findings: findings.length
+      }
+    } : {},
+    ...assessment ? { assessment } : {},
+    controls,
+    findings: {
+      bySeverity,
+      total: findings.length,
+      open: open2.map((finding) => ({
+        id: finding.id,
+        severity: finding.severity,
+        status: finding.status,
+        ...finding.source_location ? { location: `${finding.source_location.file}${finding.source_location.start_line ? `:${finding.source_location.start_line}` : ""}` } : {},
+        message: oneLine2(finding.message, 200)
+      }))
+    },
+    areas,
+    reviewReports: reports
+  };
+}
+function formatSummaryMarkdown(summary) {
+  const { repository, pack, assessment } = summary;
+  const lines = [
+    `# Governance status: ${repository.path}`,
+    "",
+    `Generated ${summary.generatedOn} by \`governance summarize\`. Everything in this part is computed from the repository, its governance pack and its saved review reports; none of it is estimated. A "Suggestions" section after it, if present, is written by an AI and is separate.`,
+    "",
+    "## Snapshot",
+    "",
+    "| | |",
+    "|---|---|",
+    `| Commit | ${repository.head ? repository.head.slice(0, 7) : "unknown"} on ${repository.branch ?? "unknown branch"} |`,
+    `| Uncommitted changes | ${repository.uncommittedChanges ?? "unknown"} (not counting .governance/) |`,
+    `| Governance pack | ${pack ? `${pack.project}, change ${pack.change}: ${pack.controls} controls, ${pack.evidence} evidence records, ${pack.findings} findings` : "**none** (run /engineering-governance:setup)"} |`,
+    `| Decision | ${assessment ? `**${assessment.decision.replace(/_/g, " ")}**` : "not assessed: no pack"} |`,
+    `| Analysis status | ${assessment?.analysisStatus ?? "not run"} |`,
+    ""
+  ];
+  if (assessment) {
+    lines.push("## Decision", "");
+    if (assessment.blocking.length === 0) lines.push("No blocking violations.", "");
+    else lines.push(`${assessment.blocking.length} blocking:`, "", ...assessment.blocking.map((item) => `- **${item.severity}** \`${item.id}\`: ${oneLine2(item.message)}`), "");
+    if (assessment.conditions.length > 0) {
+      lines.push(`${assessment.conditions.length} condition${assessment.conditions.length === 1 ? "" : "s"}:`, "", ...assessment.conditions.map((item) => `- **${item.severity}** \`${item.id}\`: ${oneLine2(item.message)}`), "");
+    }
+  }
+  lines.push("## Controls", "");
+  if (summary.controls.length === 0) lines.push("None defined.", "");
+  else {
+    lines.push("| Control | Standard | Severity | Status | Missing evidence |", "|---|---|---|---|---|");
+    for (const control of summary.controls) {
+      lines.push(`| ${cell2(control.id)} | ${cell2(control.standard)} | ${control.severity} | ${control.status} | ${cell2(control.missingEvidence.join(", ") || "none")} |`);
+    }
+    lines.push("");
+  }
+  const counts = summary.findings.bySeverity;
+  lines.push("## Findings", "", `${summary.findings.open.length} open of ${summary.findings.total} (P0: ${counts.P0}, P1: ${counts.P1}, P2: ${counts.P2}, P3: ${counts.P3}).`, "");
+  if (summary.findings.open.length > 0) {
+    lines.push("| Finding | Severity | Status | Where | Summary |", "|---|---|---|---|---|");
+    for (const finding of summary.findings.open) {
+      lines.push(`| ${cell2(finding.id)} | ${finding.severity} | ${finding.status} | ${cell2(finding.location ?? "")} | ${cell2(finding.message)} |`);
+    }
+    lines.push("");
+  }
+  lines.push(
+    "## Review coverage",
+    "",
+    'One row per review area. A control belongs to an area through its standard. A signal is something found in the repository that suggests the area matters; "possible gap" means that signal is present but the pack has no control for the area. It is a prompt to check, not a verdict.',
+    "",
+    "| Area | Standard | Controls (not passing) | Last review | Open findings | Repository signal |",
+    "|---|---|---|---|---|---|"
+  );
+  for (const area of summary.areas) {
+    const review = area.lastReview ? `${area.lastReview.date} (${cell2(area.lastReview.file)})` : "**not reviewed**";
+    const signal = area.signal ? `${area.signal}${area.possibleGap ? ", **possible gap: no controls**" : ""}` : "";
+    lines.push(`| ${area.area} | ${area.standard} | ${area.controls} (${area.controlsNotPassing}) | ${review} | ${area.openFindings} | ${signal} |`);
+  }
+  lines.push("");
+  const covered = summary.areas.filter((area) => area.lastReview);
+  if (covered.length > 0) {
+    lines.push("Coverage recorded by each review:", "", ...covered.map((area) => `- ${area.area}: ${area.lastReview.coverage ?? "no evidence record found in the pack for this report"}`), "");
+  }
+  const notReviewed = summary.areas.filter((area) => !area.lastReview).map((area) => area.area);
+  lines.push(
+    "## Not covered",
+    "",
+    notReviewed.length === 0 ? "Every area has at least one review." : `Not yet reviewed: ${notReviewed.join(", ")}.`,
+    "",
+    "A review reads a sample of an area, one run at a time, and an AI review can be wrong or miss things. This status does not show that the software is correct, secure or production-ready.",
+    ""
+  );
+  return lines.join("\n");
+}
+async function writeSummary(repositoryPath, summary) {
+  const root = path8.resolve(repositoryPath);
+  const markdown = `${formatSummaryMarkdown(summary)}
+`;
+  for (let attempt = 1; attempt <= 99; attempt += 1) {
+    const name = `summary-${summary.generatedOn}${attempt === 1 ? "" : `-${attempt}`}.md`;
+    const relative = `${REPORTS_DIRECTORY}/${name}`;
+    try {
+      await createNewFile(root, relative, markdown);
+      return relative;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("already exists")) throw error;
+    }
+  }
+  throw new Error("Too many summaries for one day; remove old ones.");
 }
 
 // src/git-scope.ts
@@ -14411,7 +14659,7 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
 }
 
 // src/index.ts
-var VERSION = "0.4.0";
+var VERSION = "0.5.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 function usage() {
   return [
@@ -14423,6 +14671,7 @@ function usage() {
     "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
+    "  governance summarize <repository> [--json] [--write]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -14432,6 +14681,7 @@ function usage() {
     "  validate  Validate the governance pack, architecture profile and/or project registry; no analysis.",
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
+    "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -14470,7 +14720,7 @@ function parseCliArguments(argv) {
     return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}
 
 ${usage()}`);
@@ -14486,6 +14736,7 @@ ${usage()}`);
   let baseRef;
   let runTools = false;
   let json = false;
+  let write = false;
   let format;
   let repositoryProvided = false;
   const initOptions = {};
@@ -14493,6 +14744,11 @@ ${usage()}`);
     const argument = rest[index];
     if (argument === "--json") {
       json = true;
+      continue;
+    }
+    if (argument === "--write") {
+      if (rawCommand !== "summarize") throw new Error("--write is only supported by the summarize command.");
+      write = true;
       continue;
     }
     if (argument === "--run-tools") {
@@ -14543,7 +14799,7 @@ ${usage()}`);
     repositoryProvided = true;
   }
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
-  if (rawCommand === "init" || rawCommand === "discover") {
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize") {
     const unsupported = [
       profilePath && "--profile",
       baseRef && "--base",
@@ -14555,12 +14811,12 @@ ${usage()}`);
       rawCommand === "init" && json && "--json",
       format && "--format"
     ].filter(Boolean);
-    if (rawCommand === "discover" && packExplicit) unsupported.unshift("--pack");
+    if ((rawCommand === "discover" || rawCommand === "summarize") && packExplicit) unsupported.unshift("--pack");
     if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
   }
   return {
     command: rawCommand,
-    repositoryPath: path8.resolve(repositoryPath),
+    repositoryPath: path9.resolve(repositoryPath),
     packPath,
     packExplicit,
     ...registryPath ? { registryPath } : {},
@@ -14572,6 +14828,7 @@ ${usage()}`);
     runTools,
     json,
     ...format ? { format } : {},
+    ...write ? { write: true } : {},
     ...rawCommand === "init" ? { init: initOptions } : {}
   };
 }
@@ -14595,6 +14852,18 @@ async function runCli(argv) {
     return 0;
   }
   try {
+    if (args.command === "summarize") {
+      const summary = await summarizeRepository(args.repositoryPath);
+      if (args.write) {
+        const written = await writeSummary(args.repositoryPath, summary);
+        process.stdout.write(`Wrote ${written}
+`);
+      } else {
+        process.stdout.write(`${args.json ? JSON.stringify(summary, null, 2) : formatSummaryMarkdown(summary)}
+`);
+      }
+      return 0;
+    }
     if (args.command === "discover") {
       const result2 = await discoverRepositories(args.repositoryPath);
       process.stdout.write(`${args.json ? JSON.stringify(result2, null, 2) : formatDiscovery(result2)}
@@ -14690,7 +14959,7 @@ async function runCli(argv) {
     return 3;
   }
 }
-var entrypoint = process.argv[1] ? pathToFileURL(path8.resolve(process.argv[1])).href : void 0;
+var entrypoint = process.argv[1] ? pathToFileURL(path9.resolve(process.argv[1])).href : void 0;
 if (entrypoint === import.meta.url) {
   process.exitCode = await runCli(process.argv.slice(2));
 }

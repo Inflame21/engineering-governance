@@ -16,6 +16,7 @@ import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.j
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
 import { discoverRepositories, formatDiscovery } from "./discover.js";
+import { formatSummaryMarkdown, summarizeRepository, writeSummary } from "./summary.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope } from "./git-scope.js";
 
@@ -25,11 +26,11 @@ export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -41,6 +42,8 @@ interface ParsedArguments {
   baseRef?: string;
   runTools: boolean;
   json: boolean;
+  /** summarize only: save the summary under .governance/reports/. */
+  write?: boolean;
   format?: "markdown" | "json";
   /** init only: values for the generated pack's project record. */
   init?: { id?: string; name?: string; repository?: string; environment?: string };
@@ -56,6 +59,7 @@ function usage(): string {
     "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
+    "  governance summarize <repository> [--json] [--write]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -65,6 +69,7 @@ function usage(): string {
     "  validate  Validate the governance pack, architecture profile and/or project registry; no analysis.",
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
+    "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -105,7 +110,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -120,6 +125,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let baseRef: string | undefined;
   let runTools = false;
   let json = false;
+  let write = false;
   let format: "markdown" | "json" | undefined;
   let repositoryProvided = false;
   const initOptions: NonNullable<ParsedArguments["init"]> = {};
@@ -128,6 +134,11 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     const argument = rest[index]!;
     if (argument === "--json") {
       json = true;
+      continue;
+    }
+    if (argument === "--write") {
+      if (rawCommand !== "summarize") throw new Error("--write is only supported by the summarize command.");
+      write = true;
       continue;
     }
     if (argument === "--run-tools") {
@@ -179,12 +190,12 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
-  if (rawCommand === "init" || rawCommand === "discover") {
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize") {
     const unsupported = [
       profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
       authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", rawCommand === "init" && json && "--json", format && "--format",
     ].filter(Boolean);
-    if (rawCommand === "discover" && packExplicit) unsupported.unshift("--pack");
+    if ((rawCommand === "discover" || rawCommand === "summarize") && packExplicit) unsupported.unshift("--pack");
     if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
   }
 
@@ -202,6 +213,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     runTools,
     json,
     ...(format ? { format } : {}),
+    ...(write ? { write: true } : {}),
     ...(rawCommand === "init" ? { init: initOptions } : {}),
   };
 }
@@ -225,6 +237,19 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   try {
+    if (args.command === "summarize") {
+      const summary = await summarizeRepository(args.repositoryPath);
+      if (args.write) {
+        const written = await writeSummary(args.repositoryPath, summary);
+        process.stdout.write(`Wrote ${written}
+`);
+      } else {
+        process.stdout.write(`${args.json ? JSON.stringify(summary, null, 2) : formatSummaryMarkdown(summary)}
+`);
+      }
+      return 0;
+    }
+
     if (args.command === "discover") {
       const result = await discoverRepositories(args.repositoryPath);
       process.stdout.write(`${args.json ? JSON.stringify(result, null, 2) : formatDiscovery(result)}\n`);

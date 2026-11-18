@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { REVIEW_AREAS } from "../src/summary.js";
 
 const run = promisify(execFile);
 const cliDirectory = fileURLToPath(new URL("..", import.meta.url));
@@ -173,11 +174,11 @@ describe("plugin licensing", () => {
 });
 
 describe("plugin commands", () => {
-  const COMMANDS = ["analyze", "check", "init", "report", "review", "setup", "validate"];
+  const COMMANDS = ["analyze", "check", "init", "report", "review", "setup", "summary", "validate"];
   // setup and review first run discovery; every other command runs its own CLI command.
-  const INVOCATION: Record<string, string> = { setup: "discover . --json", review: "discover . --json" };
+  const INVOCATION: Record<string, string> = { setup: "discover . --json", review: "discover . --json", summary: "discover . --json" };
 
-  it("provides exactly the seven commands", async () => {
+  it("provides exactly the eight commands", async () => {
     expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual(COMMANDS);
   });
 
@@ -193,6 +194,43 @@ describe("plugin commands", () => {
     expect(text).toContain('echo "[governance exit code: $?]"');
     // The instructions must forbid altering or inventing evidence to change an outcome.
     expect(text).toMatch(/Do not (change|edit|add)|Never overwrite/);
+  });
+});
+
+describe("summary command", () => {
+  const skill = async () => normalize(await readFile(path.join(pluginDirectory, "skills", "summary", "SKILL.md"), "utf8"));
+
+  it("keeps the CLI's facts apart from the AI's suggestions", async () => {
+    const text = await skill();
+    expect(text).toContain("The factual part is not yours to change");
+    expect(text).toContain("## Suggestions (AI-written)");
+    expect(text).toContain("Ground every suggestion");
+    expect(text).toContain("summarize <repository> --write");
+    expect(text).toContain("Never describe a repository as production-ready");
+  });
+
+  it("uses the same review areas as the review command, so a summary and a review cannot disagree", async () => {
+    const areas = JSON.parse(await readFile(path.join(pluginDirectory, "templates", "review-areas.json"), "utf8")) as { areas: Record<string, unknown> };
+    expect([...REVIEW_AREAS].sort()).toEqual(Object.keys(areas.areas).sort());
+  });
+
+  it("works from the standalone bundle: --write creates a dated file that is never overwritten", async () => {
+    const scratch = await mkdtemp(path.join(os.tmpdir(), "governance-summary-bundle-"));
+    try {
+      const bundle = path.join(scratch, "governance.mjs");
+      await copyFile(committedBundle, bundle);
+      const repo = path.join(scratch, "repo");
+      await mkdir(repo);
+      await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
+
+      const first = await node(bundle, ["summarize", ".", "--write"], repo);
+      expect(first.code).toBe(0);
+      expect(first.stdout).toMatch(/^Wrote \.governance\/reports\/summary-\d{4}-\d{2}-\d{2}\.md/);
+      const second = await node(bundle, ["summarize", ".", "--write"], repo);
+      expect(second.stdout).toMatch(/summary-\d{4}-\d{2}-\d{2}-2\.md/);
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
+    }
   });
 });
 
