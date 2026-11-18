@@ -7,7 +7,7 @@ A project does not copy this repository. It calls a reusable workflow, pinned to
 | File in your repository | Source | Purpose |
 |---|---|---|
 | `.github/workflows/governance.yml` | [github/governance-check.yml](github/governance-check.yml) | Calls the reusable workflow at a pinned version. |
-| `.governance/governance-pack.json` | [model/example-governance-pack.json](../model/example-governance-pack.json) | The controls, evidence, risks and exceptions for your project. |
+| `.governance/governance-pack.json` | created by `governance init` or the plugin's `setup` command (needs a baseline from commit `54f4095` or later for `init`) | The controls, evidence, risks and exceptions for your project. `init` writes a pack that asserts nothing, so the check is `NO-GO` until you add real controls and evidence. [model/example-governance-pack.json](../model/example-governance-pack.json) shows the shape for a fictional change; do not copy it into a real project, because its evidence is declared, not real. |
 | `.governance/project.json` | [model/example-project-registration.json](../model/example-project-registration.json) | Your project registration: owners, criticality, data classification, profiles. |
 | `.github/pull_request_template.md` | [github/pull_request_template.md](github/pull_request_template.md) | An evidence section for every pull request. |
 

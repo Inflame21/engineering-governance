@@ -119,6 +119,14 @@ node dist/cli/src/index.js init <repository> [--id <slug>] [--name <text>] [--re
 - The generated pack is validated with the CLI's own loader before anything is written, so `init` never writes a pack that `validate` would reject.
 - `model/example-governance-pack.json` is a worked example for a fictional change. Do not copy it into a real project: its evidence is declared, not real, and the engine takes declared evidence at face value.
 
+## Finding repositories: `discover`
+
+```bash
+node dist/cli/src/index.js discover <folder> [--json]
+```
+
+`discover` finds the git repositories in a folder and reports facts about each: branch, head commit, uncommitted changes, origin (with any credentials removed), package manager, `package.json` scripts, the single-line `run:` commands of CI workflows, guidance documents, and whether a pack already exists. It is read-only: it runs only `git` with fixed arguments, never follows symlinks, never enters `node_modules` or a repository it has already found, searches three levels deep, and executes nothing the repositories define. It exits `0` even when it finds none. The plugin's `setup` and `review` commands use it so repository facts come from code.
+
 ## Exit codes
 
 | Code | Meaning |
