@@ -7,8 +7,12 @@ import { evidenceStatusForResult } from "../../engine/src/evidence-policy.js";
 import type { RepositorySnapshot, RepositoryAdapterResult } from "./types.js";
 import { fingerprintRepositorySnapshot } from "./fingerprint.js";
 import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
+import { runGitleaksAdapter } from "./gitleaks.js";
+import { runOsvAdapter } from "./osv.js";
+import { runSemgrepAdapter } from "./semgrep.js";
+import { basename, compactOutput, directoryname, stableId } from "./verification-shared.js";
 
-export type VerificationToolName = "typescript" | "python3" | "python";
+export type VerificationToolName = "typescript" | "python3" | "python" | "osv-scanner" | "gitleaks" | "semgrep";
 /** What a verification tool reported. The engine's policy maps it to an evidence status. */
 export type VerificationToolStatus = ToolResultStatus;
 
@@ -63,28 +67,6 @@ export interface VerificationReport {
 const MAX_TYPESCRIPT_PROJECTS = 20;
 const MAX_PYTHON_FILES = 500;
 const TOOL_TIMEOUT_MS = 60_000;
-
-function stableId(value: string): string {
-  let hash = 2166136261;
-  for (const character of value) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0").toUpperCase();
-}
-
-function basename(file: string): string {
-  return file.split("/").at(-1) ?? file;
-}
-
-function directoryname(file: string): string {
-  const index = file.lastIndexOf("/");
-  return index < 0 ? "." : file.slice(0, index) || ".";
-}
-
-function compactOutput(stdout: string, stderr: string): string {
-  return [stdout.trim(), stderr.trim()].filter(Boolean).join("\n").slice(0, 4_000);
-}
 
 function typescriptFindings(output: string, evidenceId: string): GovernanceFinding[] {
   const findings: GovernanceFinding[] = [];
@@ -510,6 +492,17 @@ export async function runVerificationAdapters(
         }
       }
     }
+  }
+
+  // Scanners (ADR-0001): dependency vulnerabilities, secrets, static analysis. Each returns nothing
+  // when it does not apply to the repository, and never a pass when it could not run.
+  for (const runScanner of [runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
+    const scan = await runScanner(snapshot, runner, snapshotFingerprint);
+    if (!scan) continue;
+    results.push(scan.result);
+    evidence.push(...scan.evidence);
+    findings.push(...scan.findings);
+    adapterResults.push(scan.adapterResult);
   }
 
   const status = adapterResults.some((result) => result.executionStatus === "PARTIAL" || result.executionStatus === "FAILED")

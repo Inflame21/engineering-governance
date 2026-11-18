@@ -17,6 +17,11 @@ describe("node verification tool runner", () => {
     ).rejects.toThrow("not allowlisted");
   });
 
+  it("allowlists osv-scanner and reports availability as a boolean whether or not it is installed", async () => {
+    await expect(nodeVerificationToolRunner.isAvailable("osv-scanner", process.cwd(), "."))
+      .resolves.toEqual(expect.any(Boolean));
+  });
+
   it("rejects a lexical working-directory traversal before execution", async () => {
     await expect(
       nodeVerificationToolRunner.run(

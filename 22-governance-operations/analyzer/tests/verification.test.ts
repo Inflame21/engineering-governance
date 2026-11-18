@@ -40,7 +40,14 @@ describe("opt-in verification adapters", () => {
       results: [{ exitCode: 0, stdout: JSON.stringify({ errors: [] }), stderr: "" }],
     }));
 
-    expect(report.status).toBe("COMPLETE");
+    // The Python check passed. The run is PARTIAL only because the secret scan (not installed in this
+    // fake runner) could not run, and Semgrep has no rule set.
+    expect(report.status).toBe("PARTIAL");
+    expect(report.results.map((result) => [result.tool, result.status])).toEqual([
+      ["python", "PASS"],
+      ["gitleaks", "UNSUPPORTED"],
+      ["semgrep", "UNSUPPORTED"],
+    ]);
     expect(report.results[0]).toMatchObject({ tool: "python", status: "PASS", evidenceId: "EVD-PYTHON-SYNTAX" });
     expect(report.evidence[0]?.status).toBe("VERIFIED");
     expect(report.evidence[0]?.result_status).toBe("PASS");
@@ -238,16 +245,17 @@ describe("opt-in verification adapters", () => {
     expect(report.results[0]?.limitations.join(" ")).toContain("other.py");
   });
 
-  it("does not invoke unrelated tools for repositories without matching source files", async () => {
+  it("does not invoke language tools for repositories without matching source files", async () => {
     const report = await runVerificationAdapters({
       rootPath: "/repo",
       changedFiles: [],
       files: ["README.md"],
     }, runner());
 
-    expect(report.status).toBe("COMPLETE");
-    expect(report.results).toEqual([]);
-    expect(report.adapterResults).toEqual([]);
+    // Only the secret scan applies to any repository. It is not installed here, so it is UNSUPPORTED
+    // and the run is PARTIAL: a missing scanner is never a pass.
+    expect(report.results.map((result) => [result.tool, result.status])).toEqual([["gitleaks", "UNSUPPORTED"]]);
+    expect(report.status).toBe("PARTIAL");
   });
 });
 

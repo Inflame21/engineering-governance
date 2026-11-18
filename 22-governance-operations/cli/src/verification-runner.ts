@@ -9,8 +9,17 @@ import type {
 
 const EXECUTION_BUFFER_BYTES = 2_000_000;
 
+const ALLOWLISTED_TOOLS: ReadonlySet<string> = new Set<VerificationToolName>([
+  "typescript",
+  "python3",
+  "python",
+  "osv-scanner",
+  "gitleaks",
+  "semgrep",
+]);
+
 function assertAllowlistedTool(tool: string): asserts tool is VerificationToolName {
-  if (tool !== "typescript" && tool !== "python3" && tool !== "python") {
+  if (!ALLOWLISTED_TOOLS.has(tool)) {
     throw new Error(`Verification tool is not allowlisted: ${tool}`);
   }
 }
@@ -102,7 +111,8 @@ async function findTypeScriptCompiler(rootPath: string, workingDirectory: string
 }
 
 /**
- * Executes only the allowlisted TypeScript compiler and Python interpreter.
+ * Executes only the allowlisted TypeScript compiler, Python interpreter and the OSV-Scanner,
+ * Gitleaks and Semgrep scanners.
  * It never invokes a shell or installs dependencies, and callers must opt in
  * before passing this runner to governance commands.
  */
