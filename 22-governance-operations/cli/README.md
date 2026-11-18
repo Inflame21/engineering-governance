@@ -103,13 +103,27 @@ With `--run-tools`, each local check ends in one of seven states. The engine map
 | `UNVERIFIED` | Ran, but could not establish the property, for example coverage was incomplete. | `UNVERIFIED` |
 | `ERROR` | The tool failed, timed out or returned output that cannot be trusted. | `UNVERIFIED` |
 
-Evidence produced by a check records its result in `result_status`. A governance pack whose evidence claims a stronger status than its recorded result allows (for example `VERIFIED` for a `SKIPPED` check) is rejected as invalid. Results that never ran produce no evidence at all, and the report shows how many results ended in each state (`Results: 1 PASS, 1 UNSUPPORTED`). No current check produces `WARN`; the state exists so a future adapter can report one without a policy change.
+Evidence produced by a check records its result in `result_status`. A governance pack whose evidence claims a stronger status than its recorded result allows (for example `VERIFIED` for a `SKIPPED` check) is rejected as invalid. Results that never ran produce no evidence at all, and the report shows how many results ended in each state (`Results: 1 PASS, 1 UNSUPPORTED`). The dependency scan (OSV-Scanner) and static analysis (Semgrep) can produce `WARN` (ADR-0001): they end in `WARN` when they ran, found issues, and none is P1. A `WARN` result is partial evidence, and the engine does not accept partial evidence as proof of a control (DEBT-GOV-009), so no adapter links its evidence to a control yet.
+
+## Starting a project: `init`
+
+```bash
+node dist/cli/src/index.js init <repository> [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>] [--pack <relative-path>]
+```
+
+`init` creates `.governance/governance-pack.json` (or the `--pack` path) with the project record filled in and **nothing else**: no controls, evidence, risks, decisions, exceptions or standards. A pack that asserts nothing cannot claim anything the project has not shown, so `check` on it returns `NO-GO` (`SCOPE:NO_APPLICABLE_CONTROLS`: no control applied, nothing was evaluated) until the project owner adds real controls and evidence.
+
+- `--id` defaults to a slug of the directory name (lowercase letters, digits, `.`, `_`, `-`); `--name` to the directory name; `--repo` to `UNSET`; `--environment` to `development`. Fill in `project.repository` and the `change` by hand.
+- It never overwrites: an existing file, or a symlink at the target, is an error (exit `3`) and is left untouched. There is no `--force`.
+- The write is confined to the repository root. A path that escapes it, or a parent directory that is a symlink or not a directory, is refused. Missing parent directories are created.
+- The generated pack is validated with the CLI's own loader before anything is written, so `init` never writes a pack that `validate` would reject.
+- `model/example-governance-pack.json` is a worked example for a fictional change. Do not copy it into a real project: its evidence is declared, not real, and the engine takes declared evidence at face value.
 
 ## Exit codes
 
 | Code | Meaning |
 |---:|---|
-| `0` | `GO` or complete analysis |
+| `0` | `GO`, complete analysis, or a pack created by `init` |
 | `1` | `GO WITH CONDITIONS` or partial analysis |
 | `2` | `NO-GO` |
 | `3` | Invalid arguments, invalid governance pack, or execution error |
@@ -123,6 +137,6 @@ A partial or failed analysis is surfaced explicitly. A partial analysis cannot p
 - Governance packs are validated against the canonical JSON Schema and cross-reference invariants before evaluation.
 - Generated evidence records include a generation timestamp and snapshot fingerprint; executed local checks also record tool version, command, exit code, and duration when available. Set `freshness_status` to `current`, `stale`, `expired`, or `unknown` to record freshness explicitly; legacy `freshness` text is preserved for compatibility. Set `max_evidence_age_seconds` to require a valid, non-future timestamp within a defined age window.
 - Language/framework detection is heuristic. Architecture dependency extraction currently supports relative TypeScript/JavaScript imports and Python imports; other languages are reported as unsupported rather than treated as verified. Alias imports, dynamic resolution, and full AST/type-aware analysis are not implemented yet. It is not a substitute for compiler, test, or security-tool verification.
-- `--run-tools` is opt-in. It runs only the local TypeScript compiler and Python syntax parser, never package scripts or dependency installation. Use it only for repositories you trust, or inside a sandbox; a local compiler package is still executable code.
+- `--run-tools` is opt-in. It runs the local TypeScript compiler, the Python syntax parser and, from `PATH`, the scanners `osv-scanner` (when lockfiles are present), `gitleaks` (any repository) and `semgrep` (when source code is present), never package scripts or dependency installation. Use it only for repositories you trust, or inside a sandbox; a local compiler package is still executable code. A scanner that is not installed is `UNSUPPORTED` and makes the analysis `PARTIAL`; it never passes. `osv-scanner` looks up lockfile package names and versions on the public osv.dev service, so it needs network access (without it the result is `ERROR`). `gitleaks` is read for its exit code only, so a secret can never reach a report, and its findings carry no location. `semgrep` runs only the reviewed rules in `.governance/semgrep/` with metrics and the version check off, never registry rules; without that directory it is `UNSUPPORTED`. The runner does not forward proxy variables.
 - With `--base`, the CLI verifies the Git change scope and compares it with the governance pack's declared `change.files`; a mismatch blocks approval. Without `--base`, change scope is reported as `NOT_REQUESTED` and the decision remains conditional rather than implying a complete change review.
 - Nested manifests produce package-scoped facts, and the architecture graph records cross-package imports for supported TypeScript/JavaScript and Python dependency edges. A separate typed system graph infers service, API endpoint, database-driver, and event relationships from manifests and static source patterns. Dynamic route/event names, runtime topology, and components without recognized package roots may remain unassigned; treat these relationships as evidence-backed inferences, not runtime proof.

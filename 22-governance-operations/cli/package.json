@@ -9,13 +9,14 @@
     "test:e2e": "vitest run --exclude \"dist/**\" tests/end-to-end",
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/cli/src/index.js",
-    "governance": "node dist/cli/src/index.js"
+    "governance": "node dist/cli/src/index.js",
+    "bundle:plugin": "node scripts/bundle-plugin.mjs"
   },
   "devDependencies": {
-    "@types/node": "^22.20.5",
+    "@types/node": "^22.15.30",
+    "esbuild": "0.28.2",
     "typescript": "^5.9.2",
-    "vitest": "^5.0.4",
-    "@types/node": "^22.15.30"
+    "vitest": "^5.0.4"
   },
   "dependencies": {
     "ajv": "^8.17.1",

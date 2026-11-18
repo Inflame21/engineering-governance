@@ -15,6 +15,7 @@ import {
 import { runRepositoryAnalysisCommand, runGovernanceCommand } from "./commands.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { nodeVerificationToolRunner } from "./verification-runner.js";
+import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope } from "./git-scope.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
@@ -23,11 +24,11 @@ export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -40,6 +41,8 @@ interface ParsedArguments {
   runTools: boolean;
   json: boolean;
   format?: "markdown" | "json";
+  /** init only: values for the generated pack's project record. */
+  init?: { id?: string; name?: string; repository?: string; environment?: string };
 }
 
 function usage(): string {
@@ -51,6 +54,7 @@ function usage(): string {
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
     "  governance report <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
     "",
@@ -59,6 +63,7 @@ function usage(): string {
     "  validate  Validate the governance pack, architecture profile and/or project registry; no analysis.",
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
+    "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
     "Options:",
     `  --pack    Governance pack JSON path relative to the repository root (default: ${DEFAULT_PACK_PATH})`,
@@ -73,14 +78,15 @@ function usage(): string {
     "  --project  Registered project id for check/report with --registry (required when the registry holds several projects).",
     "  --profile Apply and verify an architecture profile JSON file relative to the repository root.",
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
-    "  --run-tools Execute installed local TypeScript/Python checks (never installs dependencies).",
+    "  --run-tools Execute installed local checks: the TypeScript compiler, Python syntax, and the osv-scanner, gitleaks and semgrep scanners (never installs anything).",
+    "  --id, --name, --repo, --environment  init only: the generated pack's project id (lowercase slug), name, repository and environment.",
     "  --json    Emit machine-readable JSON.",
     "  --format  Report format for the report command: markdown (default) or json.",
     "  -h, --help",
     "  -v, --version",
     "",
     "Exit codes:",
-    "  0  GO / complete analysis",
+    "  0  GO / complete analysis / pack created by init",
     "  1  GO WITH CONDITIONS / incomplete analysis",
     "  2  NO-GO",
     "  3  Invalid arguments or execution error",
@@ -96,7 +102,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -113,6 +119,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let json = false;
   let format: "markdown" | "json" | undefined;
   let repositoryProvided = false;
+  const initOptions: NonNullable<ParsedArguments["init"]> = {};
 
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]!;
@@ -151,6 +158,17 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       index += 1;
       continue;
     }
+    if (argument === "--id" || argument === "--name" || argument === "--repo" || argument === "--environment") {
+      const value = rest[index + 1];
+      if (rawCommand !== "init") throw new Error(`${argument} is only supported by the init command.`);
+      if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
+      if (argument === "--id") initOptions.id = value;
+      else if (argument === "--name") initOptions.name = value;
+      else if (argument === "--repo") initOptions.repository = value;
+      else initOptions.environment = value;
+      index += 1;
+      continue;
+    }
     if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
     if (repositoryProvided) throw new Error(`Unexpected argument: ${argument}`);
     repositoryPath = argument;
@@ -158,6 +176,13 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
+  if (rawCommand === "init") {
+    const unsupported = [
+      profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
+      authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", json && "--json", format && "--format",
+    ].filter(Boolean);
+    if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the init command.`);
+  }
 
   return {
     command: rawCommand,
@@ -173,6 +198,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     runTools,
     json,
     ...(format ? { format } : {}),
+    ...(rawCommand === "init" ? { init: initOptions } : {}),
   };
 }
 
@@ -195,6 +221,17 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   try {
+    if (args.command === "init") {
+      const result = await initializeGovernancePack({
+        repositoryPath: args.repositoryPath,
+        packPath: args.packPath,
+        ...args.init,
+      });
+      process.stdout.write(`${formatInitResult(result)}
+`);
+      return 0;
+    }
+
     if (args.command === "validate") {
       // Validate what was named: the pack by default, or only the registry when --registry is given alone.
       const validated: string[] = [];

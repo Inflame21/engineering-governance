@@ -9,6 +9,8 @@ on:
       - ".github/workflows/governance-check.yml"
       - ".github/scripts/**"
       - ".github/fixtures/**"
+      - "plugins/**"
+      - ".claude-plugin/**"
   pull_request:
     paths:
       - "22-governance-operations/**"
@@ -16,6 +18,8 @@ on:
       - ".github/workflows/governance-check.yml"
       - ".github/scripts/**"
       - ".github/fixtures/**"
+      - "plugins/**"
+      - ".claude-plugin/**"
   workflow_dispatch:
 
 permissions:
