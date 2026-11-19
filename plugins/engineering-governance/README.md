@@ -2,7 +2,7 @@
 
 Check a repository's structure and assess it against the Engineering Governance Framework from inside Claude Code. The plugin bundles the governance CLI, so nothing else has to be built or cloned.
 
-**Status: version 0.6.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
+**Status: version 0.7.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
 
 ## Requirements
 
@@ -82,3 +82,9 @@ npm run bundle:plugin
 ```
 
 The CLI test suite fails if the committed bundle is out of date, and checks that it runs standalone from an empty directory. Keep `plugin.json`, `marketplace.json` and the CLI's `VERSION` in step; a test checks that too.
+
+**Bump the version whenever the plugin's behavior changes** (a new or changed command, skill text or CLI feature). Claude Code caches an installed plugin by its version, so a copy at the same version looks up to date and never receives the change, however many commits have landed. After a bump, users refresh the marketplace and update the plugin from `/plugin`.
+
+## What changed in 0.7.0
+
+Since 0.6.0: `governance history`, `diff`, `checkpoint` and `check --record` (a hash-chained assessment history with signed checkpoints); `exception request|approve|renew|expire|list` with GPG-signed approvals; technical debt and incident records that feed the decision and the reports; `governance architecture` (a reference of architecture styles, which one a repository resembles and what it could follow); Go support; scanner adapters checked against real tool output; and **`setup` now fills in the empty pack that `init` writes**, instead of skipping it.
