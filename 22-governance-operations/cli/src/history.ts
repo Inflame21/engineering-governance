@@ -60,7 +60,7 @@ export interface HistoryRecord {
 }
 
 /** Stable JSON: sorted keys, so the same data always hashes the same. */
-function canonical(value: unknown): string {
+export function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)

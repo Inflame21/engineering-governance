@@ -65,7 +65,12 @@
             "required": ["name"],
             "properties": {
               "name": { "type": "string", "minLength": 1 },
-              "handle": { "type": "string", "pattern": "^@?[A-Za-z0-9][A-Za-z0-9-]*$" }
+              "handle": { "type": "string", "pattern": "^@?[A-Za-z0-9][A-Za-z0-9-]*$" },
+              "key_fingerprint": {
+                "type": "string",
+                "description": "Full fingerprint of the GPG key this holder signs approvals with (40 or 64 hex characters, spaces allowed). Used to authenticate a signed approval.",
+                "pattern": "^([0-9A-Fa-f]{4} ?){10,16}$"
+              }
             },
             "additionalProperties": false
           }

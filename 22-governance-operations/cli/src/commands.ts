@@ -23,6 +23,8 @@ export interface AnalyzeCommandInput {
   controlCatalog?: ControlCatalog;
   /** Who may approve exceptions and accept risks. Only APPROVED roles with a named holder confer authority. */
   authorityPolicy?: AuthorityPolicy;
+  /** Ids of exceptions whose GPG-signed approval was verified. When given, unlisted approvals do not hold. */
+  verifiedApprovals?: string[];
 }
 
 export async function runGovernanceCommand(input: AnalyzeCommandInput) {
@@ -59,6 +61,7 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
     const approverAuthority = effectiveApproverAuthority(input.authorityPolicy);
     if (approverAuthority.length > 0) context.approverAuthority = approverAuthority;
   }
+  if (input.verifiedApprovals) context.verifiedApprovals = input.verifiedApprovals;
   // Controls the catalog marks NON_EXCEPTIONABLE (EXC-021 section 7) can never be waived by an exception.
   if (input.controlCatalog) {
     const nonExceptionable = nonExceptionableCatalogControls(input.controlCatalog);

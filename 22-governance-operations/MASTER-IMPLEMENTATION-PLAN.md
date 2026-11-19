@@ -488,7 +488,7 @@ The following is the initial task register. A task is complete only when impleme
 
 - [x] **OPS-01:** Persist assessment and decision history. (`check`/`report --record` appends to the hash-chained `.governance/history/assessments.jsonl`; `governance history` verifies it; limits in DEBT-GOV-017.)
 - [x] **OPS-02:** Track finding lifecycle and remediation evidence. (`governance history` derives each issue's first seen, resolved and reopened state; `governance diff <a> <b>` shows resolved and introduced issues and evidence that changed status.)
-- [ ] **OPS-03:** Implement exception approval, expiry, and renewal.
+- [x] **OPS-03:** Implement exception approval, expiry, and renewal. (`governance exception request|approve|renew|expire|list`; reports say "expiring in N days" within 14 days; `--sign` / `--verify-signatures` add GPG-signed approvals; limits in DEBT-GOV-018.)
 - [ ] **OPS-04:** Integrate debt and incident feedback.
 - [ ] **OPS-05:** Define retention, access control, and audit integrity.
 

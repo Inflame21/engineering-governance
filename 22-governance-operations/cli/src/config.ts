@@ -150,6 +150,8 @@ export function getRegisteredArchitectureProfile(id: string): ArchitectureProfil
 export interface ProjectContact {
   name: string;
   handle?: string;
+  /** GPG key fingerprint this holder signs approvals with (authority policy holders only). */
+  key_fingerprint?: string;
 }
 
 export interface ProjectRegistration {

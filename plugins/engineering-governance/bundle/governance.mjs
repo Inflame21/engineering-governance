@@ -3237,8 +3237,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path11) {
-      let input = path11;
+    function removeDotSegments(path12) {
+      let input = path12;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3312,11 +3312,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path11) {
-      if (path11 === "" || path11[0] === "/") {
-        return removeDotSegments(path11);
+    function removeDotSegmentsRelative(path12) {
+      if (path12 === "" || path12[0] === "/") {
+        return removeDotSegments(path12);
       }
-      const segments = path11.split("/");
+      const segments = path12.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3679,8 +3679,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path11 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
+        const path12 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path12 && path12 !== "/" ? path12 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -8055,7 +8055,7 @@ var require_dist = __commonJS({
 });
 
 // src/index.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import { pathToFileURL } from "node:url";
 
 // ../analyzer/src/architecture.ts
@@ -9662,6 +9662,11 @@ var governance_model_schema_default = {
         approved_at: {
           type: "string",
           format: "date-time"
+        },
+        approval_signature: {
+          type: "string",
+          description: "Repository-relative path of a detached, ASCII-armored GPG signature over the canonical approval payload. The CLI verifies it against the approver's registered key when asked to (check --verify-signatures).",
+          minLength: 1
         }
       },
       additionalProperties: false,
@@ -10448,7 +10453,12 @@ var authority_policy_schema_default = {
             required: ["name"],
             properties: {
               name: { type: "string", minLength: 1 },
-              handle: { type: "string", pattern: "^@?[A-Za-z0-9][A-Za-z0-9-]*$" }
+              handle: { type: "string", pattern: "^@?[A-Za-z0-9][A-Za-z0-9-]*$" },
+              key_fingerprint: {
+                type: "string",
+                description: "Full fingerprint of the GPG key this holder signs approvals with (40 or 64 hex characters, spaces allowed). Used to authenticate a signed approval.",
+                pattern: "^([0-9A-Fa-f]{4} ?){10,16}$"
+              }
             },
             additionalProperties: false
           }
@@ -10774,10 +10784,10 @@ var KNOWN_ARCHITECTURE_PROFILE_IDS = new Set(
 function formatSchemaErrors(errors) {
   return errors.map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`).join("; ");
 }
-async function loadGovernancePack(rootPath, path11, fs) {
-  const content = await fs.readTextFile(rootPath, path11);
+async function loadGovernancePack(rootPath, path12, fs) {
+  const content = await fs.readTextFile(rootPath, path12);
   if (content === void 0) {
-    throw new Error(`Governance pack not found: ${path11}`);
+    throw new Error(`Governance pack not found: ${path12}`);
   }
   let parsed;
   try {
@@ -10800,9 +10810,9 @@ async function loadGovernancePack(rootPath, path11, fs) {
   }
   return pack;
 }
-async function loadArchitectureProfile(rootPath, path11, fs) {
-  const content = await fs.readTextFile(rootPath, path11);
-  if (content === void 0) throw new Error(`Architecture profile not found: ${path11}`);
+async function loadArchitectureProfile(rootPath, path12, fs) {
+  const content = await fs.readTextFile(rootPath, path12);
+  if (content === void 0) throw new Error(`Architecture profile not found: ${path12}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10830,8 +10840,8 @@ function getRegisteredArchitectureProfile(id) {
   if (!profile) throw new Error(`Unknown architecture profile '${id}'`);
   return validateArchitectureProfileObject(structuredClone(profile));
 }
-async function loadProjectRegistry(rootPath, path11, fs) {
-  const normalized = path11.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+async function loadProjectRegistry(rootPath, path12, fs) {
+  const normalized = path12.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const files = normalized.endsWith(".json") ? [normalized] : (await fs.listFiles(rootPath)).map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${normalized}/`) && file.endsWith(".json")).sort();
   if (files.length === 0) {
     throw new Error(`No project registration records (*.json) found in ${normalized || "."}`);
@@ -10900,9 +10910,9 @@ function assertPackMatchesRegistration(pack, registration) {
   }
   if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
 }
-async function loadControlCatalog(rootPath, path11, fs) {
-  const content = await fs.readTextFile(rootPath, path11);
-  if (content === void 0) throw new Error(`Control catalog not found: ${path11}`);
+async function loadControlCatalog(rootPath, path12, fs) {
+  const content = await fs.readTextFile(rootPath, path12);
+  if (content === void 0) throw new Error(`Control catalog not found: ${path12}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10924,9 +10934,9 @@ async function loadControlCatalog(rootPath, path11, fs) {
   }
   return catalog;
 }
-async function loadAuthorityPolicy(rootPath, path11, fs) {
-  const content = await fs.readTextFile(rootPath, path11);
-  if (content === void 0) throw new Error(`Authority policy not found: ${path11}`);
+async function loadAuthorityPolicy(rootPath, path12, fs) {
+  const content = await fs.readTextFile(rootPath, path12);
+  if (content === void 0) throw new Error(`Authority policy not found: ${path12}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -12135,13 +12145,13 @@ function parseSemgrepOutput(stdout) {
     if (!isRecord2(entry) || !isRecord2(entry.extra) || !isRecord2(entry.start)) {
       throw new Error("Semgrep result entry is malformed.");
     }
-    const { check_id: checkId, path: path11 } = entry;
+    const { check_id: checkId, path: path12 } = entry;
     const { message, severity } = entry.extra;
     const { line } = entry.start;
-    if (typeof checkId !== "string" || typeof path11 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
+    if (typeof checkId !== "string" || typeof path12 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
       throw new Error("Semgrep result is missing check_id, path, line, message or severity.");
     }
-    return { checkId, path: path11, line, message, severity };
+    return { checkId, path: path12, line, message, severity };
   });
   return { matches, scanErrors: parsed.errors.length };
 }
@@ -12833,6 +12843,16 @@ function riskAcceptanceHolds(risk, context) {
   }
   return risk.severity === "P2" || risk.severity === "P3";
 }
+var EXPIRY_WARNING_DAYS = 14;
+function expiryCountdown(expiresAt, evaluatedAt) {
+  const days = daysUntil(expiresAt, evaluatedAt);
+  return days === void 0 || days > EXPIRY_WARNING_DAYS ? "" : ` (expiring in ${days} day${days === 1 ? "" : "s"})`;
+}
+function daysUntil(timestamp, evaluatedAt) {
+  const target = Date.parse(timestamp ?? "");
+  const now = Date.parse(evaluatedAt ?? "");
+  return Number.isNaN(target) || Number.isNaN(now) ? void 0 : Math.ceil((target - now) / 864e5);
+}
 function assessApprovedException(exception, pack, context) {
   if (exception.status !== "APPROVED") {
     return { valid: false, reason: "Exception is not approved." };
@@ -12892,6 +12912,13 @@ function assessApprovedException(exception, pack, context) {
       valid: false,
       controlSeverity: control.severity,
       reason: "P0 controls cannot be waived by an exception; they need the emergency governance process (EXC-021 section 8)."
+    };
+  }
+  if (context.verifiedApprovals && !context.verifiedApprovals.includes(exception.id)) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "The approval has no verified signature from the approver's registered key, so the approver is not authenticated."
     };
   }
   const authority = context.approverAuthority;
@@ -13008,7 +13035,7 @@ function deriveDecision(pack, evaluations, context = { signals: [] }) {
         status: "WARN",
         severity,
         decision: "GO_WITH_CONDITIONS",
-        message: assessment?.valid ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}.${assessment.role ? ` Approved under authority role ${assessment.role}; the approver's identity is declared in the governance pack, not authenticated.` : ""}` : `Exception ${exception.id} was not applied: ${assessment?.reason ?? "validity could not be established"}`,
+        message: assessment?.valid ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}${expiryCountdown(exception.expires_at, context.evaluatedAt)}.${assessment.role ? ` Approved under authority role ${assessment.role}; ${context.verifiedApprovals ? "the approver's signature was verified" : "the approver's identity is declared in the governance pack, not authenticated"}.` : ""}` : `Exception ${exception.id} was not applied: ${assessment?.reason ?? "validity could not be established"}`,
         missingEvidence: [],
         missingSignals: []
       });
@@ -13489,6 +13516,7 @@ async function runGovernanceCommand(input) {
     const approverAuthority = effectiveApproverAuthority(input.authorityPolicy);
     if (approverAuthority.length > 0) context.approverAuthority = approverAuthority;
   }
+  if (input.verifiedApprovals) context.verifiedApprovals = input.verifiedApprovals;
   if (input.controlCatalog) {
     const nonExceptionable = nonExceptionableCatalogControls(input.controlCatalog);
     if (nonExceptionable.length > 0) context.nonExceptionableControls = nonExceptionable;
@@ -14659,6 +14687,12 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
   }
 }
 
+// src/exceptions.ts
+import { spawn } from "node:child_process";
+import { mkdir as mkdir3, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path10 from "node:path";
+
 // src/history.ts
 import { createHash as createHash3 } from "node:crypto";
 import { appendFile, mkdir as mkdir2, readFile as readFile3 } from "node:fs/promises";
@@ -14831,6 +14865,198 @@ function formatDiff(d) {
   ].join("\n");
 }
 
+// src/exceptions.ts
+var APPROVALS_DIRECTORY = ".governance/approvals";
+function exceptionIn(pack, id) {
+  const found = (pack.exceptions ?? []).find((item) => item.id === id);
+  if (!found) throw new Error(`No exception ${id} in the governance pack.`);
+  return found;
+}
+function replaceException(pack, next) {
+  return { ...pack, exceptions: (pack.exceptions ?? []).map((item) => item.id === next.id ? next : item) };
+}
+function parseExpiry(value, now) {
+  if (!value) throw new Error("--expires is required (a date such as 2026-12-31, or a full timestamp).");
+  const text = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T23:59:59.000Z` : value;
+  const parsed = Date.parse(text);
+  if (Number.isNaN(parsed)) throw new Error(`--expires is not a valid date or timestamp: ${value}`);
+  if (parsed <= now.getTime()) throw new Error(`--expires ${value} is not in the future.`);
+  return new Date(parsed).toISOString();
+}
+function requestException(pack, input, now) {
+  if ((pack.exceptions ?? []).some((item) => item.id === input.id)) throw new Error(`Exception ${input.id} already exists; ids are never reused.`);
+  if (!pack.controls.some((control) => control.id === input.control)) throw new Error(`Control ${input.control} is not in the governance pack.`);
+  const record = {
+    id: input.id,
+    status: "REQUESTED",
+    control: input.control,
+    reason: input.reason,
+    project_id: pack.project.id,
+    change_id: pack.change.id,
+    requested_by: input.requestedBy,
+    requested_at: now.toISOString()
+  };
+  return { ...pack, exceptions: [...pack.exceptions ?? [], record] };
+}
+function approve(pack, existing, input, now) {
+  if (existing.requested_by?.trim().toLowerCase() === input.by.trim().toLowerCase()) {
+    throw new Error("The requester cannot approve their own exception (EXC-021 section 15).");
+  }
+  const expiresAt = parseExpiry(input.expires, now);
+  const { approval_signature: _stale, ...rest } = existing;
+  const next = {
+    ...rest,
+    status: "APPROVED",
+    approved_by: input.by,
+    approved_at: now.toISOString(),
+    expires_at: expiresAt,
+    ...input.role ? { approver_role: input.role } : {}
+  };
+  if (!input.role) delete next.approver_role;
+  return replaceException(pack, next);
+}
+function approveException(pack, id, input, now) {
+  const existing = exceptionIn(pack, id);
+  if (existing.status !== "REQUESTED") throw new Error(`Exception ${id} is ${existing.status}; only a REQUESTED exception can be approved (use renew for an expired one).`);
+  return approve(pack, existing, input, now);
+}
+function renewException(pack, id, input, now) {
+  const existing = exceptionIn(pack, id);
+  if (existing.status !== "APPROVED" && existing.status !== "EXPIRED") throw new Error(`Exception ${id} is ${existing.status}; only an APPROVED or EXPIRED exception can be renewed.`);
+  const next = approve(pack, existing, input, now);
+  const renewed = exceptionIn(next, id);
+  if (existing.expires_at && Date.parse(renewed.expires_at) <= Date.parse(existing.expires_at)) {
+    throw new Error(`A renewal must extend the exception beyond its current expiry (${existing.expires_at}).`);
+  }
+  return next;
+}
+function expireExceptions(pack, now) {
+  const expired = [];
+  const exceptions = (pack.exceptions ?? []).map((item) => {
+    if (item.status === "APPROVED" && item.expires_at && Date.parse(item.expires_at) <= now.getTime()) {
+      expired.push(item.id);
+      return { ...item, status: "EXPIRED" };
+    }
+    return item;
+  });
+  return { pack: { ...pack, exceptions }, expired };
+}
+function exceptionRows(pack, now, warnDays = 14) {
+  return (pack.exceptions ?? []).map((item) => {
+    const days = item.status === "APPROVED" ? daysUntil(item.expires_at, now.toISOString()) : void 0;
+    const note = item.status === "REQUESTED" ? "awaiting approval" : item.status === "EXPIRED" ? "expired; renew or close" : days === void 0 ? "" : days <= 0 ? "LAPSED (run exception expire)" : days <= warnDays ? `expiring in ${days} day${days === 1 ? "" : "s"}` : "";
+    return { id: item.id, control: item.control ?? "", status: item.status, ...item.expires_at ? { expires_at: item.expires_at } : {}, ...days !== void 0 ? { days_left: days } : {}, note };
+  });
+}
+function formatExceptionRows(rows) {
+  if (rows.length === 0) return "No exceptions in the governance pack.";
+  return [
+    "| Exception | Control | Status | Expires | Note | Signature |",
+    "|---|---|---|---|---|---|",
+    ...rows.map((r) => `| ${r.id} | ${r.control} | ${r.status} | ${r.expires_at?.slice(0, 10) ?? "-"} | ${r.note || "-"} | ${r.signature ?? "-"} |`)
+  ].join("\n");
+}
+function approvalPayload(exception) {
+  const { id, control, project_id, change_id, reason, requested_by, requested_at, approved_by, approver_role, approved_at, expires_at } = exception;
+  return canonical({ id, control, project_id, change_id, reason, requested_by, requested_at, approved_by, approver_role, approved_at, expires_at });
+}
+function runGpg(args, input, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("gpg", args, { windowsHide: true, timeout: timeoutMs });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => reject(new Error(`Could not run gpg (${error.message}). Install GnuPG to sign or verify approvals.`)));
+    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    child.stdin.on("error", () => void 0);
+    child.stdin.end(input);
+  });
+}
+var gpgSignaturePort = {
+  async sign(payload, keyId) {
+    const result = await runGpg(["--armor", "--detach-sign", "--local-user", keyId], payload, 12e4);
+    if (result.code !== 0) throw new Error(`gpg could not sign with key ${keyId}: ${result.stderr.trim()}`);
+    return result.stdout;
+  },
+  async verify(signature, payload) {
+    const directory = await mkdtemp(path10.join(os.tmpdir(), "governance-sig-"));
+    try {
+      const file = path10.join(directory, "approval.asc");
+      await writeFile(file, signature, "utf8");
+      const result = await runGpg(["--batch", "--no-tty", "--status-fd", "1", "--verify", file, "-"], payload, 3e4);
+      const status = result.stdout.split("\n").filter((line) => line.startsWith("[GNUPG:] "));
+      const has = (tag) => status.some((line) => line.startsWith(`[GNUPG:] ${tag} `));
+      const good = result.code === 0 && has("GOODSIG") && has("VALIDSIG");
+      const fingerprints = status.filter((line) => line.startsWith("[GNUPG:] VALIDSIG ")).flatMap((line) => {
+        const f = line.split(" ");
+        return [f[2], f[11]];
+      }).filter((value) => !!value && /^[0-9A-Fa-f]{40,64}$/.test(value)).map((value) => value.toUpperCase());
+      const detail = good ? "good signature" : has("EXPKEYSIG") ? "signing key has expired" : has("REVKEYSIG") ? "signing key was revoked" : has("ERRSIG") ? "signing key is not in the keyring" : has("BADSIG") ? "bad signature (the approval was changed after signing)" : "signature could not be verified";
+      return { good, fingerprints, detail };
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+};
+var normalizeFingerprint = (value) => value.replaceAll(" ", "").toUpperCase();
+function approverKeys(policy, approver, role) {
+  const wanted = approver.trim().toLowerCase();
+  return policy.roles.filter((r) => r.status === "APPROVED" && (!role || r.id === role)).flatMap((r) => r.holders).filter((h) => [h.name, h.handle].some((x) => x && x.toLowerCase() === wanted)).flatMap((h) => h.key_fingerprint ? [normalizeFingerprint(h.key_fingerprint)] : []);
+}
+async function verifyApprovals(pack, policy, gpg, readFileText) {
+  const checks = [];
+  for (const item of (pack.exceptions ?? []).filter((e) => e.status === "APPROVED")) {
+    const fail = (detail) => {
+      checks.push({ id: item.id, verified: false, detail });
+    };
+    if (!item.approval_signature) {
+      fail("no approval_signature recorded");
+      continue;
+    }
+    const signature = await readFileText(item.approval_signature).catch(() => void 0);
+    if (signature === void 0) {
+      fail(`signature file ${item.approval_signature} not found`);
+      continue;
+    }
+    const keys = approverKeys(policy, item.approved_by ?? "", item.approver_role);
+    if (keys.length === 0) {
+      fail(`no registered key for ${item.approved_by ?? "(unnamed approver)"} in the authority policy`);
+      continue;
+    }
+    const result = await gpg.verify(signature, approvalPayload(item));
+    if (!result.good) {
+      fail(result.detail);
+      continue;
+    }
+    if (!result.fingerprints.some((f) => keys.includes(f))) {
+      fail("signed by a key that is not registered for the approver");
+      continue;
+    }
+    checks.push({ id: item.id, verified: true, detail: "good signature from the approver's registered key" });
+  }
+  return checks;
+}
+async function signApproval(repositoryPath, exception, keyId, gpg) {
+  const armored = await gpg.sign(approvalPayload(exception), keyId);
+  const relative = `${APPROVALS_DIRECTORY}/${exception.id}.asc`;
+  await mkdir3(path10.join(repositoryPath, APPROVALS_DIRECTORY), { recursive: true });
+  await writeFile(path10.join(repositoryPath, relative), armored, "utf8");
+  return relative;
+}
+async function writePack(repositoryPath, packPath, pack) {
+  const root = path10.resolve(repositoryPath);
+  const target = path10.resolve(root, packPath);
+  const relative = path10.relative(root, target);
+  if (relative.startsWith("..") || path10.isAbsolute(relative)) throw new Error(`Pack path escapes the repository: ${packPath}`);
+  await writeFile(target, `${JSON.stringify(pack, null, 2)}
+`, "utf8");
+}
+
 // src/index.ts
 var VERSION = "0.6.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
@@ -14839,14 +15065,19 @@ function usage() {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--verify-signatures] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
-    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--format markdown|json]",
+    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--verify-signatures] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
     "  governance history <repository> [--json]",
     "  governance diff [<repository>] <a> <b> [--json]",
+    "  governance exception request <repository> --id <EXC-id> --control <id> --reason <text> --by <name> [--pack <relative-path>]",
+    "  governance exception approve <repository> --id <EXC-id> --by <name> --role <ROLE> --expires <date> [--sign <gpg-key>] [--pack <relative-path>]",
+    "  governance exception renew <repository> --id <EXC-id> --by <name> --role <ROLE> --expires <date> [--sign <gpg-key>] [--pack <relative-path>]",
+    "  governance exception expire <repository> [--pack <relative-path>]",
+    "  governance exception list <repository> [--authority <relative-path>] [--pack <relative-path>] [--json]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -14859,6 +15090,7 @@ function usage() {
     "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
     "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened).",
     "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
+    "  exception Manage the exception lifecycle in the pack: request, approve (with an expiry), renew (a fresh approval with a later expiry), expire (mark lapsed ones EXPIRED) and list (days left, signature status). approve and renew can GPG-sign the approval with --sign.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -14878,6 +15110,8 @@ function usage() {
     "  --run-tools Execute installed local checks: the TypeScript compiler, Python syntax, and the osv-scanner, gitleaks and semgrep scanners (never installs anything).",
     "  --id, --name, --repo, --environment  init only: the generated pack's project id (lowercase slug), name, repository and environment.",
     "  --record  check/report: append the assessment (decision, issues, evidence statuses, pack hash, git head) to the append-only history .governance/history/assessments.jsonl. Refuses if the existing chain was altered.",
+    "  --verify-signatures  check/report: with --authority, verify each approved exception's GPG signature against the approver's key_fingerprint in the policy. An approval without a verified signature does not waive the control.",
+    "  --control, --reason, --by, --role, --expires, --sign  exception only: the control, reason, requester (request) or approver (approve, renew), authority role, expiry (a date or timestamp) and GPG key id.",
     "  --json    Emit machine-readable JSON.",
     "  --format  Report format for the report command: markdown (default) or json.",
     "  -h, --help",
@@ -14898,7 +15132,7 @@ function parseCliArguments(argv) {
     return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}
 
 ${usage()}`);
@@ -14916,6 +15150,8 @@ ${usage()}`);
   let json = false;
   let write = false;
   let record = false;
+  let verifySignatures = false;
+  const exceptionOptions = {};
   let format;
   let repositoryProvided = false;
   const positionals = [];
@@ -14934,6 +15170,19 @@ ${usage()}`);
     if (argument === "--record") {
       if (rawCommand !== "check" && rawCommand !== "report") throw new Error("--record is only supported by the check and report commands.");
       record = true;
+      continue;
+    }
+    if (argument === "--verify-signatures") {
+      if (rawCommand !== "check" && rawCommand !== "report") throw new Error("--verify-signatures is only supported by the check and report commands.");
+      verifySignatures = true;
+      continue;
+    }
+    if (argument === "--control" || argument === "--reason" || argument === "--by" || argument === "--role" || argument === "--expires" || argument === "--sign") {
+      const value = rest[index + 1];
+      if (rawCommand !== "exception") throw new Error(`${argument} is only supported by the exception command.`);
+      if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
+      exceptionOptions[argument.slice(2)] = value;
+      index += 1;
       continue;
     }
     if (argument === "--run-tools") {
@@ -14969,9 +15218,10 @@ ${usage()}`);
     }
     if (argument === "--id" || argument === "--name" || argument === "--repo" || argument === "--environment") {
       const value = rest[index + 1];
-      if (rawCommand !== "init") throw new Error(`${argument} is only supported by the init command.`);
+      if (rawCommand !== "init" && !(rawCommand === "exception" && argument === "--id")) throw new Error(`${argument} is only supported by the init command.`);
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
-      if (argument === "--id") initOptions.id = value;
+      if (argument === "--id" && rawCommand === "exception") exceptionOptions.id = value;
+      else if (argument === "--id") initOptions.id = value;
       else if (argument === "--name") initOptions.name = value;
       else if (argument === "--repo") initOptions.repository = value;
       else initOptions.environment = value;
@@ -14979,13 +15229,35 @@ ${usage()}`);
       continue;
     }
     if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
-    if (rawCommand === "diff") {
+    if (rawCommand === "diff" || rawCommand === "exception") {
       positionals.push(argument);
       continue;
     }
     if (repositoryProvided) throw new Error(`Unexpected argument: ${argument}`);
     repositoryPath = argument;
     repositoryProvided = true;
+  }
+  let exception;
+  if (rawCommand === "exception") {
+    const [action, maybeRepository, ...extra] = positionals;
+    if (!action || !["request", "approve", "renew", "expire", "list"].includes(action) || extra.length > 0) throw new Error("exception needs an action: request, approve, renew, expire or list, then an optional repository.");
+    if (maybeRepository) repositoryPath = maybeRepository;
+    const require2 = (name, flag) => {
+      if (!exceptionOptions[name]) throw new Error(`exception ${action} requires ${flag}.`);
+    };
+    if (action === "request") {
+      require2("id", "--id");
+      require2("control", "--control");
+      require2("reason", "--reason");
+      require2("by", "--by");
+    }
+    if (action === "approve" || action === "renew") {
+      require2("id", "--id");
+      require2("by", "--by");
+      require2("expires", "--expires");
+    }
+    if (action !== "approve" && action !== "renew" && exceptionOptions.sign) throw new Error("--sign is only supported by exception approve and renew.");
+    exception = { action, ...exceptionOptions };
   }
   let diff;
   if (rawCommand === "diff") {
@@ -14995,6 +15267,7 @@ ${usage()}`);
     if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < 1) throw new Error("diff takes two assessment numbers (positive integers), as shown by `governance history`.");
     diff = { from, to };
   }
+  if (verifySignatures && !authorityPath) throw new Error("--verify-signatures requires --authority (the policy holds each approver's key).");
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
   if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff") {
@@ -15014,7 +15287,7 @@ ${usage()}`);
   }
   return {
     command: rawCommand,
-    repositoryPath: path10.resolve(repositoryPath),
+    repositoryPath: path11.resolve(repositoryPath),
     packPath,
     packExplicit,
     ...registryPath ? { registryPath } : {},
@@ -15028,9 +15301,59 @@ ${usage()}`);
     ...format ? { format } : {},
     ...write ? { write: true } : {},
     ...record ? { record: true } : {},
+    ...verifySignatures ? { verifySignatures: true } : {},
+    ...exception ? { exception } : {},
     ...diff ? { diff } : {},
     ...rawCommand === "init" ? { init: initOptions } : {}
   };
+}
+async function runExceptionCommand(args) {
+  const options = args.exception;
+  const now = /* @__PURE__ */ new Date();
+  const pack = await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
+  const save = async (next2) => {
+    await loadGovernancePack(args.repositoryPath, args.packPath, { readTextFile: async () => JSON.stringify(next2) });
+    await writePack(args.repositoryPath, args.packPath, next2);
+  };
+  if (options.action === "list") {
+    const rows = exceptionRows(pack, now);
+    if (args.authorityPath) {
+      const policy = await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem);
+      const checks = await verifyApprovals(pack, policy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file));
+      for (const row of rows) {
+        const check = checks.find((item) => item.id === row.id);
+        if (check) row.signature = check.verified ? "verified" : `NOT verified: ${check.detail}`;
+      }
+    }
+    process.stdout.write(`${args.json ? JSON.stringify(rows, null, 2) : formatExceptionRows(rows)}
+`);
+    return 0;
+  }
+  if (options.action === "expire") {
+    const { pack: next2, expired } = expireExceptions(pack, now);
+    if (expired.length > 0) await save(next2);
+    process.stdout.write(expired.length > 0 ? `Marked EXPIRED: ${expired.join(", ")}
+` : "No approved exception has lapsed.\n");
+    return 0;
+  }
+  let next;
+  if (options.action === "request") {
+    next = requestException(pack, { id: options.id, control: options.control, reason: options.reason, requestedBy: options.by }, now);
+  } else {
+    const input = { by: options.by, ...options.role ? { role: options.role } : {}, expires: options.expires };
+    parseExpiry(options.expires, now);
+    next = (options.action === "approve" ? approveException : renewException)(pack, options.id, input, now);
+    if (options.sign) {
+      const approved = (next.exceptions ?? []).find((item) => item.id === options.id);
+      const signaturePath = await signApproval(args.repositoryPath, approved, options.sign, gpgSignaturePort);
+      next = { ...next, exceptions: (next.exceptions ?? []).map((item) => item.id === approved.id ? { ...item, approval_signature: signaturePath } : item) };
+    }
+  }
+  await save(next);
+  const saved = (next.exceptions ?? []).find((item) => item.id === options.id);
+  process.stdout.write(`${options.action === "request" ? "Requested" : options.action === "approve" ? "Approved" : "Renewed"} ${saved.id}${saved.expires_at ? ` until ${saved.expires_at}` : ""}${saved.approval_signature ? `; signed (${saved.approval_signature})` : options.action === "request" ? "" : "; not signed"}
+`);
+  return 0;
 }
 async function runCli(argv) {
   let args;
@@ -15063,6 +15386,9 @@ async function runCli(argv) {
 `);
       }
       return 0;
+    }
+    if (args.command === "exception") {
+      return await runExceptionCommand(args);
     }
     if (args.command === "history") {
       const records = await readHistory(nodeHistoryStore, args.repositoryPath);
@@ -15150,9 +15476,11 @@ async function runCli(argv) {
     const architectureProfile = args.profilePath ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem) : registration ? getRegisteredArchitectureProfile(registration.profiles.architecture) : void 0;
     const authorityPolicy = args.authorityPath ? await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem) : void 0;
     const controlCatalog = args.catalogPath ? await loadControlCatalog(args.repositoryPath, args.catalogPath, nodeFileSystem) : void 0;
+    const verifiedApprovals = args.verifySignatures && authorityPolicy ? (await verifyApprovals(governancePack, authorityPolicy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file))).filter((check) => check.verified).map((check) => check.id) : void 0;
     const result = await runGovernanceCommand({
       snapshot,
       governancePack,
+      ...verifiedApprovals ? { verifiedApprovals } : {},
       ...controlCatalog ? { controlCatalog } : {},
       ...authorityPolicy ? { authorityPolicy } : {},
       ...registration ? { registration } : {},
@@ -15186,7 +15514,7 @@ async function runCli(argv) {
     return 3;
   }
 }
-var entrypoint = process.argv[1] ? pathToFileURL(path10.resolve(process.argv[1])).href : void 0;
+var entrypoint = process.argv[1] ? pathToFileURL(path11.resolve(process.argv[1])).href : void 0;
 if (entrypoint === import.meta.url) {
   process.exitCode = await runCli(process.argv.slice(2));
 }

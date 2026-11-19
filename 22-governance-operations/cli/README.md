@@ -141,6 +141,23 @@ node dist/cli/src/index.js diff [<repository>] <a> <b> [--json]
 
 `check --record` and `report --record` append one line to `.governance/history/assessments.jsonl` (never rewritten): the decision and reason, every violation and finding with its severity and status, each evidence item's status, the SHA-256 of the pack file and the git HEAD. Each record carries the previous record's hash and its own, so `history` can detect an edited, removed or reordered record and refuses to continue (exit 3); `--record` also refuses to extend a broken chain. `history` lists the assessments and, for every issue, when it was first seen, last seen, resolved (first assessment without it) and whether it came back. `diff <a> <b>` compares two numbered assessments: decision, resolved and introduced issues, and evidence that changed status. Commit the file to keep the history with the code. The chain shows tampering by accident or carelessness, not by someone who can rewrite the whole file (DEBT-GOV-017).
 
+## Exception lifecycle and signed approvals
+
+```powershell
+node dist/cli/src/index.js exception request <repository> --id EXC-001 --control SEC-AUTH-001 --reason "Bounded, tracked in TICKET-1" --by "Rita Requester"
+node dist/cli/src/index.js exception approve <repository> --id EXC-001 --by "Sam Senior" --role SENIOR_ENGINEERING_AUTHORITY --expires 2026-12-31 --sign <gpg-key-id>
+node dist/cli/src/index.js exception renew   <repository> --id EXC-001 --by "Sam Senior" --role SENIOR_ENGINEERING_AUTHORITY --expires 2027-03-31 --sign <gpg-key-id>
+node dist/cli/src/index.js exception expire  <repository>
+node dist/cli/src/index.js exception list    <repository> [--authority <policy>] [--json]
+node dist/cli/src/index.js check <repository> --authority <policy> --verify-signatures
+```
+
+These edit the governance pack (the result is validated before it is written) and never take a decision by themselves; `check` still decides. `request` adds a REQUESTED exception for the pack's project and change. `approve` records the approver, role and an expiry (a date means the end of that day, UTC; it must be in the future, and the requester cannot approve their own request). `renew` is a fresh approval with a later expiry for an APPROVED or EXPIRED exception; it discards the earlier signature. `expire` marks every APPROVED exception whose time has passed as EXPIRED (an expired exception stops holding at check time either way). `list` shows days left and, with `--authority`, whether each signature verifies.
+
+Reports warn when an active exception is within 14 days of expiring ("expiring in N days"), in `check` and `report`.
+
+**Signed approvals.** `--sign` signs the approval (its id, control, scope, reason, requester, approver, role and dates) with GnuPG and saves a detached signature to `.governance/approvals/<id>.asc`. Put each approver's full key fingerprint in the authority policy (`key_fingerprint` on the holder). With `check --authority <policy> --verify-signatures`, an approval holds only if its signature is good, covers the current terms and was made by a key registered for that approver; an unsigned, altered or wrongly signed approval does not waive the control and the report says why. Without `--verify-signatures` the approval is trusted as declared, and the report says it is not authenticated. Needs `gpg` on the PATH. Limits are in DEBT-GOV-018.
+
 ## One status report per repository: `summarize`
 
 ```bash

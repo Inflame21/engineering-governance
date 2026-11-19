@@ -83,7 +83,7 @@ const fieldPresence = {
     id: "required", status: "required", control: "optional", reason: "optional",
     project_id: "optional", change_id: "optional", requested_by: "optional",
     requested_at: "optional", approved_by: "optional", approver_role: "optional",
-    approved_at: "optional", expires_at: "optional",
+    approved_at: "optional", expires_at: "optional", approval_signature: "optional",
   } satisfies FieldPresence<GovernanceException>,
   debt: {
     id: "required", severity: "required", status: "required", title: "optional", owner: "optional",
