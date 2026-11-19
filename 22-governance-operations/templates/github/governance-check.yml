@@ -1,8 +1,8 @@
 # Governance check for this repository. Copy to .github/workflows/governance.yml.
 #
-# Replace BOTH occurrences of <GOVERNANCE_SHA> with the same full 40-character commit SHA (or a
-# vMAJOR.MINOR.PATCH release tag) of the governance baseline you adopt. The value after @ selects the
-# workflow; governance_ref selects the CLI, catalog and policy it runs. They must match. Branch names
+# Replace EVERY <GOVERNANCE_SHA> with the same full 40-character commit SHA (or a vMAJOR.MINOR.PATCH
+# release tag) of the governance baseline you adopt. The value after @ selects the workflow;
+# governance_ref selects the CLI, catalog and policy it runs. They must match. Branch names
 # are refused, so you always know exactly which baseline you consume.
 name: Governance
 
@@ -27,3 +27,16 @@ jobs:
       registry_path: .governance/project.json
       # Set only if the registry holds more than one project:
       # project_id: my-project
+
+  # Optional: post the decision and its blockers as one pull-request comment, updated on every run. It
+  # needs pull-requests: write. On a pull request from a fork the token is read-only, so no comment is
+  # posted and nothing fails; the decision is still in the job summary.
+  comment:
+    needs: governance
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    uses: Inflame21/engineering-governance/.github/workflows/governance-pr-comment.yml@<GOVERNANCE_SHA>
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      governance_ref: <GOVERNANCE_SHA>

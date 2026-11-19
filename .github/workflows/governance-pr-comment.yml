@@ -1,0 +1,93 @@
+name: Governance PR Comment
+
+# Reusable workflow: posts the governance decision and its blockers as one pull-request comment, updated
+# in place on every run. It reads the report artifact that governance-check.yml uploaded in the same run,
+# so call it from a job that needs the check job. It is separate from the check on purpose: commenting
+# needs pull-requests: write, and a reusable workflow cannot ask for more permission than its caller
+# grants, so folding it into the check would break callers that did not grant it.
+#
+# Security model:
+#   - Only pull-requests: write (to comment) and contents: read; no secrets beyond the job token.
+#   - Never uses pull_request_target. A pull request from a fork has a read-only token, the comment cannot
+#     be posted, and the job still succeeds: the comment is a convenience, never the gate.
+#   - The report is data. It is escaped before it reaches the comment (no mentions, links, HTML or table
+#     breaks) and nothing from it reaches a shell: values arrive through env: only.
+#   - The baseline must be pinned to a full commit SHA or a vMAJOR.MINOR.PATCH tag.
+#   - Third-party actions are pinned to commit SHAs.
+
+on:
+  workflow_call:
+    inputs:
+      governance_ref:
+        description: Commit SHA (40 hex characters) or vMAJOR.MINOR.PATCH tag of the governance baseline. Same value as the check's.
+        required: true
+        type: string
+      artifact_name:
+        description: Name of the report artifact uploaded by governance-check.yml.
+        required: false
+        type: string
+        default: governance-report
+      governance_repository:
+        description: Repository that holds the governance baseline.
+        required: false
+        type: string
+        default: Inflame21/engineering-governance
+
+permissions:
+  contents: read
+
+jobs:
+  comment:
+    name: Governance comment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Validate workflow inputs
+        env:
+          GOVERNANCE_REF: ${{ inputs.governance_ref }}
+          GOVERNANCE_REPOSITORY: ${{ inputs.governance_repository }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        run: |
+          fail() { echo "::error title=Invalid workflow input::$1"; exit 1; }
+          [[ "$GOVERNANCE_REF" =~ ^[0-9a-f]{40}$ || "$GOVERNANCE_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || fail "governance_ref must be a full 40-character commit SHA or a vMAJOR.MINOR.PATCH tag, not a branch name."
+          [[ "$GOVERNANCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
+            || fail "governance_repository must look like owner/repository."
+          [[ "$ARTIFACT_NAME" =~ ^[A-Za-z0-9_.-]+$ ]] \
+            || fail "artifact_name may contain only letters, digits and ._-"
+
+      - name: Check out the governance baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.governance_repository }}
+          ref: ${{ inputs.governance_ref }}
+          path: _governance
+          persist-credentials: false
+
+      - name: Download the governance report
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        continue-on-error: true
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: _governance-report
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Post or update the comment
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GOVERNANCE_REF: ${{ inputs.governance_ref }}
+        run: node _governance/.github/scripts/governance-comment.mjs _governance-report/report.json

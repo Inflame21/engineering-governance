@@ -480,9 +480,9 @@ The following is the initial task register. A task is complete only when impleme
 
 - [x] **CI-01:** Add GitHub Actions workflows.
 - [x] **CI-02:** Analyze changed files against the base revision.
-- [ ] **CI-03:** Publish structured and human-readable reports.
-- [ ] **CI-04:** Fail CI for mandatory blockers.
-- [ ] **CI-05:** Test passing, warning, failing, and unknown scenarios.
+- [x] **CI-03:** Publish structured and human-readable reports. (job summary and `report.json` artifact; plus an opt-in pull-request comment, `governance-pr-comment.yml`.)
+- [x] **CI-04:** Fail CI for mandatory blockers. (the check fails on NO-GO and ERROR; `production-approval.yml` adds a reviewer-approved release gate; limits in DEBT-GOV-019.)
+- [x] **CI-05:** Test passing, warning, failing, and unknown scenarios. (`cli/tests/scenario-matrix.test.ts` through the real CLI; the pipeline policy is in `end-to-end-workflow-script.test.ts`.)
 
 ### Phase 9 — Audit and operations
 

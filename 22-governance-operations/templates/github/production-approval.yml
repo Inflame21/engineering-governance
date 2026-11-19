@@ -1,0 +1,105 @@
+# Production approval for this repository. Copy to .github/workflows/production-approval.yml.
+#
+# A change reaches production only when (1) the governance check decides GO, or GO WITH CONDITIONS if you
+# allow it, and (2) a named reviewer approves the run in the GitHub Environment 'production'. The approval
+# is recorded: who approved, when, with what comment, against which commit and baseline.
+#
+# One-time setup in the repository settings (the workflow cannot do this for you):
+#   Settings > Environments > New environment > "production"
+#     - Required reviewers: the people who may release (at least two, so one can approve the other's change)
+#     - Prevent self-review: on (the person who started the run cannot approve it)
+#     - Deployment branches: Selected branches > main only
+#   Without the required reviewers the approve job runs unattended and the gate does not exist.
+#
+# Replace BOTH <GOVERNANCE_SHA> values with the same full 40-character commit SHA (or vMAJOR.MINOR.PATCH tag)
+# as your governance.yml. Branch names are refused.
+name: Production approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: What is being released (shown in the approval record).
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    # Only main may be released; the environment's branch rule repeats this.
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: Inflame21/engineering-governance/.github/workflows/governance-check.yml@<GOVERNANCE_SHA>
+    permissions:
+      contents: read
+    with:
+      governance_ref: <GOVERNANCE_SHA>
+      # A release is stricter than a pull request: conditions fail it until you decide otherwise.
+      conditions: fail
+      registry_path: .governance/project.json
+      # No pull request base on a manual run; the whole tree is assessed.
+      diff_scope: false
+      artifact_name: governance-report-release
+
+  approve:
+    name: Approve production release
+    needs: governance
+    # Reaching this job means the decision allowed it: the check fails the governance job otherwise.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # The run pauses here until a required reviewer approves it in the GitHub UI.
+    environment: production
+    permissions:
+      contents: read
+      actions: read   # to read who approved this run
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Record the approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          DECISION: ${{ needs.governance.outputs.decision }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          mkdir -p approval
+          # Who approved this run, with their comments, from GitHub's own record.
+          gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}/approvals" > approval/approvals.json
+          jq -n --arg commit "$COMMIT" --arg actor "$ACTOR" --arg decision "$DECISION" --arg note "$NOTE" --arg run "$RUN_ID" \
+            --slurpfile approvals approval/approvals.json \
+            '{commit:$commit, started_by:$actor, governance_decision:$decision, note:$note, run_id:$run,
+              recorded_at:(now|todate), approvals: [$approvals[0][] | {state, approver:.user.login, comment}]}' > approval/production-approval.json
+          {
+            echo "## Production approval"
+            echo
+            echo "- Commit: \`${COMMIT}\`"
+            echo "- Governance decision: \`${DECISION}\`"
+            echo "- Started by: \`${ACTOR}\`"
+            echo
+            jq -r '.approvals[] | "- \(.state) by `\(.approver)`: \(.comment)"' approval/production-approval.json
+          } >> "$GITHUB_STEP_SUMMARY"
+          # An approval record with no approver means the environment has no required reviewers.
+          [[ "$(jq '.approvals | length' approval/production-approval.json)" -gt 0 ]] \
+            || { echo "::error title=No approval recorded::The 'production' environment has no required reviewers, so nothing gated this release."; exit 1; }
+
+      - name: Upload the approval record
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: production-approval
+          path: approval
+          retention-days: 400
+
+  # Add your deployment here, as a job that needs: approve. Keep deployment credentials in the 'production'
+  # environment's secrets so only an approved run can read them.
+  # deploy:
+  #   needs: approve
+  #   environment: production
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - run: echo "deploy ${{ github.sha }}"
