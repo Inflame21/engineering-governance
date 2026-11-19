@@ -8959,7 +8959,8 @@ function validateGovernancePackSemantics(pack, evaluatedAt) {
     ["decisions", pack.decisions],
     ["findings", pack.findings ?? []],
     ["exceptions", pack.exceptions ?? []],
-    ["debt", pack.debt ?? []]
+    ["debt", pack.debt ?? []],
+    ["incidents", pack.incidents ?? []]
   ];
   for (const [name, items] of collections) {
     issues.push(...duplicateIdIssues(name, items));
@@ -8967,6 +8968,32 @@ function validateGovernancePackSemantics(pack, evaluatedAt) {
   const standardIds = new Set(pack.standards.map((item) => item.id));
   const controlIds = new Set(pack.controls.map((item) => item.id));
   const evidenceIds = new Set(pack.evidence.map((item) => item.id));
+  const debtIds = new Set((pack.debt ?? []).map((item) => item.id));
+  (pack.incidents ?? []).forEach((incident, index) => {
+    const path13 = `/incidents/${index}`;
+    for (const controlId of incident.controls ?? []) {
+      if (!controlIds.has(controlId)) issues.push({ code: "UNKNOWN_CONTROL", path: `${path13}/controls`, message: `Incident '${incident.id}' references unknown control '${controlId}'.` });
+    }
+    for (const debtId of incident.debt ?? []) {
+      if (!debtIds.has(debtId)) issues.push({ code: "UNKNOWN_DEBT", path: `${path13}/debt`, message: `Incident '${incident.id}' references unknown debt '${debtId}'.` });
+    }
+    const detected = Date.parse(incident.detected_at);
+    const resolved = incident.resolved_at ? Date.parse(incident.resolved_at) : void 0;
+    if ((incident.status === "RESOLVED" || incident.status === "CLOSED") && resolved === void 0) {
+      issues.push({ code: "INVALID_INCIDENT", path: path13, message: `Incident '${incident.id}' is ${incident.status} but has no resolved_at.` });
+    }
+    if (resolved !== void 0 && !(resolved >= detected)) {
+      issues.push({ code: "INVALID_INCIDENT", path: path13, message: `Incident '${incident.id}' was resolved before it was detected, or a timestamp is invalid.` });
+    }
+    if (incident.review?.status === "COMPLETE" && !incident.review.completed_at) {
+      issues.push({ code: "INVALID_INCIDENT", path: `${path13}/review`, message: `Incident '${incident.id}' has a COMPLETE review with no completed_at.` });
+    }
+    const actionIds = /* @__PURE__ */ new Set();
+    (incident.actions ?? []).forEach((action, actionIndex) => {
+      if (actionIds.has(action.id)) issues.push({ code: "DUPLICATE_ID", path: `${path13}/actions/${actionIndex}`, message: `Incident '${incident.id}' has more than one action '${action.id}'.` });
+      actionIds.add(action.id);
+    });
+  });
   (pack.debt ?? []).forEach((debt, index) => {
     for (const controlId of debt.controls ?? []) {
       if (!controlIds.has(controlId)) {
@@ -9173,6 +9200,14 @@ var governance_model_schema_default = {
       type: "array",
       items: {
         $ref: "#/$defs/debt"
+      },
+      default: []
+    },
+    incidents: {
+      type: "array",
+      description: "Incidents that happened, recorded so they feed back into later decisions (INC-019).",
+      items: {
+        $ref: "#/$defs/incident"
       },
       default: []
     },
@@ -9849,6 +9884,69 @@ var governance_model_schema_default = {
             minLength: 1
           }
         }
+      },
+      additionalProperties: false
+    },
+    incident: {
+      type: "object",
+      required: ["id", "severity", "status", "title", "detected_at"],
+      properties: {
+        id: { type: "string", pattern: "^INC-[0-9A-Z-]+$" },
+        severity: { enum: ["P0", "P1", "P2", "P3"] },
+        status: {
+          enum: ["OPEN", "MITIGATED", "RESOLVED", "CLOSED"],
+          description: "OPEN and MITIGATED are active. RESOLVED means recovery was verified. CLOSED means closure was communicated and follow-up assigned (INC-019 section 45)."
+        },
+        title: { type: "string", minLength: 1 },
+        detected_at: { type: "string", format: "date-time" },
+        resolved_at: { type: "string", format: "date-time", description: "Required once the incident is RESOLVED or CLOSED." },
+        owner: { type: "string", description: "The incident commander or owner of the response (INC-019 section 3.3)." },
+        cause: {
+          type: "string",
+          pattern: "^[a-z0-9][a-z0-9._-]*$",
+          description: "A short slug naming the root cause. A later incident with the same cause is reported as a repeat (INC-019 section 38)."
+        },
+        controls: {
+          type: "array",
+          description: "Ids of the pack's controls whose failure, or whose assumption, this incident exposed (INC-019 section 51).",
+          uniqueItems: true,
+          items: { type: "string", minLength: 1 }
+        },
+        debt: {
+          type: "array",
+          description: "Ids of the pack's technical debt this incident is attributed to (INC-019 section 52).",
+          uniqueItems: true,
+          items: { type: "string", minLength: 1 }
+        },
+        review: {
+          type: "object",
+          description: "The post-incident review (INC-019 section 31).",
+          required: ["status"],
+          properties: {
+            status: { enum: ["NOT_REQUIRED", "PENDING", "COMPLETE"] },
+            completed_at: { type: "string", format: "date-time" },
+            reference: { type: "string", description: "Where the review is kept." }
+          },
+          additionalProperties: false
+        },
+        actions: {
+          type: "array",
+          items: { $ref: "#/$defs/correctiveAction" }
+        }
+      },
+      additionalProperties: false
+    },
+    correctiveAction: {
+      type: "object",
+      required: ["id", "description", "status"],
+      properties: {
+        id: { type: "string", pattern: "^ACT-[0-9A-Z-]+$" },
+        description: { type: "string", minLength: 1 },
+        status: { enum: ["OPEN", "IN_PROGRESS", "DONE", "DEPRIORITIZED"] },
+        owner: { type: "string" },
+        due_date: { type: "string", format: "date", description: "Target date (INC-019 section 36)." },
+        validation: { type: "string", description: "How completion will be validated (INC-019 section 36)." },
+        justification: { type: "string", description: "Why the action was deprioritised and the risk accepted (INC-019 section 37)." }
       },
       additionalProperties: false
     },
@@ -12861,7 +12959,7 @@ function isOverdue(targetDate, evaluatedAt) {
   const now = evaluatedAt ? Date.parse(evaluatedAt) : Date.now();
   return Number.isFinite(end) && Number.isFinite(now) && now > end;
 }
-function evaluateDebt(pack, controls, evaluatedAt) {
+function evaluateDebt(pack, controls, evaluatedAt, incidentsByDebtId = /* @__PURE__ */ new Map()) {
   const statusOf = new Map(controls.map((control) => [control.controlId, control.status]));
   const items = [];
   const unresolved = { P0: 0, P1: 0, P2: 0, P3: 0 };
@@ -12883,6 +12981,10 @@ function evaluateDebt(pack, controls, evaluatedAt) {
     if (debt.severity === "P1" && debt.status !== "ACCEPTED") conditions.push(`P1 debt is ${debt.status.toLowerCase().replace("_", " ")} and has no recorded acceptance (DEBT-020 section 9)`);
     if (overdue) conditions.push(`past its target date ${debt.target_date}`);
     if (debt.status === "ACCEPTED" && !debt.last_reviewed) conditions.push("accepted but never reviewed (DEBT-020 section 18)");
+    const incidents = [...incidentsByDebtId.get(debt.id) ?? []];
+    if (incidents.length >= 2 && (debt.severity === "P2" || debt.severity === "P3")) {
+      conditions.push(`linked to ${incidents.length} incidents (${incidents.join(", ")}): its ${debt.severity} severity may be understated (INC-019 section 52)`);
+    }
     items.push({
       id: debt.id,
       ...debt.title ? { title: debt.title } : {},
@@ -12894,7 +12996,8 @@ function evaluateDebt(pack, controls, evaluatedAt) {
       overdue,
       blocking: blockers.length > 0,
       reasons: [...blockers, ...conditions],
-      linkedControls: (debt.controls ?? []).map((id) => ({ id, status: statusOf.get(id) ?? "UNVERIFIED" }))
+      linkedControls: (debt.controls ?? []).map((id) => ({ id, status: statusOf.get(id) ?? "UNVERIFIED" })),
+      incidents
     });
   }
   items.sort((a, b) => severityRank3(a.severity) - severityRank3(b.severity) || a.id.localeCompare(b.id));
@@ -12928,8 +13031,140 @@ function evaluateDebt(pack, controls, evaluatedAt) {
   };
 }
 
+// ../engine/src/incidents.ts
+var SEVERITIES2 = ["P0", "P1", "P2", "P3"];
+var ACTIVE = /* @__PURE__ */ new Set(["OPEN", "MITIGATED"]);
+var MS_PER_HOUR = 36e5;
+var severityRank4 = (severity) => SEVERITIES2.indexOf(severity);
+var isMaterial = (incident) => incident.severity === "P0" || incident.severity === "P1";
+var trimmed = (value) => value?.trim() ?? "";
+function dueOverdue(dueDate, evaluatedAt) {
+  if (!dueDate) return false;
+  const end = Date.parse(`${dueDate}T23:59:59.999Z`);
+  const now = evaluatedAt ? Date.parse(evaluatedAt) : Date.now();
+  return Number.isFinite(end) && Number.isFinite(now) && now > end;
+}
+function incidentsByDebt(pack) {
+  const map = /* @__PURE__ */ new Map();
+  for (const incident of pack.incidents ?? []) {
+    for (const debtId of incident.debt ?? []) map.set(debtId, [...map.get(debtId) ?? [], incident.id]);
+  }
+  return map;
+}
+function evaluateIncidents(pack, controls, evaluatedAt) {
+  const incidents = pack.incidents ?? [];
+  const statusOf = new Map(controls.map((control) => [control.controlId, control.status]));
+  const bySeverity = { P0: 0, P1: 0, P2: 0, P3: 0 };
+  const ordered = [...incidents].sort((a, b) => Date.parse(a.detected_at) - Date.parse(b.detected_at) || a.id.localeCompare(b.id));
+  const seenByCause = /* @__PURE__ */ new Map();
+  const repeatOf = /* @__PURE__ */ new Map();
+  for (const incident of ordered) {
+    const cause = trimmed(incident.cause).toLowerCase();
+    if (!cause) continue;
+    const earlier = seenByCause.get(cause) ?? [];
+    if (earlier.length > 0) repeatOf.set(incident.id, [...earlier]);
+    seenByCause.set(cause, [...earlier, incident.id]);
+  }
+  let actionsOpen = 0;
+  let actionsOverdue = 0;
+  let materialResolved = 0;
+  let materialReviewed = 0;
+  const resolveHours = [];
+  const items = [];
+  for (const incident of incidents) {
+    bySeverity[incident.severity] += 1;
+    const active = ACTIVE.has(incident.status);
+    const material = isMaterial(incident);
+    const reasons = [];
+    if (active && material) reasons.push(`${incident.severity} incident is ${incident.status.toLowerCase()}: a change is acceptable only if it is the fix or an emergency change (INC-019 section 27)`);
+    if (active && incident.severity !== "P3" && !trimmed(incident.owner)) reasons.push("an active incident has no owner (INC-019 section 3.3)");
+    if (!active && material) {
+      materialResolved += 1;
+      const reviewed = incident.review?.status === "COMPLETE";
+      if (reviewed) materialReviewed += 1;
+      if (!reviewed && incident.review?.status !== "NOT_REQUIRED") reasons.push("no completed post-incident review (INC-019 section 31)");
+      if (incident.status === "CLOSED" && (incident.actions ?? []).length === 0 && incident.review?.status !== "NOT_REQUIRED") reasons.push("closed with no corrective action recorded (INC-019 section 45)");
+    }
+    const actions = (incident.actions ?? []).map((action) => {
+      const open2 = action.status === "OPEN" || action.status === "IN_PROGRESS";
+      const overdue = open2 && dueOverdue(action.due_date, evaluatedAt);
+      if (open2) actionsOpen += 1;
+      if (overdue) actionsOverdue += 1;
+      if (incident.severity !== "P3") {
+        if (open2) {
+          const missing = [!trimmed(action.owner) && "an owner", !action.due_date && "a target date", !trimmed(action.validation) && "validation criteria"].filter(Boolean);
+          if (missing.length > 0) reasons.push(`corrective action ${action.id} lacks ${missing.join(", ")} (INC-019 section 36)`);
+          if (overdue) reasons.push(`corrective action ${action.id} is past its target date ${action.due_date} (INC-019 section 37)`);
+        }
+        if (action.status === "DEPRIORITIZED" && !trimmed(action.justification)) reasons.push(`corrective action ${action.id} was deprioritised with no justification or risk acceptance (INC-019 section 37)`);
+      }
+      return {
+        id: action.id,
+        description: action.description,
+        status: action.status,
+        ...action.owner ? { owner: action.owner } : {},
+        ...action.due_date ? { due_date: action.due_date } : {},
+        overdue
+      };
+    });
+    const repeats = repeatOf.get(incident.id) ?? [];
+    if (repeats.length > 0) {
+      const noDebt = (incident.debt ?? []).length === 0;
+      reasons.push(`repeats the cause "${trimmed(incident.cause)}" of ${repeats.join(", ")}: the earlier corrective action was not enough and a deeper review is due (INC-019 section 38)${noDebt ? "; consider recording technical debt (INC-019 section 52)" : ""}`);
+    }
+    const linkedControls = (incident.controls ?? []).map((id) => ({ id, status: statusOf.get(id) ?? "UNVERIFIED" }));
+    if (material) {
+      const passing = linkedControls.filter((control) => control.status === "PASS").map((control) => control.id);
+      if (passing.length > 0) reasons.push(`it is recorded against ${passing.join(", ")}, which still evaluates PASS: the control did not catch it, so revisit what its evidence proves (INC-019 section 51)`);
+    }
+    if (incident.resolved_at) {
+      const hours = (Date.parse(incident.resolved_at) - Date.parse(incident.detected_at)) / MS_PER_HOUR;
+      if (Number.isFinite(hours) && hours >= 0) resolveHours.push(hours);
+    }
+    items.push({
+      id: incident.id,
+      title: incident.title,
+      severity: incident.severity,
+      status: incident.status,
+      ...incident.owner ? { owner: incident.owner } : {},
+      ...incident.cause ? { cause: incident.cause } : {},
+      detected_at: incident.detected_at,
+      ...incident.resolved_at ? { resolved_at: incident.resolved_at } : {},
+      ...incident.review ? { review: incident.review } : {},
+      actions,
+      repeatOf: repeats,
+      linkedControls,
+      linkedDebt: [...incident.debt ?? []],
+      reasons
+    });
+  }
+  items.sort((a, b) => severityRank4(a.severity) - severityRank4(b.severity) || a.id.localeCompare(b.id));
+  const summary = {
+    total: incidents.length,
+    bySeverity,
+    active: items.filter((item) => ACTIVE.has(item.status)).length,
+    materialResolved,
+    materialReviewed,
+    actionsOpen,
+    actionsOverdue,
+    repeats: items.filter((item) => item.repeatOf.length > 0).length,
+    ...resolveHours.length > 0 ? { meanTimeToResolveHours: Math.round(resolveHours.reduce((sum, h) => sum + h, 0) / resolveHours.length * 10) / 10 } : {},
+    items
+  };
+  const conditions = items.filter((item) => item.reasons.length > 0).map((item) => ({
+    controlId: `INCIDENT:${item.id}`,
+    status: "WARN",
+    severity: item.severity,
+    decision: "GO_WITH_CONDITIONS",
+    message: `Incident ${item.id} (${item.title}): ${item.reasons.join("; ")}.`,
+    missingEvidence: [],
+    missingSignals: []
+  }));
+  return { summary, conditions };
+}
+
 // ../engine/src/decision.ts
-var severityRank4 = {
+var severityRank5 = {
   P0: 0,
   P1: 1,
   P2: 2,
@@ -13109,7 +13344,7 @@ function deriveDecision(pack, evaluations, context = { signals: [] }) {
   const isLowRisk = (risk) => risk.severity === "P2" || risk.severity === "P3";
   const openRisks = pack.risks.filter(
     (risk) => risk.status !== "MITIGATED" && risk.status !== "CLOSED" && !riskAcceptanceHolds(risk, context)
-  ).map((risk) => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk).sort((a, b) => (severityRank4[a.severity] ?? 0) - (severityRank4[b.severity] ?? 0) || a.id.localeCompare(b.id));
+  ).map((risk) => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk).sort((a, b) => (severityRank5[a.severity] ?? 0) - (severityRank5[b.severity] ?? 0) || a.id.localeCompare(b.id));
   const riskViolations = openRisks.map((risk) => ({
     controlId: `RISK:${risk.id}`,
     status: isLowRisk(risk) ? "WARN" : "FAIL",
@@ -13175,8 +13410,8 @@ function deriveDecision(pack, evaluations, context = { signals: [] }) {
     missingEvidence: [],
     missingSignals: []
   }];
-  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations, ...scopeViolations].sort((a, b) => (severityRank4[a.severity] ?? 0) - (severityRank4[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
-  const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings].sort((a, b) => (severityRank4[a.severity] ?? 0) - (severityRank4[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
+  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations, ...scopeViolations].sort((a, b) => (severityRank5[a.severity] ?? 0) - (severityRank5[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
+  const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings].sort((a, b) => (severityRank5[a.severity] ?? 0) - (severityRank5[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
   if (blockingViolations.length > 0) {
     return {
       status: "NO-GO",
@@ -13274,7 +13509,7 @@ function evaluateGovernance(pack, context) {
   if (findingsById.size > 0) {
     decision.reason = `${decision.reason} ${findingsById.size} unresolved finding(s) require remediation or governed acceptance.`;
   }
-  const debt = evaluateDebt(pack, controls, context.evaluatedAt);
+  const debt = evaluateDebt(pack, controls, context.evaluatedAt, incidentsByDebt(pack));
   for (const violation of debt.blocking) {
     decision.status = "NO-GO";
     decision.blockingViolations.push(violation);
@@ -13288,11 +13523,20 @@ function evaluateGovernance(pack, context) {
   } else if (debt.conditions.length > 0) {
     decision.reason = `${decision.reason} ${debt.conditions.length} technical debt item(s) need a decision or review (DEBT-020).`;
   }
+  const incidents = evaluateIncidents(pack, controls, context.evaluatedAt);
+  for (const violation of incidents.conditions) {
+    if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+    decision.warnings.push(violation);
+  }
+  if (incidents.conditions.length > 0) {
+    decision.reason = `${decision.reason} ${incidents.conditions.length} incident(s) need follow-up (INC-019).`;
+  }
   return {
     controls,
     violations: [...decision.blockingViolations, ...decision.warnings],
     decision,
-    ...(pack.debt ?? []).length > 0 ? { debt: debt.summary } : {}
+    ...(pack.debt ?? []).length > 0 ? { debt: debt.summary } : {},
+    ...(pack.incidents ?? []).length > 0 ? { incidents: incidents.summary } : {}
   };
 }
 
@@ -13515,13 +13759,37 @@ var MAX_DEBT_ROWS = 30;
 function debtMarkdownLines(debt) {
   const lines = ["", "## Technical debt", "", debtTotalsLine(debt)];
   if (debt.items.length === 0) return lines;
-  lines.push("", "| Debt | Severity | Status | Owner | Target | Recorded against | Needs |", "|---|---|---|---|---|---|---|");
+  const withIncidents = debt.items.some((item) => item.incidents.length > 0);
+  lines.push("", `| Debt | Severity | Status | Owner | Target | Recorded against |${withIncidents ? " Incidents |" : ""} Needs |`, `|---|---|---|---|---|---|${withIncidents ? "---|" : ""}---|`);
   for (const item of debt.items.slice(0, MAX_DEBT_ROWS)) {
     const target = item.target_date ? `${item.target_date}${item.overdue ? " (overdue)" : ""}` : "";
     const linked = item.linkedControls.map((control) => `${control.id} (${control.status})`).join(", ");
-    lines.push(`| ${cell(item.id)}${item.title ? ` ${cell(item.title)}` : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${target} | ${cell(linked)} | ${cell(item.reasons.length > 0 ? `${item.blocking ? "**blocks**: " : ""}${item.reasons.join("; ")}` : "")} |`);
+    lines.push(`| ${cell(item.id)}${item.title ? ` ${cell(item.title)}` : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${target} | ${cell(linked)} |${withIncidents ? ` ${cell(item.incidents.join(", "))} |` : ""} ${cell(item.reasons.length > 0 ? `${item.blocking ? "**blocks**: " : ""}${item.reasons.join("; ")}` : "")} |`);
   }
   if (debt.items.length > MAX_DEBT_ROWS) lines.push("", `\u2026and ${debt.items.length - MAX_DEBT_ROWS} more in the JSON report.`);
+  return lines;
+}
+function incidentTotalsLine(incidents) {
+  const s = incidents.bySeverity;
+  const parts = [
+    `${incidents.total} recorded (P0: ${s.P0}, P1: ${s.P1}, P2: ${s.P2}, P3: ${s.P3}), ${incidents.active} active`,
+    `${incidents.materialReviewed} of ${incidents.materialResolved} resolved P0/P1 incidents have a completed review`,
+    `${incidents.actionsOpen} corrective action${incidents.actionsOpen === 1 ? "" : "s"} open, ${incidents.actionsOverdue} overdue`,
+    `${incidents.repeats} repeat${incidents.repeats === 1 ? "" : "s"}`
+  ];
+  if (incidents.meanTimeToResolveHours !== void 0) parts.push(`mean time to resolve ${incidents.meanTimeToResolveHours} h`);
+  return `${parts.join("; ")}.`;
+}
+function incidentMarkdownLines(incidents) {
+  const lines = ["", "## Incidents", "", incidentTotalsLine(incidents)];
+  if (incidents.items.length === 0) return lines;
+  lines.push("", "| Incident | Severity | Status | Owner | Review | Actions open (overdue) | Recorded against | Needs |", "|---|---|---|---|---|---|---|---|");
+  for (const item of incidents.items.slice(0, MAX_DEBT_ROWS)) {
+    const open2 = item.actions.filter((action) => action.status === "OPEN" || action.status === "IN_PROGRESS");
+    const linked = [...item.linkedControls.map((control) => `${control.id} (${control.status})`), ...item.linkedDebt].join(", ");
+    lines.push(`| ${cell(item.id)} ${cell(item.title)}${item.repeatOf.length > 0 ? " (repeat)" : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${item.review?.status ?? "none"} | ${open2.length} (${open2.filter((action) => action.overdue).length}) | ${cell(linked)} | ${cell(item.reasons.join("; "))} |`);
+  }
+  if (incidents.items.length > MAX_DEBT_ROWS) lines.push("", `\u2026and ${incidents.items.length - MAX_DEBT_ROWS} more in the JSON report.`);
   return lines;
 }
 function formatHumanResult(analysis, evaluation, context, scope) {
@@ -13537,7 +13805,8 @@ function formatHumanResult(analysis, evaluation, context, scope) {
     `Blocking violations: ${evaluation.decision.blockingViolations.length}`,
     `Warnings: ${evaluation.decision.warnings.length}`,
     `Open risks: ${evaluation.decision.openRisks.length}`,
-    ...evaluation.debt ? [`Technical debt: ${debtTotalsLine(evaluation.debt)}`] : []
+    ...evaluation.debt ? [`Technical debt: ${debtTotalsLine(evaluation.debt)}`] : [],
+    ...evaluation.incidents ? [`Incidents: ${incidentTotalsLine(evaluation.incidents)}`] : []
   ];
   if (evaluation.decision.reason) lines.push("", `Reason: ${evaluation.decision.reason}`);
   const decisionItems = [...evaluation.decision.blockingViolations, ...evaluation.decision.warnings];
@@ -13614,6 +13883,7 @@ function formatMarkdownResult(analysis, evaluation, context, scope) {
   section("Blocking violations", decision.blockingViolations);
   section("Warnings", decision.warnings);
   if (evaluation.debt && (evaluation.debt.unresolvedTotal > 0 || evaluation.debt.resolved > 0)) lines.push(...debtMarkdownLines(evaluation.debt));
+  if (evaluation.incidents) lines.push(...incidentMarkdownLines(evaluation.incidents));
   const attention = evaluation.controls.filter((c) => c.status !== "PASS" && c.status !== "NOT_APPLICABLE");
   if (attention.length > 0) {
     lines.push("", "## Controls needing attention", "", "| Control | Status | Reason |", "|---|---|---|");
@@ -14314,7 +14584,7 @@ async function describeRepository(root, repository) {
   };
 }
 var PLACEHOLDER_CHANGE_ID = "CHG-UNSPECIFIED";
-var PACK_COLLECTIONS = ["standards", "controls", "evidence", "risks", "decisions", "exceptions", "debt", "findings"];
+var PACK_COLLECTIONS = ["standards", "controls", "evidence", "risks", "decisions", "exceptions", "debt", "findings", "incidents"];
 var MAX_PACK_BYTES = 1e6;
 function isPlaceholderPack(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -14510,7 +14780,7 @@ var AREA_STANDARD = {
 };
 var PACK_PATH = ".governance/governance-pack.json";
 var REPORTS_DIRECTORY = ".governance/reports";
-var severityRank5 = { P0: 0, P1: 1, P2: 2, P3: 3 };
+var severityRank6 = { P0: 0, P1: 1, P2: 2, P3: 3 };
 function oneLine2(value, limit = 140) {
   const collapsed = value.replace(/\s+/g, " ").trim();
   return collapsed.length > limit ? `${collapsed.slice(0, limit - 1)}\u2026` : collapsed;
@@ -14572,11 +14842,13 @@ async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Dat
   let assessment;
   let evaluated = [];
   let debt;
+  let incidents;
   if (pack) {
     const snapshot = await loadRepositorySnapshot(root, nodeFileSystem, []);
     const result = await runGovernanceCommand({ snapshot, governancePack: pack, json: true });
     evaluated = result.evaluation.controls;
     debt = result.evaluation.debt;
+    incidents = result.evaluation.incidents;
     const brief = (violation) => ({ id: violation.controlId, severity: violation.severity, message: oneLine2(violation.message, 200) });
     assessment = {
       decision: result.evaluation.decision.status,
@@ -14597,7 +14869,7 @@ async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Dat
   });
   const findings = pack?.findings ?? [];
   const bySeverity = { P0: 0, P1: 0, P2: 0, P3: 0 };
-  const open2 = findings.filter((finding) => finding.status !== "RESOLVED").sort((a, b) => severityRank5[a.severity] - severityRank5[b.severity] || a.id.localeCompare(b.id));
+  const open2 = findings.filter((finding) => finding.status !== "RESOLVED").sort((a, b) => severityRank6[a.severity] - severityRank6[b.severity] || a.id.localeCompare(b.id));
   for (const finding of open2) bySeverity[finding.severity] += 1;
   const reports = await listReviewReports(root);
   const reviews = lastReviews(reports, pack);
@@ -14637,6 +14909,7 @@ async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Dat
     } : {},
     ...assessment ? { assessment } : {},
     ...debt ? { debt } : {},
+    ...incidents ? { incidents } : {},
     controls,
     findings: {
       bySeverity,
@@ -14689,6 +14962,7 @@ function formatSummaryMarkdown(summary) {
     lines.push("");
   }
   if (summary.debt) lines.push(...debtMarkdownLines(summary.debt), "");
+  if (summary.incidents) lines.push(...incidentMarkdownLines(summary.incidents), "");
   const counts = summary.findings.bySeverity;
   lines.push("## Findings", "", `${summary.findings.open.length} open of ${summary.findings.total} (P0: ${counts.P0}, P1: ${counts.P1}, P2: ${counts.P2}, P3: ${counts.P3}).`, "");
   if (summary.findings.open.length > 0) {

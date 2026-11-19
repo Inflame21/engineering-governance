@@ -7,6 +7,8 @@ export {
   evidenceStatusForResult,
   overstatesToolResult,
 } from "./evidence-policy.js";
+export { evaluateIncidents, incidentsByDebt } from "./incidents.js";
+export type { ActionReport, IncidentEvaluation, IncidentItemReport, IncidentSummary } from "./incidents.js";
 export { evaluateDebt, hasOwner, isOverdue } from "./debt.js";
 export type { DebtEvaluation, DebtItemReport, DebtSummary } from "./debt.js";
 export { validateGovernancePackSemantics } from "./validation.js";

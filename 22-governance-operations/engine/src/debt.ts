@@ -39,6 +39,8 @@ export interface DebtItemReport {
   reasons: string[];
   /** Controls this debt is recorded against, with their current status. */
   linkedControls: { id: string; status: ControlStatus }[];
+  /** Incidents recorded as caused by this debt (DEBT-020 section 30, INC-019 section 52). */
+  incidents: string[];
 }
 
 export interface DebtSummary {
@@ -76,7 +78,12 @@ export function isOverdue(targetDate: string | undefined, evaluatedAt: string | 
   return Number.isFinite(end) && Number.isFinite(now) && now > end;
 }
 
-export function evaluateDebt(pack: GovernancePack, controls: readonly ControlEvaluation[], evaluatedAt?: string): DebtEvaluation {
+export function evaluateDebt(
+  pack: GovernancePack,
+  controls: readonly ControlEvaluation[],
+  evaluatedAt?: string,
+  incidentsByDebtId: ReadonlyMap<string, readonly string[]> = new Map(),
+): DebtEvaluation {
   const statusOf = new Map(controls.map((control) => [control.controlId, control.status]));
   const items: DebtItemReport[] = [];
   const unresolved: Record<Severity, number> = { P0: 0, P1: 0, P2: 0, P3: 0 };
@@ -101,6 +108,10 @@ export function evaluateDebt(pack: GovernancePack, controls: readonly ControlEva
     if (debt.severity === "P1" && debt.status !== "ACCEPTED") conditions.push(`P1 debt is ${debt.status.toLowerCase().replace("_", " ")} and has no recorded acceptance (DEBT-020 section 9)`);
     if (overdue) conditions.push(`past its target date ${debt.target_date}`);
     if (debt.status === "ACCEPTED" && !debt.last_reviewed) conditions.push("accepted but never reviewed (DEBT-020 section 18)");
+    const incidents = [...(incidentsByDebtId.get(debt.id) ?? [])];
+    if (incidents.length >= 2 && (debt.severity === "P2" || debt.severity === "P3")) {
+      conditions.push(`linked to ${incidents.length} incidents (${incidents.join(", ")}): its ${debt.severity} severity may be understated (INC-019 section 52)`);
+    }
 
     items.push({
       id: debt.id,
@@ -114,6 +125,7 @@ export function evaluateDebt(pack: GovernancePack, controls: readonly ControlEva
       blocking: blockers.length > 0,
       reasons: [...blockers, ...conditions],
       linkedControls: (debt.controls ?? []).map((id) => ({ id, status: statusOf.get(id) ?? "UNVERIFIED" })),
+      incidents,
     });
   }
 

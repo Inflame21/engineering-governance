@@ -1,4 +1,5 @@
 import type { DebtSummary } from "./debt.js";
+import type { IncidentSummary } from "./incidents.js";
 export type Severity = "P0" | "P1" | "P2" | "P3";
 export type ControlStatus = "PASS" | "FAIL" | "WARN" | "NOT_APPLICABLE" | "UNVERIFIED";
 export type EvidenceStatus = "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
@@ -155,6 +156,45 @@ export interface GovernanceDebt {
   controls?: string[];
 }
 
+/** A corrective action from a post-incident review (INC-019 sections 35 to 37). */
+export interface GovernanceCorrectiveAction {
+  id: string;
+  description: string;
+  status: "OPEN" | "IN_PROGRESS" | "DONE" | "DEPRIORITIZED";
+  owner?: string;
+  /** Target date (YYYY-MM-DD). */
+  due_date?: string;
+  /** How completion will be validated. */
+  validation?: string;
+  /** Required when the action is DEPRIORITIZED: why, and the risk accepted. */
+  justification?: string;
+}
+
+/** An incident that happened, recorded so it feeds back into later decisions (INC-019, OPS-04). */
+export interface GovernanceIncident {
+  id: string;
+  severity: Severity;
+  /** OPEN and MITIGATED are active; RESOLVED means recovery was verified; CLOSED means closure was communicated and follow-up assigned (section 45). */
+  status: "OPEN" | "MITIGATED" | "RESOLVED" | "CLOSED";
+  title: string;
+  detected_at: string;
+  resolved_at?: string;
+  /** The incident commander or owner of the response (section 3.3). */
+  owner?: string;
+  /** A short slug naming the root cause, so a later incident with the same cause is recognised as a repeat (section 38). */
+  cause?: string;
+  /** Controls whose failure, or whose assumption, this incident exposed (section 51). */
+  controls?: string[];
+  /** Technical debt this incident is attributed to (section 52). */
+  debt?: string[];
+  review?: {
+    status: "NOT_REQUIRED" | "PENDING" | "COMPLETE";
+    completed_at?: string;
+    reference?: string;
+  };
+  actions?: GovernanceCorrectiveAction[];
+}
+
 export interface GovernanceProject {
   id: string;
   name: string;
@@ -202,6 +242,7 @@ export interface GovernancePack {
   decisions: GovernanceDecisionRecord[];
   findings?: GovernanceFinding[];
   exceptions?: GovernanceException[];
+  incidents?: GovernanceIncident[];
   debt?: GovernanceDebt[];
 }
 
@@ -288,6 +329,8 @@ export interface GovernanceEvaluation {
   decision: GovernanceDecision;
   /** Present only when the pack records debt (DEBT-020, OPS-04). */
   debt?: DebtSummary;
+  /** Present only when the pack records incidents (INC-019, OPS-04). */
+  incidents?: IncidentSummary;
 }
 
 export interface AnalyzerInput {

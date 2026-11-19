@@ -2,6 +2,7 @@ import { checkApproverAuthority } from "./authority.js";
 import { evaluateControl } from "./evaluator.js";
 import { validateGovernancePackSemantics } from "./validation.js";
 import { evaluateDebt } from "./debt.js";
+import { evaluateIncidents, incidentsByDebt } from "./incidents.js";
 import type {
   ControlEvaluation,
   GovernanceContext,
@@ -506,7 +507,7 @@ export function evaluateGovernance(
 
   // Technical debt (DEBT-020): unowned critical debt and unresolved P0 debt block; other debt that needs a
   // decision is a condition. The pack's debt is summarised in the evaluation whenever it has any.
-  const debt = evaluateDebt(pack, controls, context.evaluatedAt);
+  const debt = evaluateDebt(pack, controls, context.evaluatedAt, incidentsByDebt(pack));
   for (const violation of debt.blocking) {
     decision.status = "NO-GO";
     decision.blockingViolations.push(violation);
@@ -521,10 +522,22 @@ export function evaluateGovernance(
     decision.reason = `${decision.reason} ${debt.conditions.length} technical debt item(s) need a decision or review (DEBT-020).`;
   }
 
+  // Incidents (INC-019): every finding is a condition. The standard's automatic blockers are about
+  // capabilities, which a list of past incidents cannot show (see incidents.ts).
+  const incidents = evaluateIncidents(pack, controls, context.evaluatedAt);
+  for (const violation of incidents.conditions) {
+    if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+    decision.warnings.push(violation);
+  }
+  if (incidents.conditions.length > 0) {
+    decision.reason = `${decision.reason} ${incidents.conditions.length} incident(s) need follow-up (INC-019).`;
+  }
+
   return {
     controls,
     violations: [...decision.blockingViolations, ...decision.warnings],
     decision,
     ...((pack.debt ?? []).length > 0 ? { debt: debt.summary } : {}),
+    ...((pack.incidents ?? []).length > 0 ? { incidents: incidents.summary } : {}),
   };
 }

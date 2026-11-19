@@ -10,7 +10,9 @@ import type {
   GovernanceChange,
   GovernanceChangeType,
   GovernanceControl,
+  GovernanceCorrectiveAction,
   GovernanceDebt,
+  GovernanceIncident,
   GovernanceDecisionRecord,
   GovernanceDecisionRecordStatus,
   GovernanceDecisionType,
@@ -46,7 +48,7 @@ const fieldPresence = {
   pack: {
     version: "required", project: "required", change: "required", standards: "required",
     controls: "required", evidence: "required", risks: "required", decisions: "required",
-    findings: "optional", exceptions: "optional", debt: "optional",
+    findings: "optional", exceptions: "optional", debt: "optional", incidents: "optional",
   } satisfies FieldPresence<GovernancePack>,
   project: {
     id: "required", name: "required", repository: "required", environment: "required",
@@ -89,6 +91,15 @@ const fieldPresence = {
     id: "required", severity: "required", status: "required", title: "optional", owner: "optional",
     target_date: "optional", last_reviewed: "optional", controls: "optional",
   } satisfies FieldPresence<GovernanceDebt>,
+  incident: {
+    id: "required", severity: "required", status: "required", title: "required", detected_at: "required",
+    resolved_at: "optional", owner: "optional", cause: "optional", controls: "optional", debt: "optional",
+    review: "optional", actions: "optional",
+  } satisfies FieldPresence<GovernanceIncident>,
+  correctiveAction: {
+    id: "required", description: "required", status: "required", owner: "optional", due_date: "optional",
+    validation: "optional", justification: "optional",
+  } satisfies FieldPresence<GovernanceCorrectiveAction>,
   finding: {
     id: "required", rule_id: "required", severity: "required", category: "required",
     message: "required", status: "required", evidence_refs: "required",
@@ -119,6 +130,9 @@ const enumValues = {
   riskStatus: ["OPEN", "MITIGATED", "ACCEPTED", "CLOSED"],
   exceptionStatus: ["REQUESTED", "APPROVED", "REJECTED", "EXPIRED", "CLOSED"],
   debtStatus: ["OPEN", "PLANNED", "IN_PROGRESS", "ACCEPTED", "RESOLVED"],
+  incidentStatus: ["OPEN", "MITIGATED", "RESOLVED", "CLOSED"],
+  actionStatus: ["OPEN", "IN_PROGRESS", "DONE", "DEPRIORITIZED"],
+  reviewStatus: ["NOT_REQUIRED", "PENDING", "COMPLETE"],
   findingStatus: ["OPEN", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED", "ACCEPTED", "SUPPRESSED", "UNVERIFIED"],
 } as const;
 
@@ -135,6 +149,9 @@ type _DecisionStatusMatches = Assert<Equal<(typeof enumValues.decisionStatus)[nu
 type _RiskStatusMatches = Assert<Equal<(typeof enumValues.riskStatus)[number], GovernanceRisk["status"]>>;
 type _ExceptionStatusMatches = Assert<Equal<(typeof enumValues.exceptionStatus)[number], GovernanceException["status"]>>;
 type _DebtStatusMatches = Assert<Equal<(typeof enumValues.debtStatus)[number], GovernanceDebt["status"]>>;
+type _IncidentStatusMatches = Assert<Equal<(typeof enumValues.incidentStatus)[number], GovernanceIncident["status"]>>;
+type _ActionStatusMatches = Assert<Equal<(typeof enumValues.actionStatus)[number], GovernanceCorrectiveAction["status"]>>;
+type _ReviewStatusMatches = Assert<Equal<(typeof enumValues.reviewStatus)[number], NonNullable<GovernanceIncident["review"]>["status"]>>;
 type _FindingStatusMatches = Assert<Equal<(typeof enumValues.findingStatus)[number], GovernanceFindingStatus>>;
 
 const schemaEntityContracts = [
@@ -150,6 +167,8 @@ const schemaEntityContracts = [
     ["exception", "GovernanceException"],
     ["debt", "GovernanceDebt"],
     ["finding", "GovernanceFinding"],
+    ["incident", "GovernanceIncident"],
+    ["correctiveAction", "GovernanceCorrectiveAction"],
   ] as const).map(([schemaName]) => [
     schemaName,
     governanceSchema.$defs[schemaName].properties,
@@ -216,6 +235,10 @@ describe("JSON Schema and TypeScript contract alignment", () => {
     expectEnumToMatch(defs.risk.properties.status.enum, enumValues.riskStatus, "riskStatus");
     expectEnumToMatch(defs.exception.properties.status.enum, enumValues.exceptionStatus, "exceptionStatus");
     expectEnumToMatch(defs.debt.properties.status.enum, enumValues.debtStatus, "debtStatus");
+    expectEnumToMatch(defs.incident.properties.status.enum, enumValues.incidentStatus, "incidentStatus");
+    expectEnumToMatch(defs.incident.properties.severity.enum, enumValues.severity, "incidentSeverity");
+    expectEnumToMatch(defs.incident.properties.review.properties.status.enum, enumValues.reviewStatus, "reviewStatus");
+    expectEnumToMatch(defs.correctiveAction.properties.status.enum, enumValues.actionStatus, "actionStatus");
     expectEnumToMatch(defs.finding.properties.status.enum, enumValues.findingStatus, "findingStatus");
   });
 

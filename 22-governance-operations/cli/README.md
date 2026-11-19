@@ -158,6 +158,35 @@ node dist/cli/src/index.js architecture --list [--json]
 
 It is advice from folder names, manifests and counts. It cannot see whether the code's dependencies follow a style (`check --profile` does that), nor the team, the load or the domain. The thresholds are rules of thumb, not research. See DEBT-GOV-023.
 
+## Incidents
+
+A pack's `incidents` records feed the decision and the reports (INC-019, OPS-04). Record an incident when it happens and keep updating it; the reports then show what still needs doing and which controls and debt it points at:
+
+```json
+{ "id": "INC-7", "severity": "P1", "status": "RESOLVED", "title": "Checkout outage",
+  "detected_at": "2026-10-01T10:00:00Z", "resolved_at": "2026-10-01T14:00:00Z", "owner": "Ivy Commander",
+  "cause": "db-pool-exhaustion", "controls": ["SEC-AUTH-001"], "debt": ["DEBT-12"],
+  "review": { "status": "COMPLETE", "completed_at": "2026-10-03T10:00:00Z", "reference": "docs/postmortems/inc-7.md" },
+  "actions": [{ "id": "ACT-1", "description": "Add a connection timeout", "status": "OPEN",
+                "owner": "Rita Owner", "due_date": "2026-12-01", "validation": "Load test passes at 2x peak" }] }
+```
+
+`status` is `OPEN` or `MITIGATED` (active), `RESOLVED` (recovery verified, `resolved_at` required) or `CLOSED`. `cause` is a short slug; a later incident with the same cause is a repeat. Corrective actions are `OPEN`, `IN_PROGRESS`, `DONE` or `DEPRIORITIZED` (which needs a `justification`).
+
+Every finding is a **condition** (exit 1), never a block, because INC-019's automatic blockers are about capabilities rather than past incidents (DEBT-GOV-024):
+
+| Situation | Condition |
+|---|---|
+| Active P0 or P1 incident | a change is acceptable only if it is the fix or an emergency change (section 27) |
+| Active P0, P1 or P2 incident with no owner | section 3.3 |
+| Resolved or closed P0 or P1 with no completed review (unless `NOT_REQUIRED`) | section 31 |
+| Closed P0 or P1 with no corrective action recorded | section 45 |
+| Open corrective action (P0 to P2) lacking an owner, a target date or validation criteria; past its target date; or deprioritised with no justification | sections 36 and 37 |
+| A repeat of an earlier incident's cause | section 38, with a prompt to record debt (section 52) |
+| P0 or P1 incident recorded against a control that still evaluates PASS | the control did not catch it: revisit its evidence (section 51) |
+
+Incidents also reach the debt report: a debt item shows the incidents attributed to it, and P2 or P3 debt attributed to two or more incidents gets a condition that its severity may be understated (section 52). `check` prints a totals line (by severity, active, reviews, actions, repeats, mean time to resolve), `report` adds a table, `summarize` has an Incidents section, and the JSON report has `evaluation.incidents`. Unknown control or debt ids, a resolved incident with no `resolved_at`, and a review marked complete with no `completed_at` are rejected.
+
 ## Technical debt
 
 A pack's `debt` records now feed the decision and the reports (DEBT-020, OPS-04). Each record may carry `owner`, `target_date` and `last_reviewed` (dates as `YYYY-MM-DD`) and `controls`, the ids of the pack's controls it is recorded against:
