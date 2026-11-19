@@ -1,3 +1,4 @@
+import type { DebtSummary } from "./debt.js";
 export type Severity = "P0" | "P1" | "P2" | "P3";
 export type ControlStatus = "PASS" | "FAIL" | "WARN" | "NOT_APPLICABLE" | "UNVERIFIED";
 export type EvidenceStatus = "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "NOT_APPLICABLE";
@@ -146,6 +147,12 @@ export interface GovernanceDebt {
   status: "OPEN" | "PLANNED" | "IN_PROGRESS" | "ACCEPTED" | "RESOLVED";
   title?: string;
   owner?: string;
+  /** Date (YYYY-MM-DD) by which the debt should be resolved or re-decided; debt past it is overdue (DEBT-020 section 14, Target). */
+  target_date?: string;
+  /** Date (YYYY-MM-DD) the debt, and for ACCEPTED debt the decision to accept it, was last reviewed (DEBT-020 sections 14 and 18). */
+  last_reviewed?: string;
+  /** Controls this debt is recorded against; the report shows their current status next to it. */
+  controls?: string[];
 }
 
 export interface GovernanceProject {
@@ -279,6 +286,8 @@ export interface GovernanceEvaluation {
   controls: ControlEvaluation[];
   violations: GovernanceViolation[];
   decision: GovernanceDecision;
+  /** Present only when the pack records debt (DEBT-020, OPS-04). */
+  debt?: DebtSummary;
 }
 
 export interface AnalyzerInput {

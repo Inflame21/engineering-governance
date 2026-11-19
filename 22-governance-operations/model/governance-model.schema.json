@@ -722,6 +722,25 @@
         },
         "owner": {
           "type": "string"
+        },
+        "target_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date by which the debt should be resolved or re-decided. Debt past it is reported as overdue (DEBT-020 section 14, Target)."
+        },
+        "last_reviewed": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the debt was last reviewed. For ACCEPTED debt this is the date of the acceptance decision; accepted debt with none is unreviewed (DEBT-020 section 18)."
+        },
+        "controls": {
+          "type": "array",
+          "description": "Ids of the pack's controls this debt is recorded against; the report shows each control's status next to the debt.",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "additionalProperties": false

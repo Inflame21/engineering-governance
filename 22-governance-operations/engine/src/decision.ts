@@ -1,6 +1,7 @@
 import { checkApproverAuthority } from "./authority.js";
 import { evaluateControl } from "./evaluator.js";
 import { validateGovernancePackSemantics } from "./validation.js";
+import { evaluateDebt } from "./debt.js";
 import type {
   ControlEvaluation,
   GovernanceContext,
@@ -503,9 +504,27 @@ export function evaluateGovernance(
     decision.reason = `${decision.reason} ${findingsById.size} unresolved finding(s) require remediation or governed acceptance.`;
   }
 
+  // Technical debt (DEBT-020): unowned critical debt and unresolved P0 debt block; other debt that needs a
+  // decision is a condition. The pack's debt is summarised in the evaluation whenever it has any.
+  const debt = evaluateDebt(pack, controls, context.evaluatedAt);
+  for (const violation of debt.blocking) {
+    decision.status = "NO-GO";
+    decision.blockingViolations.push(violation);
+  }
+  for (const violation of debt.conditions) {
+    if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+    decision.warnings.push(violation);
+  }
+  if (debt.blocking.length > 0) {
+    decision.reason = `${decision.reason} ${debt.blocking.length} technical debt item(s) block production (DEBT-020).`;
+  } else if (debt.conditions.length > 0) {
+    decision.reason = `${decision.reason} ${debt.conditions.length} technical debt item(s) need a decision or review (DEBT-020).`;
+  }
+
   return {
     controls,
     violations: [...decision.blockingViolations, ...decision.warnings],
     decision,
+    ...((pack.debt ?? []).length > 0 ? { debt: debt.summary } : {}),
   };
 }

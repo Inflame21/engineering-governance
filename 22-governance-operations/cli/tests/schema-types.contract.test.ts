@@ -87,6 +87,7 @@ const fieldPresence = {
   } satisfies FieldPresence<GovernanceException>,
   debt: {
     id: "required", severity: "required", status: "required", title: "optional", owner: "optional",
+    target_date: "optional", last_reviewed: "optional", controls: "optional",
   } satisfies FieldPresence<GovernanceDebt>,
   finding: {
     id: "required", rule_id: "required", severity: "required", category: "required",

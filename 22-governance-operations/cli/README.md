@@ -141,6 +141,26 @@ node dist/cli/src/index.js diff [<repository>] <a> <b> [--json]
 
 `check --record` and `report --record` append one line to `.governance/history/assessments.jsonl` (never rewritten): the decision and reason, every violation and finding with its severity and status, each evidence item's status, the SHA-256 of the pack file and the git HEAD. Each record carries the previous record's hash and its own, so `history` can detect an edited, removed or reordered record and refuses to continue (exit 3); `--record` also refuses to extend a broken chain. `history` lists the assessments and, for every issue, when it was first seen, last seen, resolved (first assessment without it) and whether it came back. `diff <a> <b>` compares two numbered assessments: decision, resolved and introduced issues, and evidence that changed status. Each record also stores the repository fingerprint (a SHA-256 over file paths and the content of source files and manifests, excluding `.governance/history/` and `.governance/reports/`). Evidence that names a `repository_fingerprint` counts only while it equals the fingerprint of the code being assessed, so evidence produced against older code stops counting once the code changes. Commit the file to keep the history with the code. The chain shows tampering by accident or carelessness, not by someone who can rewrite the whole file (DEBT-GOV-017).
 
+## Technical debt
+
+A pack's `debt` records now feed the decision and the reports (DEBT-020, OPS-04). Each record may carry `owner`, `target_date` and `last_reviewed` (dates as `YYYY-MM-DD`) and `controls`, the ids of the pack's controls it is recorded against:
+
+```json
+{ "id": "DEBT-12", "severity": "P1", "status": "ACCEPTED", "title": "Hand-rolled session store",
+  "owner": "Rita Owner", "target_date": "2027-03-31", "last_reviewed": "2026-11-19", "controls": ["SEC-AUTH-001"] }
+```
+
+| Situation | Effect |
+|---|---|
+| P0 or P1 debt with no named owner (blank or `UNASSIGNED`) | **NO-GO** (sections 15 and 29) |
+| Unresolved P0 debt, in any status including ACCEPTED | **NO-GO** (sections 9 and 17) |
+| P1 debt that is OPEN, PLANNED or IN_PROGRESS | condition: it has no recorded acceptance |
+| Debt past `target_date` (the whole target day is allowed) | condition, at any severity |
+| ACCEPTED debt with no `last_reviewed` | condition: unreviewed (section 18) |
+| Anything else: P2 and P3 debt, accepted and reviewed P1, RESOLVED debt | counted only |
+
+`check` prints a totals line, `report` adds a table (severity, status, owner, target, the status of the controls it is recorded against, and what it needs), `summarize` has a Technical debt section, and the JSON report has `evaluation.debt` with the same data. A pack with no debt shows nothing. A control id in `controls` that the pack does not define is rejected. Two of these rules are judgement calls awaiting owner approval: see DEBT-GOV-022.
+
 ## History integrity: checkpoints and required signatures
 
 ```powershell

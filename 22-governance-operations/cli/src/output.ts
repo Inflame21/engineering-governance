@@ -1,3 +1,4 @@
+import type { DebtSummary } from "../../engine/src/debt.js";
 import { TOOL_RESULT_STATUSES } from "../../engine/src/evidence-policy.js";
 import type { GovernanceContext, GovernanceEvaluation } from "../../engine/src/types.js";
 import type { RepositoryAnalysis } from "../../analyzer/src/types.js";
@@ -172,6 +173,28 @@ const catalogLine = (catalog: CatalogSummary): string =>
 const authorityLine = (authority: AuthoritySummary): string =>
   `${authority.id} ${authority.version} (${authority.approved} of ${authority.roles} roles approved${authority.approved === 0 ? "; none enforced" : ""})`;
 
+/** One line of totals for technical debt (DEBT-020 section 30). */
+export function debtTotalsLine(debt: DebtSummary): string {
+  const u = debt.unresolved;
+  return `${debt.unresolvedTotal} unresolved (P0: ${u.P0}, P1: ${u.P1}, P2: ${u.P2}, P3: ${u.P3}), ${debt.accepted} accepted, ${debt.overdue} overdue; an owner is named on ${debt.withOwner} of ${debt.unresolvedTotal}, a review date on ${debt.withReviewDate} of ${debt.unresolvedTotal}.`;
+}
+
+const MAX_DEBT_ROWS = 30;
+
+/** The debt section shared by the report and the summary: totals, then one row per unresolved item. */
+export function debtMarkdownLines(debt: DebtSummary): string[] {
+  const lines = ["", "## Technical debt", "", debtTotalsLine(debt)];
+  if (debt.items.length === 0) return lines;
+  lines.push("", "| Debt | Severity | Status | Owner | Target | Recorded against | Needs |", "|---|---|---|---|---|---|---|");
+  for (const item of debt.items.slice(0, MAX_DEBT_ROWS)) {
+    const target = item.target_date ? `${item.target_date}${item.overdue ? " (overdue)" : ""}` : "";
+    const linked = item.linkedControls.map((control) => `${control.id} (${control.status})`).join(", ");
+    lines.push(`| ${cell(item.id)}${item.title ? ` ${cell(item.title)}` : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${target} | ${cell(linked)} | ${cell(item.reasons.length > 0 ? `${item.blocking ? "**blocks**: " : ""}${item.reasons.join("; ")}` : "")} |`);
+  }
+  if (debt.items.length > MAX_DEBT_ROWS) lines.push("", `…and ${debt.items.length - MAX_DEBT_ROWS} more in the JSON report.`);
+  return lines;
+}
+
 export function formatHumanResult(
   analysis: RepositoryAnalysis,
   evaluation: GovernanceEvaluation,
@@ -190,6 +213,7 @@ export function formatHumanResult(
     `Blocking violations: ${evaluation.decision.blockingViolations.length}`,
     `Warnings: ${evaluation.decision.warnings.length}`,
     `Open risks: ${evaluation.decision.openRisks.length}`,
+    ...(evaluation.debt ? [`Technical debt: ${debtTotalsLine(evaluation.debt)}`] : []),
   ];
 
   if (evaluation.decision.reason) lines.push("", `Reason: ${evaluation.decision.reason}`);
@@ -285,6 +309,7 @@ export function formatMarkdownResult(
 
   section("Blocking violations", decision.blockingViolations);
   section("Warnings", decision.warnings);
+  if (evaluation.debt && (evaluation.debt.unresolvedTotal > 0 || evaluation.debt.resolved > 0)) lines.push(...debtMarkdownLines(evaluation.debt));
 
   const attention = evaluation.controls.filter((c) => c.status !== "PASS" && c.status !== "NOT_APPLICABLE");
   if (attention.length > 0) {
