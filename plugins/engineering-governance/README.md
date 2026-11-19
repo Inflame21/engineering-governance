@@ -2,7 +2,15 @@
 
 Check a repository's structure and assess it against the Engineering Governance Framework from inside Claude Code. The plugin bundles the governance CLI, so nothing else has to be built or cloned.
 
-**Status: version 0.7.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
+## Try this first
+
+After installing, open Claude Code in your repository's root folder and run:
+
+1. `/engineering-governance:start` for a short explanation and the order to run things in (it runs nothing).
+2. `/engineering-governance:analyze` to see what the plugin can detect in your repository (changes nothing).
+3. `/engineering-governance:audit` for a full set of Markdown reports on what to fix, written to `.governance/reports/`.
+
+**Status: version 0.7.1, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
 
 ## Requirements
 
@@ -31,6 +39,7 @@ Nothing runs automatically. Each command runs only when you type it, against the
 
 | Command | What it does |
 |---|---|
+| `/engineering-governance:start` | New here? Prints what the plugin does and which command to run first. Runs nothing and writes nothing. |
 | `/engineering-governance:audit [repository]` | **Start here for reports.** Goes through a whole repository and writes an ordered set of Markdown files to `.governance/reports/`, starting from `audit-<date>.md`: documentation of what the repository is (`overview-<date>.md`), a review of each applicable area (`review-<area>-<date>.md`), a status summary, and a prioritized plan of fixes and improvements with what, where, why and how for each. It asks before starting, because it reads a lot of code. |
 | `/engineering-governance:setup` | Finds the git repositories in the folder and drafts a governance pack for each. With your permission it runs each repository's own checks (lint, typecheck, tests, build) and records the real results as evidence. It also fills in the empty pack that `init` wrote, in place, but never touches a pack that has content. The packs are AI-drafted and need human review. |
 | `/engineering-governance:review <area>` | Reviews one area of a repository (security, architecture, api, data, testing, cicd, frontend, observability) against the governance standards. Writes a report with what, where, why, how to confirm and a fix for each finding to `.governance/reports/`, and adds the findings to the pack so they count in `check`. AI-written: findings are leads for a person to confirm. |
@@ -84,6 +93,10 @@ npm run bundle:plugin
 The CLI test suite fails if the committed bundle is out of date, and checks that it runs standalone from an empty directory. Keep `plugin.json`, `marketplace.json` and the CLI's `VERSION` in step; a test checks that too.
 
 **Bump the version whenever the plugin's behavior changes** (a new or changed command, skill text or CLI feature). Claude Code caches an installed plugin by its version, so a copy at the same version looks up to date and never receives the change, however many commits have landed. After a bump, users refresh the marketplace and update the plugin from `/plugin`.
+
+## What changed in 0.7.1
+
+A new `/engineering-governance:start` command that explains the plugin and the order to run things in, plain-language plugin and marketplace descriptions, and a "Try this first" section in this README. No change to the analysis, the decision or any other command.
 
 ## What changed in 0.7.0
 
