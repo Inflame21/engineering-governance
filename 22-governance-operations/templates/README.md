@@ -9,6 +9,7 @@ A project does not copy this repository. It calls a reusable workflow, pinned to
 | `.github/workflows/governance.yml` | [github/governance-check.yml](github/governance-check.yml) | Calls the reusable workflow at a pinned version. |
 | `.governance/governance-pack.json` | created by `governance init` or the plugin's `setup` command (needs a baseline from commit `54f4095` or later for `init`) | The controls, evidence, risks and exceptions for your project. `init` writes a pack that asserts nothing, so the check is `NO-GO` until you add real controls and evidence. [model/example-governance-pack.json](../model/example-governance-pack.json) shows the shape for a fictional change; do not copy it into a real project, because its evidence is declared, not real. |
 | `.governance/project.json` | [model/example-project-registration.json](../model/example-project-registration.json) | Your project registration: owners, criticality, data classification, profiles. |
+| `.github/CODEOWNERS` | [github/CODEOWNERS](github/CODEOWNERS) | Independent review for the pack, approvals, history and governance workflows (ADR-0005). Only binds with "Require review from Code Owners" on. |
 | `.github/pull_request_template.md` | [github/pull_request_template.md](github/pull_request_template.md) | An evidence section for every pull request. |
 
 Replace `<GOVERNANCE_SHA>` in the workflow with one full commit SHA (or a `vMAJOR.MINOR.PATCH` tag) of this repository, in **every** place it appears (the check, the comment and the production approval each name the baseline). Branch names are refused, so the baseline you run is always exactly identifiable. To upgrade, change both values in a reviewed pull request.
@@ -40,6 +41,7 @@ For pull requests, the changed files are verified against the base branch, so a 
 | `diff_scope` | no | `true` | Verify the changed-file scope against the base. |
 | `base_ref` | no | PR base | A base revision such as a release tag, for non-PR events. |
 | `run_tools` | no | `false` | Run your installed TypeScript and Python checks. This executes repository code. |
+| `record_history`, `history_retention_days` | no | `true`, `400` | Append every assessment to the hash-chained history and upload it as `<artifact_name>-history`. The chain continues from the history committed in your repository; without one, each run starts a new chain. |
 | `artifact_name`, `artifact_retention_days` | no | `governance-report`, `30` | Use a distinct `artifact_name` if you call the workflow more than once in a run. |
 | `governance_repository` | no | `Inflame21/engineering-governance` | Where the baseline lives. |
 

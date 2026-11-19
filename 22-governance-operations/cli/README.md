@@ -141,6 +141,17 @@ node dist/cli/src/index.js diff [<repository>] <a> <b> [--json]
 
 `check --record` and `report --record` append one line to `.governance/history/assessments.jsonl` (never rewritten): the decision and reason, every violation and finding with its severity and status, each evidence item's status, the SHA-256 of the pack file and the git HEAD. Each record carries the previous record's hash and its own, so `history` can detect an edited, removed or reordered record and refuses to continue (exit 3); `--record` also refuses to extend a broken chain. `history` lists the assessments and, for every issue, when it was first seen, last seen, resolved (first assessment without it) and whether it came back. `diff <a> <b>` compares two numbered assessments: decision, resolved and introduced issues, and evidence that changed status. Each record also stores the repository fingerprint (a SHA-256 over file paths and the content of source files and manifests, excluding `.governance/history/` and `.governance/reports/`). Evidence that names a `repository_fingerprint` counts only while it equals the fingerprint of the code being assessed, so evidence produced against older code stops counting once the code changes. Commit the file to keep the history with the code. The chain shows tampering by accident or carelessness, not by someone who can rewrite the whole file (DEBT-GOV-017).
 
+## History integrity: checkpoints and required signatures
+
+```powershell
+node dist/cli/src/index.js checkpoint <repository> --sign <gpg-key>
+node dist/cli/src/index.js history <repository> --authority <policy>
+```
+
+The hash chain shows an edit in the middle of the history, but not that the newest records were deleted or that the whole chain was recomputed. `checkpoint` GPG-signs the newest record's sequence number and hash into `.governance/history/checkpoints/<n>.asc` (never replacing one). `history --authority` then verifies each checkpoint against the keys the policy registers (`key_fingerprint` on holders of APPROVED roles) and exits 3 if a checkpoint vouches for a record that is missing, does not verify over the current record, or is signed by an unregistered key. Without `--authority` only the chain is checked.
+
+An authority policy can set `require_signed_approvals: true`. Then every approved exception's signature is verified whenever the policy is applied and an unsigned approval does not hold, with no flag to turn that off. The reusable CI workflow takes the policy from the pinned governance baseline, so the assessed project cannot change it. The workflow also records every check (`record_history`) and uploads the history as an artifact. Retention, access control and what this does not stop are in [ADR-0005](../decisions/ADR-0005-audit-history-integrity.md) and DEBT-GOV-021.
+
 ## Exception lifecycle and signed approvals
 
 ```powershell

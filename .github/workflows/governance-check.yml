@@ -84,6 +84,19 @@ on:
         required: false
         type: boolean
         default: false
+      record_history:
+        description: >
+          Append every assessment to the append-only, hash-chained history (.governance/history/) and upload it
+          as an artifact, so each check leaves a trace outside the pull request. The chain continues from the
+          history committed in the repository; without one, each run starts a new chain.
+        required: false
+        type: boolean
+        default: true
+      history_retention_days:
+        description: Days to keep the history artifact (a proposal, see ADR-0005).
+        required: false
+        type: number
+        default: 400
       artifact_name:
         description: Name of the uploaded report artifact. Must be unique within a workflow run.
         required: false
@@ -216,6 +229,7 @@ jobs:
           AUTHORITY_PATH: ${{ steps.authority.outputs.authority_path }}
           BASE_REF: ${{ steps.base.outputs.base_ref }}
           RUN_TOOLS: ${{ inputs.run_tools }}
+          RECORD_HISTORY: ${{ inputs.record_history }}
         run: bash _governance/.github/scripts/governance-check.sh
 
       - name: Upload the governance report
@@ -226,3 +240,12 @@ jobs:
           path: _governance-report
           retention-days: ${{ inputs.artifact_retention_days }}
           if-no-files-found: warn
+
+      - name: Upload the assessment history
+        if: ${{ always() && inputs.record_history }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.artifact_name }}-history
+          path: _target/.governance/history
+          retention-days: ${{ inputs.history_retention_days }}
+          if-no-files-found: ignore

@@ -24,6 +24,11 @@
       "type": "string",
       "minLength": 1
     },
+    "require_signed_approvals": {
+      "type": "boolean",
+      "description": "When true, the CLI verifies every approved exception's GPG signature against the approver's key_fingerprint whenever this policy is applied, and an approval without a verified signature does not hold. Needs key_fingerprint on the holders. A policy consumed from the pinned governance baseline cannot be changed by the project that is assessed.",
+      "default": false
+    },
     "roles": {
       "type": "array",
       "minItems": 1,

@@ -5,7 +5,7 @@
 # can never be interpreted as shell code. Every value is validated before it is used.
 #
 # Required: GOVERNANCE_CLI (built CLI entry point), TARGET_DIR (repository to assess), OUT_DIR, CONDITIONS (pass|fail).
-# Optional: PACK_PATH, REGISTRY_PATH, PROJECT_ID, PROFILE_PATH, CATALOG_PATH, AUTHORITY_PATH, BASE_REF, RUN_TOOLS (true|false),
+# Optional: RECORD_HISTORY (true|false; append the assessment to .governance/history/ in TARGET_DIR), PACK_PATH, REGISTRY_PATH, PROJECT_ID, PROFILE_PATH, CATALOG_PATH, AUTHORITY_PATH, BASE_REF, RUN_TOOLS (true|false),
 #           GOVERNANCE_REF (recorded in the summary), SUMMARY_FILE and OUTPUT_FILE (default to the runner's
 #           GITHUB_STEP_SUMMARY and GITHUB_OUTPUT).
 #
@@ -38,6 +38,8 @@ require CONDITIONS
 [[ "$CONDITIONS" == "pass" || "$CONDITIONS" == "fail" ]] || input_error "CONDITIONS must be 'pass' or 'fail'"
 RUN_TOOLS="${RUN_TOOLS:-false}"
 [[ "$RUN_TOOLS" == "true" || "$RUN_TOOLS" == "false" ]] || input_error "RUN_TOOLS must be 'true' or 'false'"
+RECORD_HISTORY="${RECORD_HISTORY:-false}"
+[[ "$RECORD_HISTORY" == "true" || "$RECORD_HISTORY" == "false" ]] || input_error "RECORD_HISTORY must be 'true' or 'false'"
 [[ -f "$GOVERNANCE_CLI" ]] || input_error "GOVERNANCE_CLI does not exist: $GOVERNANCE_CLI"
 [[ -d "$TARGET_DIR" ]] || input_error "TARGET_DIR is not a directory: $TARGET_DIR"
 
@@ -82,7 +84,10 @@ mkdir -p "$OUT_DIR"
 # The report is run twice: Markdown for people and JSON for machines. Both give the same exit code.
 # (With RUN_TOOLS=true the local checks run twice; that is a known cost, not a bug.)
 set +e
-node "$GOVERNANCE_CLI" "${args[@]}" --format markdown > "$OUT_DIR/report.md" 2>> "$OUT_DIR/stderr.txt"
+# The assessment is recorded on this first run only, so one check appends one record, not two.
+record_args=()
+[[ "$RECORD_HISTORY" == "true" ]] && record_args+=(--record)
+node "$GOVERNANCE_CLI" "${args[@]}" "${record_args[@]}" --format markdown > "$OUT_DIR/report.md" 2>> "$OUT_DIR/stderr.txt"
 cli_exit=$?
 node "$GOVERNANCE_CLI" "${args[@]}" --format json > "$OUT_DIR/report.json" 2> /dev/null
 set -e

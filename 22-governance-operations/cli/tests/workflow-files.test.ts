@@ -18,9 +18,32 @@ const templates = readdirSync(path.join(root, "22-governance-operations/template
   .filter((file) => file.endsWith(".yml"))
   .map((file) => `22-governance-operations/templates/github/${file}`);
 
+/** A `key: value` line whose unquoted value itself contains ": ", which YAML rejects. A trailing " #" comment is fine. */
+function plainScalarWithColonSpace(line: string): boolean {
+  const match = /^\s*(?:-\s+)?[A-Za-z_][\w-]*:\s+(?![>|"'&*!{\[])(\S.*)$/.exec(line);
+  return match !== null && /: /.test(match[1]!.replace(/\s+#.*$/, ""));
+}
+
+describe("the YAML guard", () => {
+  it("flags the line that broke governance-check.yml, and leaves ordinary lines and comments alone", () => {
+    expect(plainScalarWithColonSpace("        description: Days to keep the history artifact (a proposal: see ADR-0005).")).toBe(true);
+    expect(plainScalarWithColonSpace("        description: Days to keep the history artifact (a proposal, see ADR-0005).")).toBe(false);
+    expect(plainScalarWithColonSpace("        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1")).toBe(false);
+    expect(plainScalarWithColonSpace("        run: node _governance/.github/scripts/governance-comment.mjs _governance-report/report.json")).toBe(false);
+    expect(plainScalarWithColonSpace("        description: \"quoted: values are fine\"")).toBe(false);
+    expect(plainScalarWithColonSpace("        if: ${{ always() && inputs.record_history }}")).toBe(false);
+  });
+});
+
 describe.each([...workflows, ...templates])("%s", (file) => {
   const text = read(file);
   const code = text.split("\n").filter((line) => !line.trim().startsWith("#")).join("\n");
+
+  it("has no unquoted one-line value that YAML would reject (a colon and space inside it)", () => {
+    // GitHub refuses the whole file, so no job starts and required checks wait forever. This catches the
+    // usual cause: prose in a description such as "(a proposal: see the ADR)".
+    expect(code.split("\n").filter(plainScalarWithColonSpace)).toEqual([]);
+  });
 
   it("never uses the pull_request_target trigger", () => {
     expect(code).not.toMatch(/pull_request_target/);

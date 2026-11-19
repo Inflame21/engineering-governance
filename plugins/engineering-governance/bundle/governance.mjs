@@ -2210,8 +2210,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize2) {
-      if (normalize2 !== false)
+    function getFullPath(resolver, id = "", normalize3) {
+      if (normalize3 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -3237,8 +3237,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path12) {
-      let input = path12;
+    function removeDotSegments(path13) {
+      let input = path13;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3312,11 +3312,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path12) {
-      if (path12 === "" || path12[0] === "/") {
-        return removeDotSegments(path12);
+    function removeDotSegmentsRelative(path13) {
+      if (path13 === "" || path13[0] === "/") {
+        return removeDotSegments(path13);
       }
-      const segments = path12.split("/");
+      const segments = path13.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3679,8 +3679,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path12 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path12 && path12 !== "/" ? path12 : void 0;
+        const path13 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -3840,7 +3840,7 @@ var require_fast_uri = __commonJS({
       }
       return stringScheme;
     }
-    function normalize2(uri, options) {
+    function normalize3(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -4240,7 +4240,7 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize: normalize2,
+      normalize: normalize3,
       resolve,
       resolveComponent,
       equal,
@@ -8055,7 +8055,7 @@ var require_dist = __commonJS({
 });
 
 // src/index.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { pathToFileURL } from "node:url";
 
 // ../analyzer/src/architecture.ts
@@ -10412,6 +10412,11 @@ var authority_policy_schema_default = {
       type: "string",
       minLength: 1
     },
+    require_signed_approvals: {
+      type: "boolean",
+      description: "When true, the CLI verifies every approved exception's GPG signature against the approver's key_fingerprint whenever this policy is applied, and an approval without a verified signature does not hold. Needs key_fingerprint on the holders. A policy consumed from the pinned governance baseline cannot be changed by the project that is assessed.",
+      default: false
+    },
     roles: {
       type: "array",
       minItems: 1,
@@ -10784,10 +10789,10 @@ var KNOWN_ARCHITECTURE_PROFILE_IDS = new Set(
 function formatSchemaErrors(errors) {
   return errors.map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`).join("; ");
 }
-async function loadGovernancePack(rootPath, path12, fs) {
-  const content = await fs.readTextFile(rootPath, path12);
+async function loadGovernancePack(rootPath, path13, fs) {
+  const content = await fs.readTextFile(rootPath, path13);
   if (content === void 0) {
-    throw new Error(`Governance pack not found: ${path12}`);
+    throw new Error(`Governance pack not found: ${path13}`);
   }
   let parsed;
   try {
@@ -10810,9 +10815,9 @@ async function loadGovernancePack(rootPath, path12, fs) {
   }
   return pack;
 }
-async function loadArchitectureProfile(rootPath, path12, fs) {
-  const content = await fs.readTextFile(rootPath, path12);
-  if (content === void 0) throw new Error(`Architecture profile not found: ${path12}`);
+async function loadArchitectureProfile(rootPath, path13, fs) {
+  const content = await fs.readTextFile(rootPath, path13);
+  if (content === void 0) throw new Error(`Architecture profile not found: ${path13}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10840,8 +10845,8 @@ function getRegisteredArchitectureProfile(id) {
   if (!profile) throw new Error(`Unknown architecture profile '${id}'`);
   return validateArchitectureProfileObject(structuredClone(profile));
 }
-async function loadProjectRegistry(rootPath, path12, fs) {
-  const normalized = path12.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+async function loadProjectRegistry(rootPath, path13, fs) {
+  const normalized = path13.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const files = normalized.endsWith(".json") ? [normalized] : (await fs.listFiles(rootPath)).map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${normalized}/`) && file.endsWith(".json")).sort();
   if (files.length === 0) {
     throw new Error(`No project registration records (*.json) found in ${normalized || "."}`);
@@ -10910,9 +10915,9 @@ function assertPackMatchesRegistration(pack, registration) {
   }
   if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
 }
-async function loadControlCatalog(rootPath, path12, fs) {
-  const content = await fs.readTextFile(rootPath, path12);
-  if (content === void 0) throw new Error(`Control catalog not found: ${path12}`);
+async function loadControlCatalog(rootPath, path13, fs) {
+  const content = await fs.readTextFile(rootPath, path13);
+  if (content === void 0) throw new Error(`Control catalog not found: ${path13}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10934,9 +10939,9 @@ async function loadControlCatalog(rootPath, path12, fs) {
   }
   return catalog;
 }
-async function loadAuthorityPolicy(rootPath, path12, fs) {
-  const content = await fs.readTextFile(rootPath, path12);
-  if (content === void 0) throw new Error(`Authority policy not found: ${path12}`);
+async function loadAuthorityPolicy(rootPath, path13, fs) {
+  const content = await fs.readTextFile(rootPath, path13);
+  if (content === void 0) throw new Error(`Authority policy not found: ${path13}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -12141,13 +12146,13 @@ function parseSemgrepOutput(stdout) {
     if (!isRecord2(entry) || !isRecord2(entry.extra) || !isRecord2(entry.start)) {
       throw new Error("Semgrep result entry is malformed.");
     }
-    const { check_id: checkId, path: path12 } = entry;
+    const { check_id: checkId, path: path13 } = entry;
     const { message, severity } = entry.extra;
     const { line } = entry.start;
-    if (typeof checkId !== "string" || typeof path12 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
+    if (typeof checkId !== "string" || typeof path13 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
       throw new Error("Semgrep result is missing check_id, path, line, message or severity.");
     }
-    return { checkId, path: path12, line, message, severity };
+    return { checkId, path: path13, line, message, severity };
   });
   return { matches, scanErrors: parsed.errors.length };
 }
@@ -15055,6 +15060,62 @@ async function writePack(repositoryPath, packPath, pack) {
 `, "utf8");
 }
 
+// src/checkpoints.ts
+import { mkdir as mkdir4, readdir as readdir4, readFile as readFile4, writeFile as writeFile2 } from "node:fs/promises";
+import path11 from "node:path";
+var CHECKPOINT_DIRECTORY = ".governance/history/checkpoints";
+var checkpointPayload = (record) => canonical({ seq: record.seq, hash: record.hash });
+var normalize2 = (fingerprint) => fingerprint.replaceAll(" ", "").toUpperCase();
+function registeredKeys(policy) {
+  return policy.roles.filter((role) => role.status === "APPROVED").flatMap((role) => role.holders).flatMap((holder) => holder.key_fingerprint ? [normalize2(holder.key_fingerprint)] : []);
+}
+async function createCheckpoint(repositoryPath, records, keyId, gpg) {
+  const last = records.at(-1);
+  if (!last) throw new Error("There is no recorded assessment to checkpoint. Run `governance check --record` first.");
+  const file = `${CHECKPOINT_DIRECTORY}/${last.seq}.asc`;
+  const target = path11.join(repositoryPath, file);
+  const existing = await readFile4(target, "utf8").catch(() => void 0);
+  if (existing !== void 0) throw new Error(`Assessment ${last.seq} already has a checkpoint (${file}); checkpoints are never replaced.`);
+  const armored = await gpg.sign(checkpointPayload(last), keyId);
+  await mkdir4(path11.dirname(target), { recursive: true });
+  await writeFile2(target, armored, { encoding: "utf8", flag: "wx" });
+  return { seq: last.seq, file };
+}
+async function verifyCheckpoints(repositoryPath, records, policy, gpg) {
+  const directory = path11.join(repositoryPath, CHECKPOINT_DIRECTORY);
+  const names = await readdir4(directory).catch(() => []);
+  const seqs = names.flatMap((name) => /^[1-9][0-9]*\.asc$/.test(name) ? [Number(name.slice(0, -4))] : []).sort((a, b) => a - b);
+  const keys = registeredKeys(policy);
+  const report = { verified: [], problems: [], uncovered: 0 };
+  for (const seq of seqs) {
+    const record = records.find((item) => item.seq === seq);
+    if (!record) {
+      report.problems.push(`Checkpoint ${seq} vouches for assessment ${seq}, but the history holds only ${records.length}: records were removed.`);
+      continue;
+    }
+    const signature = await readFile4(path11.join(directory, `${seq}.asc`), "utf8");
+    const result = await gpg.verify(signature, checkpointPayload(record));
+    if (!result.good) {
+      report.problems.push(`Checkpoint ${seq} does not verify (${result.detail}): the history was rewritten or the checkpoint was altered.`);
+    } else if (!result.fingerprints.some((fingerprint) => keys.includes(fingerprint))) {
+      report.problems.push(`Checkpoint ${seq} is signed by a key that the authority policy does not register.`);
+    } else {
+      report.verified.push(seq);
+    }
+  }
+  report.uncovered = records.length - (seqs.at(-1) ?? 0);
+  return report;
+}
+function formatCheckpointReport(report, recordCount) {
+  const lines = ["", "## Checkpoints", ""];
+  lines.push(
+    report.verified.length === 0 && report.problems.length === 0 ? "None. Nothing outside the chain vouches for this history yet (`governance checkpoint <repository> --sign <key>`)." : `${report.verified.length} verified${report.verified.length ? ` (assessments ${report.verified.join(", ")})` : ""}.`
+  );
+  if (report.uncovered > 0 && recordCount > 0 && report.verified.length > 0) lines.push(`${report.uncovered} newer assessment${report.uncovered === 1 ? " is" : "s are"} not yet vouched for.`);
+  for (const problem of report.problems) lines.push(`- PROBLEM: ${problem}`);
+  return lines.join("\n");
+}
+
 // src/index.ts
 var VERSION = "0.6.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
@@ -15069,7 +15130,8 @@ function usage() {
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
-    "  governance history <repository> [--json]",
+    "  governance history <repository> [--authority <relative-path>] [--json]",
+    "  governance checkpoint <repository> --sign <gpg-key>",
     "  governance diff [<repository>] <a> <b> [--json]",
     "  governance exception request <repository> --id <EXC-id> --control <id> --reason <text> --by <name> [--pack <relative-path>]",
     "  governance exception approve <repository> --id <EXC-id> --by <name> --role <ROLE> --expires <date> [--sign <gpg-key>] [--pack <relative-path>]",
@@ -15086,7 +15148,8 @@ function usage() {
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
     "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
-    "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened).",
+    "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened). With --authority it also verifies the signed checkpoints, which show deleted newest records or a rewritten chain.",
+    "  checkpoint  GPG-sign the newest history record (sequence number and hash) into .governance/history/checkpoints/<n>.asc. Verified by history --authority against the keys the policy registers; never replaces an existing checkpoint.",
     "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
     "  exception Manage the exception lifecycle in the pack: request, approve (with an expiry), renew (a fresh approval with a later expiry), expire (mark lapsed ones EXPIRED) and list (days left, signature status). approve and renew can GPG-sign the approval with --sign.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
@@ -15130,7 +15193,7 @@ function parseCliArguments(argv) {
     return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception" && rawCommand !== "checkpoint") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}
 
 ${usage()}`);
@@ -15177,7 +15240,7 @@ ${usage()}`);
     }
     if (argument === "--control" || argument === "--reason" || argument === "--by" || argument === "--role" || argument === "--expires" || argument === "--sign") {
       const value = rest[index + 1];
-      if (rawCommand !== "exception") throw new Error(`${argument} is only supported by the exception command.`);
+      if (rawCommand !== "exception" && !(rawCommand === "checkpoint" && argument === "--sign")) throw new Error(`${argument} is only supported by the exception command.`);
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
       exceptionOptions[argument.slice(2)] = value;
       index += 1;
@@ -15268,13 +15331,14 @@ ${usage()}`);
   if (verifySignatures && !authorityPath) throw new Error("--verify-signatures requires --authority (the policy holds each approver's key).");
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
-  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff") {
+  if (rawCommand === "checkpoint" && !exceptionOptions.sign) throw new Error("checkpoint requires --sign <gpg-key>.");
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff" || rawCommand === "checkpoint") {
     const unsupported = [
       profilePath && "--profile",
       baseRef && "--base",
       registryPath && "--registry",
       catalogPath && "--catalog",
-      authorityPath && "--authority",
+      rawCommand !== "history" && authorityPath && "--authority",
       projectId && "--project",
       runTools && "--run-tools",
       rawCommand === "init" && json && "--json",
@@ -15285,7 +15349,7 @@ ${usage()}`);
   }
   return {
     command: rawCommand,
-    repositoryPath: path11.resolve(repositoryPath),
+    repositoryPath: path12.resolve(repositoryPath),
     packPath,
     packExplicit,
     ...registryPath ? { registryPath } : {},
@@ -15302,6 +15366,7 @@ ${usage()}`);
     ...verifySignatures ? { verifySignatures: true } : {},
     ...exception ? { exception } : {},
     ...diff ? { diff } : {},
+    ...rawCommand === "checkpoint" ? { checkpointKey: exceptionOptions.sign } : {},
     ...rawCommand === "init" ? { init: initOptions } : {}
   };
 }
@@ -15390,7 +15455,22 @@ async function runCli(argv) {
     }
     if (args.command === "history") {
       const records = await readHistory(nodeHistoryStore, args.repositoryPath);
-      process.stdout.write(`${args.json ? JSON.stringify(records, null, 2) : formatHistory(records)}
+      const policy = args.authorityPath ? await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem) : void 0;
+      const checkpoints = policy ? await verifyCheckpoints(args.repositoryPath, records, policy, gpgSignaturePort) : void 0;
+      process.stdout.write(args.json ? `${JSON.stringify(checkpoints ? { records, checkpoints } : records, null, 2)}
+` : `${formatHistory(records)}${checkpoints ? formatCheckpointReport(checkpoints, records.length) : ""}
+`);
+      if (checkpoints && checkpoints.problems.length > 0) {
+        process.stderr.write(`Governance CLI error: the history failed its integrity check (${checkpoints.problems.length} problem${checkpoints.problems.length === 1 ? "" : "s"}).
+`);
+        return 3;
+      }
+      return 0;
+    }
+    if (args.command === "checkpoint") {
+      const records = await readHistory(nodeHistoryStore, args.repositoryPath);
+      const made = await createCheckpoint(args.repositoryPath, records, args.checkpointKey, gpgSignaturePort);
+      process.stdout.write(`Signed assessment ${made.seq} in ${made.file}
 `);
       return 0;
     }
@@ -15474,7 +15554,7 @@ async function runCli(argv) {
     const architectureProfile = args.profilePath ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem) : registration ? getRegisteredArchitectureProfile(registration.profiles.architecture) : void 0;
     const authorityPolicy = args.authorityPath ? await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem) : void 0;
     const controlCatalog = args.catalogPath ? await loadControlCatalog(args.repositoryPath, args.catalogPath, nodeFileSystem) : void 0;
-    const verifiedApprovals = args.verifySignatures && authorityPolicy ? (await verifyApprovals(governancePack, authorityPolicy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file))).filter((check) => check.verified).map((check) => check.id) : void 0;
+    const verifiedApprovals = (args.verifySignatures || authorityPolicy?.require_signed_approvals === true) && authorityPolicy ? (await verifyApprovals(governancePack, authorityPolicy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file))).filter((check) => check.verified).map((check) => check.id) : void 0;
     const result = await runGovernanceCommand({
       snapshot,
       governancePack,
@@ -15494,7 +15574,7 @@ async function runCli(argv) {
       const head = await nodeGitCommandRunner.run(["rev-parse", "HEAD"], args.repositoryPath, 1e4).catch(() => void 0);
       const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : void 0, result.analysis.snapshotFingerprint?.digest);
       const saved = await recordAssessment(nodeHistoryStore, args.repositoryPath, facts);
-      process.stdout.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
+      process.stderr.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
 `);
     }
     if (args.write) {
@@ -15512,7 +15592,7 @@ async function runCli(argv) {
     return 3;
   }
 }
-var entrypoint = process.argv[1] ? pathToFileURL(path11.resolve(process.argv[1])).href : void 0;
+var entrypoint = process.argv[1] ? pathToFileURL(path12.resolve(process.argv[1])).href : void 0;
 if (entrypoint === import.meta.url) {
   process.exitCode = await runCli(process.argv.slice(2));
 }

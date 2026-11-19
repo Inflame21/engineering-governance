@@ -122,10 +122,13 @@ describe("check --record", () => {
     }));
 
     const out: string[] = [];
+    const status: string[] = [];
     vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => { out.push(String(chunk)); return true; });
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => { status.push(String(chunk)); return true; });
     expect(await runCli(["check", root, "--record"])).toBe(2);
     expect(await runCli(["check", root, "--record"])).toBe(2);
-    expect(out.join("")).toContain("Recorded assessment #2");
+    expect(status.join("")).toContain("Recorded assessment #2");
+    expect(out.join("")).not.toContain("Recorded assessment"); // stdout stays the report
 
     const file = await readFile(path.join(root, ".governance", "history", "assessments.jsonl"), "utf8");
     expect(file.trim().split("\n")).toHaveLength(2);
