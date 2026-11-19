@@ -1,0 +1,12 @@
+./bad/broken.go:3:14: expected ')', found '{'
+./bad/broken.go:5:1: missing ',' in parameter list
+./bad/broken.go:5:2: expected ')', found newline
+./bad/broken.go:5:2: missing ',' before newline in parameter list
+./bad/broken.go:7:6: expected '(', found Also
+./bad/broken.go:7:12: expected ')', found 'EOF'
+./bad/broken.go:7:12: expected ')', found 'EOF'
+./bad/broken.go:7:12: expected ')', found 'EOF'
+./bad/broken.go:7:12: expected ';', found 'EOF'
+./bad/broken.go:7:12: expected type, found 'EOF'
+./bad/broken.go:7:12: missing ',' in parameter list
+./bad/broken.go:7:12: missing ',' in parameter list

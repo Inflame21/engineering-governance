@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { access, realpath } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type {
   VerificationProcessResult,
@@ -13,6 +14,7 @@ const ALLOWLISTED_TOOLS: ReadonlySet<string> = new Set<VerificationToolName>([
   "typescript",
   "python3",
   "python",
+  "gofmt",
   "osv-scanner",
   "gitleaks",
   "semgrep",
@@ -53,6 +55,7 @@ function runExecutable(
   args: string[],
   cwd: string,
   timeoutMs: number,
+  extraEnvironment: Record<string, string> = {},
 ): Promise<VerificationProcessResult> {
   const startedAt = Date.now();
   return new Promise((resolve, reject) => {
@@ -73,6 +76,7 @@ function runExecutable(
           HOME: process.env.HOME ?? "",
           PYTHONNOUSERSITE: "1",
           PYTHONDONTWRITEBYTECODE: "1",
+          ...extraEnvironment,
         },
       },
       (error, stdout, stderr) => {
@@ -116,6 +120,32 @@ async function findTypeScriptCompiler(rootPath: string, workingDirectory: string
  * It never invokes a shell or installs dependencies, and callers must opt in
  * before passing this runner to governance commands.
  */
+/**
+ * gofmt has no --version flag (it exits 2), but it prints its usage for -h. Real gofmt from Go 1.24 exits 0
+ * for -h, older ones 2, so the usage text, not the exit code, says it is there.
+ */
+async function gofmtAvailable(cwd: string): Promise<boolean> {
+  try {
+    const result = await runExecutable("gofmt", ["-h"], cwd, 5_000);
+    return /usage: gofmt/i.test(`${result.stdout}\n${result.stderr}`);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * gofmt's version is the Go toolchain's. `go version` run inside a module whose go.mod names a newer
+ * toolchain makes Go download and switch to it, so this runs outside the repository, with switching off.
+ */
+async function goToolchainVersion(): Promise<string | undefined> {
+  try {
+    const result = await runExecutable("go", ["version"], os.tmpdir(), 5_000, { GOTOOLCHAIN: "local" });
+    return result.exitCode === 0 ? firstLine(result.stdout) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The first non-empty line: osv-scanner prints four lines of build information for --version. */
 function firstLine(text: string): string | undefined {
   return text.split(/\r?\n/).map((line) => line.trim()).find((line) => line !== "");
@@ -130,6 +160,7 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
 
     try {
       const cwd = await resolveConfinedWorkingDirectory(rootPath, workingDirectory);
+      if (tool === "gofmt") return await gofmtAvailable(cwd);
       const result = await runExecutable(tool, ["--version"], cwd, 5_000);
       return result.exitCode === 0;
     } catch {
@@ -144,6 +175,7 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
   ): Promise<string | undefined> {
     assertAllowlistedTool(tool);
     try {
+      if (tool === "gofmt") return await goToolchainVersion();
       if (tool === "typescript") {
         const compiler = await findTypeScriptCompiler(rootPath, workingDirectory);
         if (!compiler) return undefined;

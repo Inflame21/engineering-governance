@@ -595,13 +595,28 @@ describe("built governance CLI", () => {
 
   it("reports partial analysis in JSON and exits with the documented conditional status", async () => {
     const root = await createRoot("governance-cli-partial-");
-    await writeFile(path.join(root, "main.go"), "package main\nfunc main() {}\n");
+    // Rust has no analyzer. (Go was this test's example until ADP-06 gave it one.)
+    await writeFile(path.join(root, "main.rs"), "fn main() {}\n");
 
     const result = await runCli(["analyze", root, "--json"]);
     expect(result.exitCode).toBe(1);
     const parsed = JSON.parse(result.stdout) as { context: { analysisStatus: string; unsupportedCapabilities: string[] } };
     expect(parsed.context.analysisStatus).toBe("PARTIAL");
-    expect(parsed.context.unsupportedCapabilities).toContain("language-specific-analysis:go");
+    expect(parsed.context.unsupportedCapabilities).toContain("language-specific-analysis:rust");
+  });
+
+  it("no longer reports Go as an unsupported language (ADP-06), through the built CLI", async () => {
+    const root = await createRoot("governance-cli-go-");
+    await writeFile(path.join(root, "go.mod"), "module example.com/app\n\ngo 1.22\n\nrequire github.com/gin-gonic/gin v1.9.1\n");
+    await writeFile(path.join(root, "main.go"), "package main\nfunc main() {}\n");
+
+    const result = await runCli(["analyze", root, "--json"]);
+    const parsed = JSON.parse(result.stdout) as { context: { analysisStatus: string; unsupportedCapabilities: string[] }; analysis: { facts: { languages: string[]; frameworks: string[] } } };
+    expect(parsed.analysis.facts.languages).toContain("go");
+    expect(parsed.analysis.facts.frameworks).toContain("gin");
+    expect(parsed.context.unsupportedCapabilities).not.toContain("language-specific-analysis:go");
+    expect(parsed.context.analysisStatus).toBe("COMPLETE");
+    expect(result.exitCode).toBe(0);
   });
 
   const invalidGovernanceInputs: Array<[string, (root: string) => Promise<string[]>, string]> = [

@@ -1,0 +1,3 @@
+osv-real-default.strace: 6 go execs
+osv-real-nocall-all.strace: 0 go execs
+osv-real-nocall.strace: 0 go execs

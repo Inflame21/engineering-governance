@@ -2210,8 +2210,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize3) {
-      if (normalize3 !== false)
+    function getFullPath(resolver, id = "", normalize4) {
+      if (normalize4 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -3840,7 +3840,7 @@ var require_fast_uri = __commonJS({
       }
       return stringScheme;
     }
-    function normalize3(uri, options) {
+    function normalize4(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -4240,7 +4240,7 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize: normalize3,
+      normalize: normalize4,
       resolve,
       resolveComponent,
       equal,
@@ -8086,6 +8086,57 @@ function hasPythonDependency(content, packageName) {
   const escaped = packageName.replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
   return new RegExp(`(?:^|[\\s=<>~!"',\\[])${escaped}(?:[\\s=<>~!"',;\\[\\]]|$)`, "im").test(content);
 }
+function parseGoMod(content) {
+  const result = { requires: [], indirect: [] };
+  let inRequireBlock = false;
+  const unquote = (value) => value.replace(/^["`]|["`]$/g, "");
+  for (const rawLine of content.split(/\r?\n/)) {
+    const comment = rawLine.indexOf("//");
+    const code = (comment >= 0 ? rawLine.slice(0, comment) : rawLine).trim();
+    const indirect = comment >= 0 && /^\s*indirect\b/.test(rawLine.slice(comment + 2));
+    if (code === "") continue;
+    if (inRequireBlock) {
+      if (code === ")") {
+        inRequireBlock = false;
+        continue;
+      }
+      const [modulePath] = code.split(/\s+/);
+      if (modulePath) (indirect ? result.indirect : result.requires).push(unquote(modulePath));
+      continue;
+    }
+    const module = /^module\s+(\S+)/.exec(code);
+    if (module) {
+      result.module = unquote(module[1]);
+      continue;
+    }
+    const goVersion = /^go\s+(\d+(?:\.\d+)*)/.exec(code);
+    if (goVersion) {
+      result.goVersion = goVersion[1];
+      continue;
+    }
+    if (/^require\s*\(\s*$/.test(code)) {
+      inRequireBlock = true;
+      continue;
+    }
+    const single = /^require\s+(\S+)\s+\S+/.exec(code);
+    if (single) (indirect ? result.indirect : result.requires).push(unquote(single[1]));
+  }
+  return result;
+}
+var GO_FRAMEWORKS = [
+  ["github.com/gin-gonic/gin", "gin"],
+  ["github.com/labstack/echo", "echo"],
+  ["github.com/gofiber/fiber", "fiber"],
+  ["github.com/go-chi/chi", "chi"],
+  ["github.com/gorilla/mux", "gorilla-mux"],
+  ["google.golang.org/grpc", "grpc"]
+];
+function goFrameworks(goMod) {
+  return GO_FRAMEWORKS.filter(([modulePath]) => hasGoRequirement(goMod, modulePath)).map(([, framework]) => framework).sort();
+}
+function hasGoRequirement(goMod, modulePath) {
+  return goMod.requires.some((required) => required === modulePath || required.startsWith(`${modulePath}/v`));
+}
 
 // ../analyzer/src/detector.ts
 var languageByExtension = {
@@ -8465,7 +8516,7 @@ var sourceExtensions2 = {
   ".cpp": "cpp",
   ".hpp": "cpp"
 };
-var graphableLanguages = /* @__PURE__ */ new Set(["typescript", "javascript", "python"]);
+var graphableLanguages = /* @__PURE__ */ new Set(["typescript", "javascript", "python", "go"]);
 var resolutionExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
 function languageForFile(file) {
   return sourceExtensions2[path2.posix.extname(file).toLowerCase()];
@@ -8493,9 +8544,70 @@ function mapRoles(file, mappings) {
   if (!mappings) return [];
   return Object.entries(mappings).filter(([, patterns]) => patterns.some((pattern) => globToRegExp(pattern).test(file))).map(([role]) => role).sort();
 }
+function goImports(content) {
+  const results = [];
+  let inBlock = false;
+  let inComment = false;
+  content.split("\n").forEach((rawLine, index) => {
+    let line = rawLine;
+    if (inComment) {
+      const end = line.indexOf("*/");
+      if (end < 0) return;
+      inComment = false;
+      line = line.slice(end + 2);
+    }
+    line = line.replace(/\/\*[\s\S]*?\*\//g, " ");
+    const open2 = line.indexOf("/*");
+    if (open2 >= 0) {
+      inComment = true;
+      line = line.slice(0, open2);
+    }
+    const slashes = line.indexOf("//");
+    if (slashes >= 0) line = line.slice(0, slashes);
+    const trimmed2 = line.trim();
+    if (trimmed2 === "") return;
+    if (!inBlock) {
+      if (/^import\s*\(\s*$/.test(trimmed2)) {
+        inBlock = true;
+        return;
+      }
+      const single = /^import\s+(?:[\w.]+\s+)?"([^"]+)"/.exec(trimmed2);
+      if (single && single[1] !== "C") results.push({ specifier: single[1], line: index + 1 });
+      return;
+    }
+    if (trimmed2.startsWith(")")) {
+      inBlock = false;
+      return;
+    }
+    const entry = /^(?:[\w.]+\s+)?"([^"]+)"/.exec(trimmed2);
+    if (entry && entry[1] !== "C") results.push({ specifier: entry[1], line: index + 1 });
+  });
+  return results;
+}
+function goModules(content) {
+  const modules = [];
+  for (const [file, text] of Object.entries(content)) {
+    const normalized = file.replaceAll("\\", "/");
+    if (path2.posix.basename(normalized) !== "go.mod") continue;
+    const modulePath = parseGoMod(text).module;
+    if (modulePath) modules.push({ directory: path2.posix.dirname(normalized), modulePath });
+  }
+  return modules.sort((a, b) => b.directory.length - a.directory.length);
+}
+function resolveGoImport(sourceFile, specifier, modules, filesByDirectory) {
+  const owner = modules.find((item) => item.directory === "." || sourceFile.startsWith(`${item.directory}/`));
+  if (!owner) return { looksLocal: false };
+  if (specifier !== owner.modulePath && !specifier.startsWith(`${owner.modulePath}/`)) return { looksLocal: false };
+  const relative = specifier.slice(owner.modulePath.length).replace(/^\//, "");
+  const directory = owner.directory === "." ? relative || "." : path2.posix.join(owner.directory, relative);
+  const candidates = filesByDirectory.get(directory) ?? [];
+  const target = candidates.find((candidate) => !candidate.endsWith("_test.go") && candidate !== sourceFile);
+  return target ? { target, looksLocal: true } : { looksLocal: true };
+}
 function importsForFile(file, content) {
   const results = [];
   const language = languageForFile(file);
+  if (language === "go") return goImports(content);
   const patterns = language === "python" ? [
     /^(\s*)from\s+(\.{1,}[\w.]*)\s+import\s+[^\n]+/gm,
     /^(\s*)from\s+([\w.]+)\s+import\s+[^\n]+/gm,
@@ -8562,6 +8674,13 @@ function buildArchitectureDependencyGraph(snapshot, profile) {
   const fileSet = new Set(sourceFiles);
   const sourceContent = snapshot.fileContents ?? {};
   const topLevelModules = new Set(sourceFiles.map((file) => file.split("/")[0]?.replace(/\.py$/, "") ?? ""));
+  const goModuleList = goModules(sourceContent);
+  const goFilesByDirectory = /* @__PURE__ */ new Map();
+  for (const file of sourceFiles) {
+    if (!file.endsWith(".go")) continue;
+    const directory = path2.posix.dirname(file);
+    goFilesByDirectory.set(directory, [...goFilesByDirectory.get(directory) ?? [], file]);
+  }
   const packageFacts = [...detectRepositoryFacts(snapshot).packages ?? []].sort((left, right) => right.root.length - left.root.length);
   const packageForFile = (file) => packageFacts.find(
     (item) => item.root === "." || file === item.root || file.startsWith(`${item.root}/`)
@@ -8589,6 +8708,10 @@ function buildArchitectureDependencyGraph(snapshot, profile) {
       let looksLocal = false;
       if (language === "python") {
         const resolved = resolvePythonImport(sourceFile, item.specifier, fileSet, topLevelModules);
+        target = resolved.target;
+        looksLocal = resolved.looksLocal;
+      } else if (language === "go") {
+        const resolved = resolveGoImport(sourceFile, item.specifier, goModuleList, goFilesByDirectory);
         target = resolved.target;
         looksLocal = resolved.looksLocal;
       } else {
@@ -8790,6 +8913,9 @@ function verifyArchitectureProfile(snapshot, profile) {
   if (!profile.componentMappings || Object.keys(profile.componentMappings).length === 0) {
     limitations.push("The profile has no componentMappings; declared boundary rules cannot be checked against repository paths.");
     unsupportedCapabilities.push("architecture:component-role-mapping");
+  }
+  if (graph.nodes.some((node) => node.language === "go")) {
+    limitations.push("Go imports name a package, not a file: each internal import is attributed to the first non-test file of the imported package, so a boundary violation is reported once per importing file and change impact for Go can under-report.");
   }
   if (graph.unsupportedLanguages.length > 0) {
     limitations.push(`Dependency graph extraction is not implemented for: ${graph.unsupportedLanguages.join(", ")}.`);
@@ -11111,7 +11237,7 @@ var frameworkAdapter = {
   languages: [],
   capabilities: ["manifest-dependency-detection", "framework-detection"],
   supports: (snapshot) => snapshot.files.some(
-    (file) => /(^|\/)(package\.json|pyproject\.toml|requirements\.txt)$/.test(file)
+    (file) => /(^|\/)(package\.json|pyproject\.toml|requirements\.txt|go\.mod)$/.test(file)
   ),
   async analyze(snapshot) {
     const signals = /* @__PURE__ */ new Set();
@@ -11128,7 +11254,7 @@ var frameworkAdapter = {
     ];
     for (const [manifestPath, content] of Object.entries(snapshot.fileContents ?? {})) {
       const basename2 = manifestPath.split("/").at(-1);
-      if (basename2 !== "package.json" && basename2 !== "pyproject.toml" && basename2 !== "requirements.txt") {
+      if (basename2 !== "package.json" && basename2 !== "pyproject.toml" && basename2 !== "requirements.txt" && basename2 !== "go.mod") {
         continue;
       }
       inspectedManifestCount += 1;
@@ -11146,6 +11272,12 @@ var frameworkAdapter = {
           manifestErrors.push(
             `${manifestPath}: ${error instanceof Error ? error.message : String(error)}`
           );
+        }
+      } else if (basename2 === "go.mod") {
+        successfullyInspectedManifestCount += 1;
+        for (const framework of goFrameworks(parseGoMod(content))) {
+          frameworks.add(framework);
+          signals.add(`framework:${framework}`);
         }
       } else {
         successfullyInspectedManifestCount += 1;
@@ -11251,6 +11383,48 @@ var genericRepositoryAdapter = {
   }
 };
 
+// ../analyzer/src/adapters/go.ts
+var HTTP_FRAMEWORKS = /* @__PURE__ */ new Set(["gin", "echo", "fiber", "chi", "gorilla-mux"]);
+var goAdapter = {
+  id: "go",
+  version: "0.1.0",
+  languages: ["go"],
+  capabilities: [
+    "go-api-path-detection",
+    "go-database-path-detection",
+    "go-test-path-detection",
+    "go-mod-framework-detection"
+  ],
+  supports: (snapshot) => snapshot.files.some((file) => file.endsWith(".go") || /(^|\/)go\.mod$/.test(file)),
+  async analyze(snapshot) {
+    const files = snapshot.files.map((file) => file.replaceAll("\\", "/"));
+    const signals = /* @__PURE__ */ new Set();
+    const frameworks = /* @__PURE__ */ new Set();
+    for (const [file, content] of Object.entries(snapshot.fileContents ?? {})) {
+      if (!/(^|\/)go\.mod$/.test(file.replaceAll("\\", "/"))) continue;
+      for (const framework of goFrameworks(parseGoMod(content))) {
+        frameworks.add(framework);
+        signals.add(`framework:${framework}`);
+      }
+    }
+    if ([...frameworks].some((framework) => HTTP_FRAMEWORKS.has(framework)) || files.some((file) => /(^|\/)(handlers?|api|routes?|controllers?|rest|transport\/http|httpserver)\//.test(file))) {
+      signals.add("capability:http-api");
+    }
+    if (files.some((file) => /(^|\/)(repositor(?:y|ies)|store|storage|persistence|dal|db)\//.test(file))) {
+      signals.add("capability:database-access");
+    }
+    if (files.some((file) => file.endsWith("_test.go"))) {
+      signals.add("tests:go");
+    }
+    return {
+      facts: frameworks.size > 0 ? { frameworks: [...frameworks].sort() } : {},
+      signals: [...signals].sort(),
+      evidence: [],
+      supportedCapabilities: [...this.capabilities]
+    };
+  }
+};
+
 // ../analyzer/src/adapters/python.ts
 var pythonAdapter = {
   id: "python",
@@ -11320,7 +11494,8 @@ var defaultAnalyzerAdapters = [
   genericRepositoryAdapter,
   frameworkAdapter,
   typescriptAdapter,
-  pythonAdapter
+  pythonAdapter,
+  goAdapter
 ];
 
 // ../analyzer/src/normalize.ts
@@ -11936,8 +12111,132 @@ function concludeScanner(identity, outcome, fingerprint) {
   };
 }
 
-// ../analyzer/src/gitleaks.ts
+// ../analyzer/src/go-syntax.ts
 var IDENTITY = {
+  tool: "gofmt",
+  adapterId: "go-syntax",
+  adapterVersion: "0.1.0",
+  capability: "verification:go-syntax",
+  evidenceId: "EVD-GO-SYNTAX",
+  evidenceSource: "gofmt-adapter"
+};
+var MAX_GO_FILES = 2e3;
+var BATCH_SIZE = 100;
+var MAX_FINDINGS = 100;
+var TOOL_TIMEOUT_MS = 12e4;
+var EXCLUDED_SEGMENTS = /* @__PURE__ */ new Set(["vendor", "testdata", "node_modules"]);
+var ERROR_LINE = /^(.+?):(\d+):(\d+): (.+)$/;
+var normalize = (file) => file.replaceAll("\\", "/").replace(/^\.\//, "");
+function chunks(items, size) {
+  const result = [];
+  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+  return result;
+}
+function classify(result, batch) {
+  const stderr = result.stderr.trim();
+  if (result.exitCode === 0) {
+    return stderr === "" ? { kind: "clean" } : { kind: "untrusted", reason: `gofmt exited 0 but reported errors: ${compactOutput("", stderr).slice(0, 300)}` };
+  }
+  if (result.exitCode !== 2) {
+    return { kind: "untrusted", reason: `gofmt exited with code ${result.exitCode}${stderr ? `: ${compactOutput("", stderr).slice(0, 300)}` : "."}` };
+  }
+  const errors = /* @__PURE__ */ new Map();
+  const other = [];
+  for (const line of stderr.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    const match = ERROR_LINE.exec(line);
+    const file = match ? normalize(match[1]) : void 0;
+    if (match && file !== void 0 && batch.has(file)) {
+      errors.set(line, { file, line: Number(match[2]), column: Number(match[3]), message: match[4] });
+    } else {
+      other.push(line);
+    }
+  }
+  if (other.length > 0) return { kind: "untrusted", reason: `gofmt reported something other than syntax errors: ${other.slice(0, 3).join(" | ").slice(0, 300)}` };
+  if (errors.size === 0) return { kind: "untrusted", reason: "gofmt exited 2 with no syntax errors in its output." };
+  return { kind: "syntax", errors: [...errors.values()] };
+}
+function toFindings(errors) {
+  const byFile = /* @__PURE__ */ new Map();
+  for (const error of errors) byFile.set(error.file, [...byFile.get(error.file) ?? [], error]);
+  const findings = [...byFile.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([file, list]) => {
+    const first = [...list].sort((a, b) => a.line - b.line || a.column - b.column)[0];
+    return {
+      id: `FND-GO-SYNTAX-${stableId3(`${file}:${first.line}:${first.column}`)}`,
+      rule_id: "GO-SYNTAX",
+      severity: "P1",
+      category: "static-analysis",
+      message: `${first.message} (${file}:${first.line}:${first.column})${list.length > 1 ? `; ${list.length - 1} more error${list.length === 2 ? "" : "s"} in this file` : ""}`,
+      status: "OPEN",
+      evidence_refs: [IDENTITY.evidenceId],
+      source_location: { file, start_line: first.line },
+      confidence: 0.98,
+      remediation: "Correct the Go syntax error and rerun syntax verification."
+    };
+  });
+  return { findings, files: byFile.size };
+}
+async function runGoSyntaxAdapter(snapshot, runner, fingerprint) {
+  const all = snapshot.files.map(normalize).filter((file) => file.endsWith(".go"));
+  const goFiles = all.filter((file) => !file.split("/").some((segment) => EXCLUDED_SEGMENTS.has(segment))).sort();
+  if (goFiles.length === 0) return void 0;
+  const excluded = all.length - goFiles.length;
+  const conclude = (outcome) => concludeScanner(IDENTITY, outcome, fingerprint);
+  const command = ["gofmt", "-e", "-l", "--", `<${goFiles.length} Go files>`];
+  const notRun = (status2, summary2, limitations2) => conclude({ status: status2, summary: summary2, findings: [], limitations: limitations2, command });
+  if (goFiles.length > MAX_GO_FILES) {
+    return notRun("SKIPPED", `Found ${goFiles.length} Go files; the safety limit is ${MAX_GO_FILES}.`, ["Go syntax was not checked."]);
+  }
+  if (!await runner.isAvailable("gofmt", snapshot.rootPath, ".")) {
+    return notRun("UNSUPPORTED", "gofmt was not available; Go syntax was not checked.", ["gofmt (part of the Go toolchain) is not installed or not on PATH."]);
+  }
+  const version = await runner.getVersion?.("gofmt", snapshot.rootPath, ".");
+  const syntaxErrors = [];
+  const untrusted = [];
+  let exitCode = 0;
+  let durationMs = 0;
+  for (const files of chunks(goFiles, BATCH_SIZE)) {
+    let result;
+    try {
+      result = await runner.run("gofmt", ["-e", "-l", "--", ...files], snapshot.rootPath, ".", TOOL_TIMEOUT_MS);
+    } catch (error) {
+      untrusted.push(`gofmt failed to run: ${error instanceof Error ? error.message : String(error)}`);
+      exitCode = exitCode || 1;
+      continue;
+    }
+    durationMs += result.durationMs ?? 0;
+    if (result.exitCode !== 0) exitCode = result.exitCode;
+    const outcome = classify(result, new Set(files));
+    if (outcome.kind === "syntax") syntaxErrors.push(...outcome.errors);
+    else if (outcome.kind === "untrusted") untrusted.push(outcome.reason);
+  }
+  const { findings: allFindings, files: failingFiles } = toFindings(syntaxErrors);
+  const findings = allFindings.slice(0, MAX_FINDINGS);
+  const limitations = [
+    "Syntax only: gofmt parses each file but does not compile it, so type errors, missing dependencies and build constraints are not checked.",
+    ...excluded > 0 ? [`${excluded} Go file(s) under vendor/, testdata/ or node_modules/ were not checked.`] : [],
+    ...allFindings.length > MAX_FINDINGS ? [`${allFindings.length - MAX_FINDINGS} more file(s) with syntax errors are not listed.`] : [],
+    ...untrusted
+  ];
+  const status = findings.length > 0 ? "FAIL" : untrusted.length > 0 ? "ERROR" : "PASS";
+  const summary = {
+    FAIL: `gofmt found syntax errors in ${failingFiles} of ${goFiles.length} Go file(s).`,
+    ERROR: "gofmt produced output that cannot be trusted; Go syntax was not verified.",
+    PASS: `gofmt parsed ${goFiles.length} Go file(s) without syntax errors. This checks syntax only, not that the code compiles.`
+  }[status];
+  return conclude({
+    status,
+    summary,
+    findings,
+    limitations,
+    processResult: { exitCode, stdout: "", stderr: "", durationMs },
+    ...version ? { version } : {},
+    command
+  });
+}
+
+// ../analyzer/src/gitleaks.ts
+var IDENTITY2 = {
   tool: "gitleaks",
   adapterId: "gitleaks-secret-scan",
   adapterVersion: "0.1.0",
@@ -11945,10 +12244,10 @@ var IDENTITY = {
   evidenceId: "EVD-GITLEAKS-SECRETS",
   evidenceSource: "gitleaks-adapter"
 };
-var TOOL_TIMEOUT_MS = 12e4;
+var TOOL_TIMEOUT_MS2 = 12e4;
 var LEAK_EXIT_CODE = 2;
 var COMMON_ARGS = ["--exit-code", String(LEAK_EXIT_CODE), "--redact", "--no-banner", "--no-color", "--log-level", "error"];
-function classify(exitCode, scope, stderr = "") {
+function classify2(exitCode, scope, stderr = "") {
   if (exitCode === LEAK_EXIT_CODE) return "leaks";
   if (exitCode === 0) {
     if (stderr.trim() === "") return "clean";
@@ -11965,14 +12264,14 @@ function leakFinding(scope) {
     category: "secret-exposure",
     message: `Gitleaks reported one or more potential secrets in the ${scope}. The location and value are deliberately not recorded.`,
     status: "OPEN",
-    evidence_refs: [IDENTITY.evidenceId],
+    evidence_refs: [IDENTITY2.evidenceId],
     confidence: 0.7,
     remediation: scope === "git history" ? "Run gitleaks locally to locate the match, treat the credential as compromised and rotate or revoke it. Removing it from history does not make it safe." : "Run gitleaks locally to locate the match, remove it, and rotate or revoke the credential. Treat it as compromised until proven otherwise."
   };
 }
 async function runGitleaksAdapter(snapshot, runner, fingerprint) {
   if (snapshot.files.length === 0) return void 0;
-  const conclude = (outcome) => concludeScanner(IDENTITY, outcome, fingerprint);
+  const conclude = (outcome) => concludeScanner(IDENTITY2, outcome, fingerprint);
   const command = ["gitleaks", "dir", ...COMMON_ARGS, "."];
   if (!await runner.isAvailable("gitleaks", snapshot.rootPath, ".")) {
     const limitation = "gitleaks is not installed or not on PATH.";
@@ -11990,7 +12289,7 @@ async function runGitleaksAdapter(snapshot, runner, fingerprint) {
     [scope === "working tree" ? "dir" : "git", ...COMMON_ARGS, "."],
     snapshot.rootPath,
     ".",
-    TOOL_TIMEOUT_MS
+    TOOL_TIMEOUT_MS2
   );
   let tree;
   try {
@@ -12007,8 +12306,8 @@ async function runGitleaksAdapter(snapshot, runner, fingerprint) {
     historyFailure = `gitleaks failed to run on git history: ${error instanceof Error ? error.message : String(error)}`;
   }
   const results = {
-    "working tree": classify(tree.exitCode, "working tree", tree.stderr),
-    "git history": history ? classify(history.exitCode, "git history", history.stderr) : "error"
+    "working tree": classify2(tree.exitCode, "working tree", tree.stderr),
+    "git history": history ? classify2(history.exitCode, "git history", history.stderr) : "error"
   };
   const findings = ["working tree", "git history"].filter((scope) => results[scope] === "leaks").map(leakFinding);
   const limitations = [];
@@ -12045,7 +12344,7 @@ async function runGitleaksAdapter(snapshot, runner, fingerprint) {
 }
 
 // ../analyzer/src/osv.ts
-var IDENTITY2 = {
+var IDENTITY3 = {
   tool: "osv-scanner",
   adapterId: "osv-dependency-scan",
   adapterVersion: "0.1.0",
@@ -12053,11 +12352,12 @@ var IDENTITY2 = {
   evidenceId: "EVD-OSV-DEPENDENCIES",
   evidenceSource: "osv-scanner-adapter"
 };
-var EVIDENCE_ID = IDENTITY2.evidenceId;
+var EVIDENCE_ID = IDENTITY3.evidenceId;
 var MAX_LOCKFILES = 50;
-var TOOL_TIMEOUT_MS2 = 12e4;
+var TOOL_TIMEOUT_MS3 = 12e4;
 var NODE_LOCKFILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
 var PYTHON_LOCKFILES = ["poetry.lock", "Pipfile.lock", "requirements.txt"];
+var GO_LOCKFILES = ["go.mod"];
 var NODE_MANIFESTS = ["package.json"];
 var PYTHON_MANIFESTS = ["pyproject.toml", "Pipfile"];
 var severityRank = { P0: 0, P1: 1, P2: 2, P3: 3 };
@@ -12075,8 +12375,8 @@ function withinDirectory(directory, ancestor) {
   return ancestor === "." || directory === ancestor || directory.startsWith(`${ancestor}/`);
 }
 function discoverLockfiles(files) {
-  const candidates = files.filter((file) => !file.split("/").includes("node_modules"));
-  const lockfiles = candidates.filter((file) => NODE_LOCKFILES.includes(basename(file)) || PYTHON_LOCKFILES.includes(basename(file))).sort();
+  const candidates = files.filter((file) => !file.split("/").some((segment) => segment === "node_modules" || segment === "vendor"));
+  const lockfiles = candidates.filter((file) => NODE_LOCKFILES.includes(basename(file)) || PYTHON_LOCKFILES.includes(basename(file)) || GO_LOCKFILES.includes(basename(file))).sort();
   const nodeLockDirs = lockfiles.filter((file) => NODE_LOCKFILES.includes(basename(file))).map(directoryname);
   const pythonLockDirs = lockfiles.filter((file) => PYTHON_LOCKFILES.includes(basename(file))).map(directoryname);
   const uncovered = candidates.filter((file) => {
@@ -12202,7 +12502,7 @@ async function runOsvAdapter(snapshot, runner, fingerprint) {
   const files = snapshot.files.map((file) => file.replaceAll("\\", "/"));
   const { lockfiles, uncovered } = discoverLockfiles(files);
   if (lockfiles.length === 0 && uncovered.length === 0) return void 0;
-  const conclude = (outcome) => concludeScanner(IDENTITY2, outcome, fingerprint);
+  const conclude = (outcome) => concludeScanner(IDENTITY3, outcome, fingerprint);
   const command = ["osv-scanner", "scan", "source", "--format", "json", `<${lockfiles.length} lockfiles>`];
   const coverageGap = uncovered.length > 0 ? [`No lockfile covers: ${uncovered.slice(0, 10).join(", ")}${uncovered.length > 10 ? ", ..." : ""}. Their dependencies were not scanned.`] : [];
   const notRun = (status2, summary2, limitations) => conclude({ status: status2, summary: summary2, findings: [], limitations, command });
@@ -12220,10 +12520,10 @@ async function runOsvAdapter(snapshot, runner, fingerprint) {
   try {
     processResult = await runner.run(
       "osv-scanner",
-      ["scan", "source", "--format", "json", ...lockfiles.map((file) => `--lockfile=${file}`)],
+      ["scan", "source", "--format", "json", "--no-call-analysis=all", ...lockfiles.map((file) => `--lockfile=${file}`)],
       snapshot.rootPath,
       ".",
-      TOOL_TIMEOUT_MS2
+      TOOL_TIMEOUT_MS3
     );
   } catch (error) {
     const limitation = `osv-scanner failed to run: ${error instanceof Error ? error.message : String(error)}`;
@@ -12263,7 +12563,7 @@ async function runOsvAdapter(snapshot, runner, fingerprint) {
 // ../analyzer/src/semgrep.ts
 import { createHash as createHash2 } from "node:crypto";
 var SEMGREP_RULES_DIRECTORY = ".governance/semgrep";
-var IDENTITY3 = {
+var IDENTITY4 = {
   tool: "semgrep",
   adapterId: "semgrep-static-analysis",
   adapterVersion: "0.1.0",
@@ -12271,8 +12571,8 @@ var IDENTITY3 = {
   evidenceId: "EVD-SEMGREP-STATIC-ANALYSIS",
   evidenceSource: "semgrep-adapter"
 };
-var TOOL_TIMEOUT_MS3 = 3e5;
-var SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py)$/;
+var TOOL_TIMEOUT_MS4 = 3e5;
+var SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go)$/;
 var RULE_FILE = /\.ya?ml$/;
 var severityRank2 = { P0: 0, P1: 1, P2: 2, P3: 3 };
 function isRecord2(value) {
@@ -12318,7 +12618,7 @@ function toFinding(match, severity) {
     category: "static-analysis",
     message: match.message.replace(/\s+/g, " ").trim().slice(0, 300),
     status: "OPEN",
-    evidence_refs: [IDENTITY3.evidenceId],
+    evidence_refs: [IDENTITY4.evidenceId],
     source_location: { file, start_line: match.line },
     confidence: 0.8,
     remediation: "Fix the flagged code, or record an approved governance exception. A nosemgrep comment or local ignore is not accepted as a waiver."
@@ -12335,10 +12635,10 @@ async function runSemgrepAdapter(snapshot, runner, fingerprint) {
   const files = snapshot.files.map((file) => file.replaceAll("\\", "/"));
   const ruleFiles = files.filter((file) => file.startsWith(`${SEMGREP_RULES_DIRECTORY}/`) && RULE_FILE.test(file)).sort();
   const sourceFiles = files.filter(
-    (file) => SOURCE_FILE.test(file) && !file.split("/").includes("node_modules") && !file.startsWith(`${SEMGREP_RULES_DIRECTORY}/`)
+    (file) => SOURCE_FILE.test(file) && !file.split("/").some((segment) => segment === "node_modules" || segment === "vendor") && !file.startsWith(`${SEMGREP_RULES_DIRECTORY}/`)
   );
   if (sourceFiles.length === 0) return void 0;
-  const conclude = (outcome) => concludeScanner(IDENTITY3, outcome, fingerprint);
+  const conclude = (outcome) => concludeScanner(IDENTITY4, outcome, fingerprint);
   const command = [
     "semgrep",
     "scan",
@@ -12372,7 +12672,7 @@ async function runSemgrepAdapter(snapshot, runner, fingerprint) {
   const version = await runner.getVersion?.("semgrep", snapshot.rootPath, ".");
   let processResult;
   try {
-    processResult = await runner.run("semgrep", command.slice(1), snapshot.rootPath, ".", TOOL_TIMEOUT_MS3);
+    processResult = await runner.run("semgrep", command.slice(1), snapshot.rootPath, ".", TOOL_TIMEOUT_MS4);
   } catch (error) {
     const limitation = `semgrep failed to run: ${error instanceof Error ? error.message : String(error)}`;
     return conclude({ status: "ERROR", summary: limitation, findings: [], limitations: [limitation], command });
@@ -12411,7 +12711,7 @@ async function runSemgrepAdapter(snapshot, runner, fingerprint) {
 // ../analyzer/src/verification.ts
 var MAX_TYPESCRIPT_PROJECTS = 20;
 var MAX_PYTHON_FILES = 500;
-var TOOL_TIMEOUT_MS4 = 6e4;
+var TOOL_TIMEOUT_MS5 = 6e4;
 function typescriptFindings(output, evidenceId) {
   const findings = [];
   const diagnosticPattern = /^(.+?)\((\d+),(\d+)\): error TS\d+: (.+)$/gm;
@@ -12536,7 +12836,7 @@ async function runVerificationAdapters(snapshot, runner) {
             ["--noEmit", "--pretty", "false", "--project", "tsconfig.json"],
             snapshot.rootPath,
             workingDirectory,
-            TOOL_TIMEOUT_MS4
+            TOOL_TIMEOUT_MS5
           ));
         } catch (error) {
           errors.push(`${configPath}: ${error instanceof Error ? error.message : String(error)}`);
@@ -12700,7 +13000,7 @@ async function runVerificationAdapters(snapshot, runner) {
             ["-c", script, ...pythonFiles],
             snapshot.rootPath,
             ".",
-            TOOL_TIMEOUT_MS4
+            TOOL_TIMEOUT_MS5
           );
           let parsedErrors = [];
           let invalidToolOutput = false;
@@ -12788,7 +13088,7 @@ async function runVerificationAdapters(snapshot, runner) {
       }
     }
   }
-  for (const runScanner of [runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);
@@ -12801,7 +13101,7 @@ async function runVerificationAdapters(snapshot, runner) {
 }
 
 // ../engine/src/authority.ts
-var normalize = (value) => value.trim().replace(/^@/, "").toLowerCase();
+var normalize2 = (value) => value.trim().replace(/^@/, "").toLowerCase();
 function checkApproverAuthority(approver, claimedRole, severity, authority) {
   if (!claimedRole?.trim()) {
     return { authorized: false, reason: "the approval does not name the approver's authority role" };
@@ -12813,8 +13113,8 @@ function checkApproverAuthority(approver, claimedRole, severity, authority) {
   if (!role.severities.includes(severity)) {
     return { authorized: false, reason: `role ${role.role} may not approve ${severity} deviations` };
   }
-  const approverKey = normalize(approver);
-  if (!role.holders.some((holder) => normalize(holder) === approverKey)) {
+  const approverKey = normalize2(approver);
+  if (!role.holders.some((holder) => normalize2(holder) === approverKey)) {
     return { authorized: false, reason: `'${approver.trim()}' is not a holder of role ${role.role}` };
   }
   return { authorized: true, reason: `'${approver.trim()}' holds role ${role.role}, which may approve ${severity}` };
@@ -14300,12 +14600,14 @@ async function loadRepositorySnapshot(rootPath, fs, changedFiles = [], changeSco
 // src/verification-runner.ts
 import { execFile } from "node:child_process";
 import { access, realpath as realpath2 } from "node:fs/promises";
+import os from "node:os";
 import path5 from "node:path";
 var EXECUTION_BUFFER_BYTES = 2e6;
 var ALLOWLISTED_TOOLS = /* @__PURE__ */ new Set([
   "typescript",
   "python3",
   "python",
+  "gofmt",
   "osv-scanner",
   "gitleaks",
   "semgrep"
@@ -14329,7 +14631,7 @@ async function resolveConfinedWorkingDirectory(rootPath, workingDirectory) {
   }
   return canonicalCandidate;
 }
-function runExecutable(executable, args, cwd, timeoutMs) {
+function runExecutable(executable, args, cwd, timeoutMs, extraEnvironment = {}) {
   const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     execFile(
@@ -14348,7 +14650,8 @@ function runExecutable(executable, args, cwd, timeoutMs) {
           TMP: process.env.TMP ?? "",
           HOME: process.env.HOME ?? "",
           PYTHONNOUSERSITE: "1",
-          PYTHONDONTWRITEBYTECODE: "1"
+          PYTHONDONTWRITEBYTECODE: "1",
+          ...extraEnvironment
         }
       },
       (error, stdout, stderr) => {
@@ -14382,6 +14685,23 @@ async function findTypeScriptCompiler(rootPath, workingDirectory) {
   }
   return void 0;
 }
+async function gofmtAvailable(cwd) {
+  try {
+    const result = await runExecutable("gofmt", ["-h"], cwd, 5e3);
+    return /usage: gofmt/i.test(`${result.stdout}
+${result.stderr}`);
+  } catch {
+    return false;
+  }
+}
+async function goToolchainVersion() {
+  try {
+    const result = await runExecutable("go", ["version"], os.tmpdir(), 5e3, { GOTOOLCHAIN: "local" });
+    return result.exitCode === 0 ? firstLine(result.stdout) : void 0;
+  } catch {
+    return void 0;
+  }
+}
 function firstLine(text) {
   return text.split(/\r?\n/).map((line) => line.trim()).find((line) => line !== "");
 }
@@ -14393,6 +14713,7 @@ var nodeVerificationToolRunner = {
     }
     try {
       const cwd = await resolveConfinedWorkingDirectory(rootPath, workingDirectory);
+      if (tool === "gofmt") return await gofmtAvailable(cwd);
       const result = await runExecutable(tool, ["--version"], cwd, 5e3);
       return result.exitCode === 0;
     } catch {
@@ -14402,6 +14723,7 @@ var nodeVerificationToolRunner = {
   async getVersion(tool, rootPath, workingDirectory) {
     assertAllowlistedTool(tool);
     try {
+      if (tool === "gofmt") return await goToolchainVersion();
       if (tool === "typescript") {
         const compiler = await findTypeScriptCompiler(rootPath, workingDirectory);
         if (!compiler) return void 0;
@@ -15840,7 +16162,7 @@ function formatAdvice(repository, advice) {
 // src/exceptions.ts
 import { spawn } from "node:child_process";
 import { mkdir as mkdir3, mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import os2 from "node:os";
 import path10 from "node:path";
 
 // src/history.ts
@@ -16135,7 +16457,7 @@ var gpgSignaturePort = {
     return result.stdout;
   },
   async verify(signature, payload) {
-    const directory = await mkdtemp(path10.join(os.tmpdir(), "governance-sig-"));
+    const directory = await mkdtemp(path10.join(os2.tmpdir(), "governance-sig-"));
     try {
       const file = path10.join(directory, "approval.asc");
       await writeFile(file, signature, "utf8");
@@ -16213,9 +16535,9 @@ import { mkdir as mkdir4, readdir as readdir4, readFile as readFile4, writeFile 
 import path11 from "node:path";
 var CHECKPOINT_DIRECTORY = ".governance/history/checkpoints";
 var checkpointPayload = (record) => canonical({ seq: record.seq, hash: record.hash });
-var normalize2 = (fingerprint) => fingerprint.replaceAll(" ", "").toUpperCase();
+var normalize3 = (fingerprint) => fingerprint.replaceAll(" ", "").toUpperCase();
 function registeredKeys(policy) {
-  return policy.roles.filter((role) => role.status === "APPROVED").flatMap((role) => role.holders).flatMap((holder) => holder.key_fingerprint ? [normalize2(holder.key_fingerprint)] : []);
+  return policy.roles.filter((role) => role.status === "APPROVED").flatMap((role) => role.holders).flatMap((holder) => holder.key_fingerprint ? [normalize3(holder.key_fingerprint)] : []);
 }
 async function createCheckpoint(repositoryPath, records, keyId, gpg) {
   const last = records.at(-1);

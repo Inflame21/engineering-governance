@@ -1,6 +1,7 @@
 import type { RepositoryAnalyzerAdapter } from "../types.js";
 import { frameworkAdapter } from "./frameworks.js";
 import { genericRepositoryAdapter } from "./generic.js";
+import { goAdapter } from "./go.js";
 import { pythonAdapter } from "./python.js";
 import { typescriptAdapter } from "./typescript.js";
 
@@ -9,6 +10,7 @@ export const defaultAnalyzerAdapters: readonly RepositoryAnalyzerAdapter[] = [
   frameworkAdapter,
   typescriptAdapter,
   pythonAdapter,
+  goAdapter,
 ];
 
 export function selectAnalyzerAdapters(

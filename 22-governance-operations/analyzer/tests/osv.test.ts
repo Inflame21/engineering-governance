@@ -250,8 +250,15 @@ describe("OSV dependency scan adapter", () => {
     await scan(["-evil/package-lock.json", "package-lock.json", "package.json"], runner);
     expect(runner.calls).toHaveLength(1);
     expect(runner.calls[0]?.tool).toBe("osv-scanner");
-    expect(runner.calls[0]?.args.slice(0, 4)).toEqual(["scan", "source", "--format", "json"]);
-    expect(runner.calls[0]?.args.slice(4)).toEqual(["--lockfile=-evil/package-lock.json", "--lockfile=package-lock.json"]);
+    // Call analysis is always off: left on, osv-scanner runs the Go toolchain on the scanned module.
+    expect(runner.calls[0]?.args.slice(0, 5)).toEqual(["scan", "source", "--format", "json", "--no-call-analysis=all"]);
+    expect(runner.calls[0]?.args.slice(5)).toEqual(["--lockfile=-evil/package-lock.json", "--lockfile=package-lock.json"]);
+  });
+
+  it("scans go.mod as a lockfile, but not a vendored one, and treats it as covering itself", async () => {
+    const runner = osvRunner();
+    await scan(["go.mod", "svc/go.mod", "vendor/github.com/x/y/go.mod"], runner);
+    expect(runner.calls[0]?.args.filter((arg) => arg.startsWith("--lockfile="))).toEqual(["--lockfile=go.mod", "--lockfile=svc/go.mod"]);
   });
 
   it("reports advisory source paths relative to the repository root", async () => {

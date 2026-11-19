@@ -19,7 +19,14 @@ import {
  * The parser relies on results[].source.path, packages[].package, vulnerabilities[].id and
  * groups[].ids, and on the exit-code contract (0 clean, 1 vulnerabilities, 127 general error, 128 no
  * packages). Checked against real output (osv-scanner 2.7.1, captured 2026-11-19,
- * tests/fixtures/real-scanner-output): every one of those holds. Real output also carries a CVSS score
+ * tests/fixtures/real-scanner-output): every one of those holds, for Go modules too (ecosystem "Go",
+ * from go.mod).
+ *
+ * Call analysis is always switched off (`--no-call-analysis=all`). Left on, osv-scanner 2.7.1 runs the Go
+ * toolchain on the scanned module (`go list -deps`, six `go` executions in a real trace), which can
+ * download modules and a newer toolchain named by go.mod and run cgo on project sources. Off, it makes no
+ * `go` execution at all, and reports every advisory for the locked versions, which is the conservative
+ * answer for a governance check. Real output also carries a CVSS score
  * for each group (groups[].max_severity) and a label (vulnerabilities[].database_specific.severity) on
  * GitHub-reviewed advisories. Anything the parser cannot read is an ERROR, never a PASS.
  */
@@ -38,6 +45,8 @@ const TOOL_TIMEOUT_MS = 120_000;
 
 const NODE_LOCKFILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
 const PYTHON_LOCKFILES = ["poetry.lock", "Pipfile.lock", "requirements.txt"];
+/** go.mod is both the manifest and the lockfile osv-scanner reads for Go (go.sum is not used). */
+const GO_LOCKFILES = ["go.mod"];
 const NODE_MANIFESTS = ["package.json"];
 const PYTHON_MANIFESTS = ["pyproject.toml", "Pipfile"];
 
@@ -87,9 +96,10 @@ function withinDirectory(directory: string, ancestor: string): boolean {
 }
 
 function discoverLockfiles(files: string[]): { lockfiles: string[]; uncovered: string[] } {
-  const candidates = files.filter((file) => !file.split("/").includes("node_modules"));
+  // Dependencies vendored into the repository are not the project's own manifests.
+  const candidates = files.filter((file) => !file.split("/").some((segment) => segment === "node_modules" || segment === "vendor"));
   const lockfiles = candidates
-    .filter((file) => NODE_LOCKFILES.includes(basename(file)) || PYTHON_LOCKFILES.includes(basename(file)))
+    .filter((file) => NODE_LOCKFILES.includes(basename(file)) || PYTHON_LOCKFILES.includes(basename(file)) || GO_LOCKFILES.includes(basename(file)))
     .sort();
   const nodeLockDirs = lockfiles.filter((file) => NODE_LOCKFILES.includes(basename(file))).map(directoryname);
   const pythonLockDirs = lockfiles.filter((file) => PYTHON_LOCKFILES.includes(basename(file))).map(directoryname);
@@ -273,7 +283,7 @@ export async function runOsvAdapter(
     // `--lockfile=<path>` keeps a path that begins with "-" from being read as a flag.
     processResult = await runner.run(
       "osv-scanner",
-      ["scan", "source", "--format", "json", ...lockfiles.map((file) => `--lockfile=${file}`)],
+      ["scan", "source", "--format", "json", "--no-call-analysis=all", ...lockfiles.map((file) => `--lockfile=${file}`)],
       snapshot.rootPath,
       ".",
       TOOL_TIMEOUT_MS,

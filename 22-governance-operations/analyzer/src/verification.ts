@@ -7,12 +7,13 @@ import { evidenceStatusForResult } from "../../engine/src/evidence-policy.js";
 import type { RepositorySnapshot, RepositoryAdapterResult } from "./types.js";
 import { fingerprintRepositorySnapshot } from "./fingerprint.js";
 import type { RepositorySnapshotFingerprint } from "./fingerprint.js";
+import { runGoSyntaxAdapter } from "./go-syntax.js";
 import { runGitleaksAdapter } from "./gitleaks.js";
 import { runOsvAdapter } from "./osv.js";
 import { runSemgrepAdapter } from "./semgrep.js";
 import { basename, compactOutput, directoryname, stableId } from "./verification-shared.js";
 
-export type VerificationToolName = "typescript" | "python3" | "python" | "osv-scanner" | "gitleaks" | "semgrep";
+export type VerificationToolName = "typescript" | "python3" | "python" | "gofmt" | "osv-scanner" | "gitleaks" | "semgrep";
 /** What a verification tool reported. The engine's policy maps it to an evidence status. */
 export type VerificationToolStatus = ToolResultStatus;
 
@@ -496,7 +497,7 @@ export async function runVerificationAdapters(
 
   // Scanners (ADR-0001): dependency vulnerabilities, secrets, static analysis. Each returns nothing
   // when it does not apply to the repository, and never a pass when it could not run.
-  for (const runScanner of [runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);

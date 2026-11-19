@@ -1,0 +1,4 @@
+-x.go:3:14: expected ')', found '{'
+-x.go:3:16: expected ')', found 'EOF'
+-x.go:3:16: expected ';', found 'EOF'
+-x.go:3:16: missing ',' in parameter list

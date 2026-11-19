@@ -1,5 +1,6 @@
 import path from "node:path";
 import { detectRepositoryFacts } from "./detector.js";
+import { parseGoMod } from "./manifest.js";
 import type { GovernanceEvidence, GovernanceFinding } from "../../engine/src/types.js";
 import type { RepositorySnapshot } from "./types.js";
 
@@ -266,7 +267,7 @@ const sourceExtensions: Record<string, string> = {
   ".hpp": "cpp",
 };
 
-const graphableLanguages = new Set(["typescript", "javascript", "python"]);
+const graphableLanguages = new Set(["typescript", "javascript", "python", "go"]);
 const resolutionExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
 
 export function architectureSignals(profile: ArchitectureProfile): string[] {
@@ -310,9 +311,91 @@ function mapRoles(file: string, mappings: Record<string, string[]> | undefined):
     .sort();
 }
 
+/**
+ * The import paths of a Go source file, in a single `import "x"` declaration or an `import ( ... )` block,
+ * with an optional alias (`name`, `.` or `_`) before the path. Comments are ignored. cgo's `import "C"` is
+ * not a package and is skipped.
+ */
+export function goImports(content: string): Array<{ specifier: string; line: number }> {
+  const results: Array<{ specifier: string; line: number }> = [];
+  let inBlock = false;
+  let inComment = false;
+  content.split("\n").forEach((rawLine, index) => {
+    let line = rawLine;
+    if (inComment) {
+      const end = line.indexOf("*/");
+      if (end < 0) return;
+      inComment = false;
+      line = line.slice(end + 2);
+    }
+    line = line.replace(/\/\*[\s\S]*?\*\//g, " ");
+    const open = line.indexOf("/*");
+    if (open >= 0) {
+      inComment = true;
+      line = line.slice(0, open);
+    }
+    const slashes = line.indexOf("//");
+    if (slashes >= 0) line = line.slice(0, slashes);
+    const trimmed = line.trim();
+    if (trimmed === "") return;
+
+    if (!inBlock) {
+      if (/^import\s*\(\s*$/.test(trimmed)) {
+        inBlock = true;
+        return;
+      }
+      const single = /^import\s+(?:[\w.]+\s+)?"([^"]+)"/.exec(trimmed);
+      if (single && single[1] !== "C") results.push({ specifier: single[1]!, line: index + 1 });
+      return;
+    }
+    if (trimmed.startsWith(")")) {
+      inBlock = false;
+      return;
+    }
+    const entry = /^(?:[\w.]+\s+)?"([^"]+)"/.exec(trimmed);
+    if (entry && entry[1] !== "C") results.push({ specifier: entry[1]!, line: index + 1 });
+  });
+  return results;
+}
+
+/** Module path and directory of every go.mod whose content is available, deepest directory first. */
+function goModules(content: Record<string, string>): Array<{ directory: string; modulePath: string }> {
+  const modules: Array<{ directory: string; modulePath: string }> = [];
+  for (const [file, text] of Object.entries(content)) {
+    const normalized = file.replaceAll("\\", "/");
+    if (path.posix.basename(normalized) !== "go.mod") continue;
+    const modulePath = parseGoMod(text).module;
+    if (modulePath) modules.push({ directory: path.posix.dirname(normalized), modulePath });
+  }
+  return modules.sort((a, b) => b.directory.length - a.directory.length);
+}
+
+/**
+ * Resolve a Go import to a file. Go imports name a package (a directory), not a file, so an import of a
+ * package inside the same module resolves to the first non-test file of that directory. An import of
+ * anything outside the module (the standard library, a dependency) does not resolve, and is not local.
+ */
+function resolveGoImport(
+  sourceFile: string,
+  specifier: string,
+  modules: ReadonlyArray<{ directory: string; modulePath: string }>,
+  filesByDirectory: ReadonlyMap<string, readonly string[]>,
+): { target?: string; looksLocal: boolean } {
+  const owner = modules.find((item) => item.directory === "." || sourceFile.startsWith(`${item.directory}/`));
+  if (!owner) return { looksLocal: false };
+  if (specifier !== owner.modulePath && !specifier.startsWith(`${owner.modulePath}/`)) return { looksLocal: false };
+  const relative = specifier.slice(owner.modulePath.length).replace(/^\//, "");
+  const directory = owner.directory === "." ? (relative || ".") : path.posix.join(owner.directory, relative);
+  const candidates = filesByDirectory.get(directory) ?? [];
+  // A package cannot import itself, so the importing file is never its own target.
+  const target = candidates.find((candidate) => !candidate.endsWith("_test.go") && candidate !== sourceFile);
+  return target ? { target, looksLocal: true } : { looksLocal: true };
+}
+
 function importsForFile(file: string, content: string): Array<{ specifier: string; line: number }> {
   const results: Array<{ specifier: string; line: number }> = [];
   const language = languageForFile(file);
+  if (language === "go") return goImports(content);
   const patterns = language === "python"
     ? [
         /^(\s*)from\s+(\.{1,}[\w.]*)\s+import\s+[^\n]+/gm,
@@ -404,6 +487,13 @@ export function buildArchitectureDependencyGraph(
   const fileSet = new Set(sourceFiles);
   const sourceContent = snapshot.fileContents ?? {};
   const topLevelModules = new Set(sourceFiles.map((file) => file.split("/")[0]?.replace(/\.py$/, "") ?? ""));
+  const goModuleList = goModules(sourceContent);
+  const goFilesByDirectory = new Map<string, string[]>();
+  for (const file of sourceFiles) {
+    if (!file.endsWith(".go")) continue;
+    const directory = path.posix.dirname(file);
+    goFilesByDirectory.set(directory, [...(goFilesByDirectory.get(directory) ?? []), file]);
+  }
   const packageFacts = [...(detectRepositoryFacts(snapshot).packages ?? [])]
     .sort((left, right) => right.root.length - left.root.length);
   const packageForFile = (file: string) => packageFacts.find(
@@ -434,6 +524,10 @@ export function buildArchitectureDependencyGraph(
       let looksLocal = false;
       if (language === "python") {
         const resolved = resolvePythonImport(sourceFile, item.specifier, fileSet, topLevelModules);
+        target = resolved.target;
+        looksLocal = resolved.looksLocal;
+      } else if (language === "go") {
+        const resolved = resolveGoImport(sourceFile, item.specifier, goModuleList, goFilesByDirectory);
         target = resolved.target;
         looksLocal = resolved.looksLocal;
       } else {
@@ -687,6 +781,9 @@ export function verifyArchitectureProfile(
     unsupportedCapabilities.push("architecture:component-role-mapping");
   }
 
+  if (graph.nodes.some((node) => node.language === "go")) {
+    limitations.push("Go imports name a package, not a file: each internal import is attributed to the first non-test file of the imported package, so a boundary violation is reported once per importing file and change impact for Go can under-report.");
+  }
   if (graph.unsupportedLanguages.length > 0) {
     limitations.push(`Dependency graph extraction is not implemented for: ${graph.unsupportedLanguages.join(", ")}.`);
     unsupportedCapabilities.push(...graph.unsupportedLanguages.map((language) => `architecture:dependency-graph:${language}`));

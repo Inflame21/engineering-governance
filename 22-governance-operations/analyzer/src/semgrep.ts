@@ -39,7 +39,7 @@ const IDENTITY: ScannerIdentity = {
   evidenceSource: "semgrep-adapter",
 };
 const TOOL_TIMEOUT_MS = 300_000;
-const SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py)$/;
+const SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go)$/;
 const RULE_FILE = /\.ya?ml$/;
 
 const severityRank: Record<Severity, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
@@ -125,7 +125,7 @@ export async function runSemgrepAdapter(
   const files = snapshot.files.map((file) => file.replaceAll("\\", "/"));
   const ruleFiles = files.filter((file) => file.startsWith(`${SEMGREP_RULES_DIRECTORY}/`) && RULE_FILE.test(file)).sort();
   const sourceFiles = files.filter(
-    (file) => SOURCE_FILE.test(file) && !file.split("/").includes("node_modules") && !file.startsWith(`${SEMGREP_RULES_DIRECTORY}/`),
+    (file) => SOURCE_FILE.test(file) && !file.split("/").some((segment) => segment === "node_modules" || segment === "vendor") && !file.startsWith(`${SEMGREP_RULES_DIRECTORY}/`),
   );
   if (sourceFiles.length === 0) return undefined;
 

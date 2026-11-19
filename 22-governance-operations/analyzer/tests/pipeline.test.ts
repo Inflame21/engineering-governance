@@ -88,13 +88,26 @@ describe("repository analyzer pipeline", () => {
   it("reports languages without a registered analyzer as unsupported", async () => {
     const result = await analyzeRepository({
       rootPath: "/repo",
-      changedFiles: ["main.go"],
-      files: ["main.go", "go.mod"],
+      changedFiles: ["src/main.rs"],
+      files: ["src/main.rs", "Cargo.toml"],
     });
     const context = toGovernanceContext(result);
 
     expect(context.analysisStatus).toBe("PARTIAL");
-    expect(context.unsupportedCapabilities).toContain("language-specific-analysis:go");
+    expect(context.unsupportedCapabilities).toContain("language-specific-analysis:rust");
+  });
+
+  it("no longer reports Go as unsupported now that it has an analyzer (ADP-06)", async () => {
+    const result = await analyzeRepository({
+      rootPath: "/repo",
+      changedFiles: ["main.go"],
+      files: ["main.go", "go.mod"],
+      fileContents: { "go.mod": "module example.com/app\n\ngo 1.22\n", "main.go": "package main\n" },
+    });
+    const context = toGovernanceContext(result);
+
+    expect(context.unsupportedCapabilities).not.toContain("language-specific-analysis:go");
+    expect(result.adapterResults.map((adapter) => adapter.adapterId)).toContain("go");
   });
 
   it("captures adapter execution failures instead of silently dropping them", async () => {
