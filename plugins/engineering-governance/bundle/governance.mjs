@@ -14853,6 +14853,695 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
   }
 }
 
+// ../model/architecture-catalog.json
+var architecture_catalog_default = {
+  version: "1.0.0",
+  description: "A reference of common architecture styles with example layouts, trade-offs and when each fits. Used by `governance architecture` to explain what a repository looks like and what it could follow. It is advice, not a standard: the governance standards decide what is required, this only describes options. Where a style has a bundled architecture profile, `check --profile` can enforce its dependency rules.",
+  styles: [
+    {
+      id: "simple-monolith",
+      name: "Simple monolith",
+      summary: "One deployable with little internal structure: code is grouped by what is convenient. The right starting point for a small or exploratory project.",
+      structure: [
+        "app/",
+        "  main.py",
+        "  helpers.py",
+        "  models.py",
+        "tests/"
+      ],
+      strengths: [
+        "Fastest to start and easy to run, debug and deploy",
+        "No abstractions to maintain before they are needed"
+      ],
+      weaknesses: [
+        "Coupling grows unnoticed; nothing stops any file using any other",
+        "Boundaries are hard to find and cut later"
+      ],
+      bestWhen: [
+        "A prototype, a small tool or an early product",
+        "One or two developers and a domain that is still being learned",
+        "Roughly under 40 source files"
+      ],
+      avoidWhen: [
+        "Several teams change it at once",
+        "It must live for years or is regulated"
+      ],
+      firstSteps: [
+        "Keep input and output (HTTP, files, database) out of the functions that decide things",
+        "When folders start to be needed, name them by concern and move to a layered or modular layout"
+      ]
+    },
+    {
+      id: "layered",
+      name: "Layered (n-tier)",
+      summary: "Code is split by technical role into presentation, business logic and data access, and each layer may only call the one below it.",
+      structure: [
+        "src/",
+        "  controllers/    (presentation: routes, request handling)",
+        "  services/       (business logic)",
+        "  repositories/   (data access)",
+        "  models/         (data shapes)"
+      ],
+      strengths: [
+        "Familiar to almost every developer, so onboarding is quick",
+        "A good fit for CRUD-style applications",
+        "Simple to reason about at small and medium size"
+      ],
+      weaknesses: [
+        "Layers are organised by technology, so one feature change touches every layer",
+        "Business rules tend to leak into controllers and database code",
+        "The business layer ends up depending on persistence details"
+      ],
+      bestWhen: [
+        "CRUD-heavy back ends and internal tools",
+        "Small and medium teams with a stable, well-understood domain"
+      ],
+      avoidWhen: [
+        "Complex business rules that must not depend on a database or framework",
+        "Many independent features that different teams own"
+      ],
+      firstSteps: [
+        "Make dependencies one-way: controllers call services, services call repositories, never the reverse",
+        "Do not query the database from controllers",
+        "Pass plain data objects between layers instead of database rows"
+      ]
+    },
+    {
+      id: "mvc",
+      name: "MVC (Model, View, Controller)",
+      summary: "A web-application pattern: models hold data and rules, views render output, controllers handle requests and connect the two. Most server-rendered frameworks are built around it.",
+      structure: [
+        "app/",
+        "  models/",
+        "  views/          (or templates/)",
+        "  controllers/"
+      ],
+      strengths: [
+        "Native to frameworks such as Rails, Django, Laravel and Spring MVC, so tooling and conventions help",
+        "Clear separation of rendering from request handling"
+      ],
+      weaknesses: [
+        "Fat controllers and fat models are common",
+        "Says nothing about how a large domain is divided, so it strains as the application grows"
+      ],
+      bestWhen: [
+        "Server-rendered websites and admin tools",
+        "Teams that want the conventions of an MVC framework"
+      ],
+      avoidWhen: [
+        "The user interface is a separate single-page app talking to an API",
+        "The domain logic is large and needs to be independent of the web framework"
+      ],
+      firstSteps: [
+        "Keep controllers thin: parse the request, call one function, choose a response",
+        "Move rules that are not about persistence out of models into plain services"
+      ]
+    },
+    {
+      id: "clean",
+      name: "Clean Architecture (Onion)",
+      summary: "Business rules sit in the middle and depend on nothing. Use cases surround them, and frameworks, databases and the web sit on the outside. Dependencies point inward only.",
+      structure: [
+        "src/",
+        "  domain/          (entities and business rules; imports nothing outward)",
+        "  application/     (use cases)",
+        "  infrastructure/  (database, external services)",
+        "  presentation/    (web, CLI)"
+      ],
+      strengths: [
+        "Business logic can be tested without a database, a web server or a framework",
+        "Frameworks and databases can be replaced with limited impact",
+        "The dependency rule can be checked mechanically"
+      ],
+      weaknesses: [
+        "More files and mapping code than a layered design",
+        "Overkill for simple CRUD",
+        "Only works if the team keeps the discipline"
+      ],
+      bestWhen: [
+        "A rich domain with real business rules",
+        "A product that will live for years and outlast its framework"
+      ],
+      avoidWhen: [
+        "Thin CRUD over a database",
+        "A throwaway or short-lived project"
+      ],
+      firstSteps: [
+        "Create the domain folder first and forbid it from importing anything from the other folders",
+        "Put each user action in one use case that takes and returns plain data",
+        "Enforce the rule with `governance check --profile 22-governance-operations/model/architecture-profile-clean-architecture.json`"
+      ],
+      profile: "clean-architecture"
+    },
+    {
+      id: "hexagonal",
+      name: "Hexagonal (Ports and Adapters)",
+      summary: "The application core defines ports (interfaces) for what it offers and what it needs. Adapters on the outside, such as a REST controller, a queue consumer or a database, plug into those ports.",
+      structure: [
+        "src/",
+        "  domain/",
+        "  application/",
+        "    ports/",
+        "      inbound/    (what the core offers)",
+        "      outbound/   (what the core needs)",
+        "  adapters/",
+        "    inbound/      (REST, CLI, queue consumer)",
+        "    outbound/     (database, payment provider)"
+      ],
+      strengths: [
+        "Many ways in (API, queue, CLI) and many things out (database, third parties) stay interchangeable",
+        "The core is testable with simple fakes for each port",
+        "The dependency rule can be checked mechanically"
+      ],
+      weaknesses: [
+        "Interface and wiring overhead",
+        "Easy to create ports that only have one implementation and no value"
+      ],
+      bestWhen: [
+        "Several inbound channels or several outbound integrations",
+        "Integration-heavy services where external systems change often"
+      ],
+      avoidWhen: [
+        "A small CRUD application with one database and one interface"
+      ],
+      firstSteps: [
+        "Define one outbound port per external dependency the core needs (storage, payments, email)",
+        "Keep adapters free of business rules",
+        "Enforce the rule with `governance check --profile 22-governance-operations/model/architecture-profile-hexagonal.json`"
+      ],
+      profile: "hexagonal-architecture"
+    },
+    {
+      id: "modular-monolith",
+      name: "Modular monolith",
+      summary: "One deployable, divided into feature modules with strict boundaries. Each module owns its logic and data and talks to others only through a small public interface.",
+      structure: [
+        "src/",
+        "  modules/",
+        "    orders/     (its own logic, data and public API)",
+        "    billing/",
+        "    catalog/",
+        "  shared/       (small, stable utilities only)"
+      ],
+      strengths: [
+        "Strong boundaries without the cost of running distributed services",
+        "Simple to deploy, debug and test end to end",
+        "Modules that need it can be split out into services later"
+      ],
+      weaknesses: [
+        "Needs discipline to stop modules reaching into each other",
+        "A shared database makes it tempting to cross boundaries"
+      ],
+      bestWhen: [
+        "A medium to large product with several distinct features",
+        "Several teams working in one codebase",
+        "You want boundaries now but are not ready for microservices"
+      ],
+      avoidWhen: [
+        "A very small application, where the module overhead is not repaid"
+      ],
+      firstSteps: [
+        "Identify two or three business capabilities and give each a folder with one public entry point",
+        "Forbid importing another module's internals; allow only its public interface",
+        "Adapt the example profile `architecture-profile-modular-example.json` to your module names and enforce it"
+      ],
+      profile: "modular-architecture-example"
+    },
+    {
+      id: "microservices",
+      name: "Microservices",
+      summary: "The system is a set of small services, each deployed on its own, owning its data and communicating over the network.",
+      structure: [
+        "services/",
+        "  orders/       (own code, own database, own Dockerfile)",
+        "  billing/",
+        "  catalog/",
+        "gateway/",
+        "docker-compose.yml"
+      ],
+      strengths: [
+        "Teams can build, deploy and scale their services independently",
+        "A failure can be contained to one service",
+        "Different services can use different technology"
+      ],
+      weaknesses: [
+        "Distributed-systems complexity: network failures, data consistency, versioning, tracing",
+        "High operational cost: pipelines, monitoring and deployment for every service",
+        "Wrong boundaries produce a distributed monolith, which is worse than a monolith"
+      ],
+      bestWhen: [
+        "Several autonomous teams and clear business boundaries",
+        "Parts of the system have very different scaling needs",
+        "Mature automation and monitoring are already in place"
+      ],
+      avoidWhen: [
+        "A small team or an early product whose boundaries are still moving",
+        "Services would share one database or must always be released together"
+      ],
+      firstSteps: [
+        "Give each service its own data store and its own pipeline before adding more services",
+        "Put contracts (OpenAPI or protobuf) in version control and test against them",
+        "Enforce the rule with `governance check --profile 22-governance-operations/model/architecture-profile-microservices.json`"
+      ],
+      profile: "microservices"
+    },
+    {
+      id: "event-driven",
+      name: "Event-driven",
+      summary: "Components communicate by publishing and reacting to events through a broker instead of calling each other directly. Often combined with CQRS or event sourcing.",
+      structure: [
+        "src/",
+        "  events/         (event definitions)",
+        "  producers/",
+        "  consumers/      (or handlers/, subscribers/)",
+        "  sagas/          (long-running workflows)"
+      ],
+      strengths: [
+        "Producers and consumers are decoupled and can scale separately",
+        "Absorbs traffic spikes and suits workflows that span services",
+        "The event stream is a natural audit trail"
+      ],
+      weaknesses: [
+        "Harder to trace and debug than a direct call",
+        "Eventual consistency, ordering and duplicate delivery must be handled",
+        "Event contracts need versioning"
+      ],
+      bestWhen: [
+        "Workflows that cross several services or systems",
+        "Integration-heavy systems and asynchronous processing"
+      ],
+      avoidWhen: [
+        "Simple request and response CRUD",
+        "The team has no experience with brokers or eventual consistency"
+      ],
+      firstSteps: [
+        "Make consumers idempotent so a repeated event does no harm",
+        "Version every event schema and keep it in one place",
+        "Add a correlation id to every event so a flow can be traced"
+      ]
+    },
+    {
+      id: "serverless",
+      name: "Serverless (functions)",
+      summary: "The application is a set of functions run on demand by a cloud platform, triggered by requests or events, with no servers to manage.",
+      structure: [
+        "functions/",
+        "  create-order/",
+        "  send-receipt/",
+        "serverless.yml    (or SAM, Netlify, Vercel or Firebase configuration)",
+        "shared/"
+      ],
+      strengths: [
+        "No servers to operate and you pay for use",
+        "Scales automatically, down to zero",
+        "Quick to ship small, event-driven features"
+      ],
+      weaknesses: [
+        "Cold starts, execution time limits and platform-specific behaviour",
+        "Vendor lock-in and harder local testing",
+        "Costs can exceed a server at steady high load"
+      ],
+      bestWhen: [
+        "Spiky or occasional workloads, glue code and small APIs",
+        "Small teams that do not want to run infrastructure"
+      ],
+      avoidWhen: [
+        "Long-running, stateful or latency-critical workloads",
+        "A steady heavy load where a server is cheaper"
+      ],
+      firstSteps: [
+        "Keep each function small and stateless, and share logic through a library",
+        "Put infrastructure in code (serverless.yml, SAM or CDK) and review it",
+        "Set timeouts and concurrency limits on every function"
+      ]
+    }
+  ]
+};
+
+// src/architecture-advice.ts
+var ARCHITECTURE_CATALOG = architecture_catalog_default.styles;
+var styleById = (id) => {
+  const style = ARCHITECTURE_CATALOG.find((item) => item.id === id);
+  if (!style) throw new Error(`Unknown architecture style: ${id}`);
+  return style;
+};
+var SMALL_SOURCE_FILES = 40;
+var LARGE_SOURCE_FILES = 300;
+var MICROSERVICES_MINIMUM_SOURCE_FILES = 150;
+var IGNORED_SEGMENTS = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "out", "target", ".git", ".github", ".governance", "vendor", "__pycache__", ".venv", "venv", "coverage", ".next", ".nuxt"]);
+var TEST_SEGMENTS = /* @__PURE__ */ new Set(["test", "tests", "__tests__", "spec", "specs", "e2e", "__mocks__", "fixtures"]);
+var SOURCE_EXTENSION = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go|java|rs|cs|rb|php|kt|swift|c|h|cc|cpp|hpp)$/i;
+var TEMPLATE_EXTENSION = /\.(html?|ejs|hbs|handlebars|jinja2?|j2|twig|erb|cshtml|razor|vue|svelte|pug|njk|tpl)$/i;
+var MANIFEST = /^(package\.json|requirements\.txt|pyproject\.toml|go\.mod|pom\.xml|build\.gradle(\.kts)?|cargo\.toml|pipfile|composer\.json)$/i;
+var SERVICE_MANIFEST = /^(package\.json|pyproject\.toml|go\.mod|pom\.xml|build\.gradle(\.kts)?|cargo\.toml|requirements\.txt|.*\.csproj)$/i;
+var dirGroup = (label, tokens, required = false) => ({
+  label,
+  required,
+  find: ({ dirs }) => {
+    for (const token of tokens) {
+      const examples = dirs.get(token);
+      if (examples) return `${token}/ (${examples[0]})`;
+    }
+    return void 0;
+  }
+});
+var dependencyGroup = (label, pattern) => ({
+  label,
+  find: ({ manifestText }) => {
+    const found = pattern.exec(manifestText);
+    return found ? `a dependency on ${found[1].toLowerCase()}` : void 0;
+  }
+});
+var STYLE_SIGNALS = {
+  layered: [
+    dirGroup("a presentation layer (controllers/, routes/, api/, web/)", ["controllers", "controller", "routes", "presentation", "web", "api"]),
+    dirGroup("a business layer (services/, business/)", ["services", "service", "business", "businesslogic", "logic"]),
+    dirGroup("a data-access layer (repositories/, dao/, persistence/)", ["repositories", "repository", "dao", "persistence", "dataaccess", "data-access", "data_access", "db", "database"])
+  ],
+  mvc: [
+    dirGroup("models/", ["models", "model"]),
+    dirGroup("views/ or templates/", ["views", "view", "templates"]),
+    dirGroup("controllers/", ["controllers", "controller"])
+  ],
+  clean: [
+    dirGroup("a domain or entities folder", ["domain", "entities", "enterprise"]),
+    dirGroup("use cases (usecases/, interactors/, application/)", ["usecases", "use_cases", "use-cases", "interactors", "application"]),
+    dirGroup("an outer ring (infrastructure/, frameworks/, interfaces/)", ["infrastructure", "infra", "frameworks", "gateways", "presentation", "interfaces"])
+  ],
+  hexagonal: [
+    dirGroup("ports/", ["ports", "port"]),
+    dirGroup("adapters/", ["adapters", "adapter"]),
+    dirGroup("a core (domain/, core/, application/)", ["domain", "core", "application"]),
+    dirGroup("direction names (inbound/, outbound/, driving/, driven/)", ["inbound", "outbound", "driving", "driven", "primary", "secondary"])
+  ],
+  "modular-monolith": [
+    {
+      label: "three or more feature modules (modules/, features/, domains/, contexts/)",
+      required: true,
+      find: ({ childrenOf }) => {
+        const found = childrenOf(["modules", "features", "domains", "contexts", "bounded-contexts", "bounded_contexts"]);
+        return found && found.children.length >= 3 ? `${found.container}/ has ${found.children.length} modules (${found.children.slice(0, 4).join(", ")})` : void 0;
+      }
+    },
+    { label: "a single deployable", find: ({ shape }) => shape.deployables <= 1 ? "one deployable" : void 0 },
+    dirGroup("a small shared kernel (shared/, common/)", ["shared", "common", "kernel", "sharedkernel", "shared-kernel"])
+  ],
+  microservices: [
+    {
+      label: "two or more separately deployable services",
+      required: true,
+      find: ({ shape, deployableNames }) => shape.deployables >= 2 ? `${shape.deployables} deployables (${deployableNames.slice(0, 4).join(", ")})` : void 0
+    },
+    {
+      label: "service folders (services/ with two or more services)",
+      find: ({ childrenOf }) => {
+        const found = childrenOf(["services", "microservices"]);
+        return found && found.children.length >= 2 ? `${found.container}/ has ${found.children.length} services (${found.children.slice(0, 4).join(", ")})` : void 0;
+      }
+    },
+    dirGroup("a gateway or shared contracts (gateway/, proto/, contracts/)", ["gateway", "api-gateway", "apigateway", "gateways", "proto", "protos", "contracts", "openapi"]),
+    {
+      label: "orchestration (docker-compose, k8s/, helm/)",
+      find: ({ dirs, basenames }) => {
+        const compose = [...basenames.keys()].find((name) => /^docker-compose.*\.ya?ml$/.test(name));
+        if (compose) return compose;
+        const dir = ["k8s", "kubernetes", "helm", "charts", "deploy", "deployment", "manifests"].find((name) => dirs.has(name));
+        return dir ? `${dir}/ (${dirs.get(dir)[0]})` : void 0;
+      }
+    }
+  ],
+  "event-driven": [
+    dirGroup("event folders (events/, consumers/, producers/, subscribers/)", ["events", "event", "consumers", "producers", "subscribers", "listeners", "publishers", "messaging", "queues", "topics"]),
+    dependencyGroup("a message-broker dependency (Kafka, RabbitMQ, NATS, SQS, ...)", /(kafka|rabbitmq|amqp|nats|sqs|sns|pubsub|eventbridge|bullmq|celery|kombu|redis-stream|pulsar|servicebus)/i),
+    dirGroup("event patterns (sagas/, outbox/, projections/, cqrs/)", ["sagas", "saga", "outbox", "projections", "eventstore", "event-store", "event_store", "cqrs", "commands", "queries"])
+  ],
+  serverless: [
+    {
+      label: "a serverless configuration file",
+      find: ({ basenames }) => {
+        const file = ["serverless.yml", "serverless.yaml", "serverless.ts", "serverless.js", "samconfig.toml", "netlify.toml", "vercel.json", "firebase.json", "host.json", "function.json"].find((name) => basenames.has(name));
+        return file ? file : void 0;
+      }
+    },
+    dirGroup("functions/ or lambdas/", ["functions", "lambdas", "lambda"]),
+    dependencyGroup("a serverless runtime dependency", /(aws-lambda|serverless|@vercel\/node|azure-functions|firebase-functions|@netlify\/functions|functions-framework|mangum|zappa)/i)
+  ]
+};
+function fitFor(score) {
+  return score >= 0.75 ? "strong" : score >= 0.5 ? "moderate" : "weak";
+}
+function buildContext(snapshot, facts) {
+  const dirs = /* @__PURE__ */ new Map();
+  const basenames = /* @__PURE__ */ new Map();
+  const childIndex = /* @__PURE__ */ new Map();
+  const dockerDirs = /* @__PURE__ */ new Set();
+  const serviceDirs = /* @__PURE__ */ new Set();
+  const codePrefixes = /* @__PURE__ */ new Set();
+  for (const raw of snapshot.files) {
+    const segments = raw.replaceAll("\\", "/").split("/");
+    const base = segments[segments.length - 1];
+    const directories = segments.slice(0, -1);
+    if (segments.some((segment) => IGNORED_SEGMENTS.has(segment.toLowerCase())) || directories.some((segment) => TEST_SEGMENTS.has(segment.toLowerCase()))) continue;
+    if (SOURCE_EXTENSION.test(base) || TEMPLATE_EXTENSION.test(base)) {
+      directories.forEach((_segment, index) => codePrefixes.add(directories.slice(0, index + 1).join("/")));
+    }
+  }
+  let composeServices = 0;
+  let manifestText = "";
+  let sourceFiles = 0;
+  for (const raw of snapshot.files) {
+    const file = raw.replaceAll("\\", "/");
+    const segments = file.split("/");
+    if (segments.some((segment) => IGNORED_SEGMENTS.has(segment.toLowerCase()))) continue;
+    const base = segments[segments.length - 1];
+    const lowerBase = base.toLowerCase();
+    const directories = segments.slice(0, -1);
+    const inTests = directories.some((segment) => TEST_SEGMENTS.has(segment.toLowerCase()));
+    if (/^dockerfile(\..+)?$|\.dockerfile$/.test(lowerBase) && !inTests) dockerDirs.add(directories.join("/") || ".");
+    if (/^docker-compose.*\.ya?ml$/.test(lowerBase)) {
+      const text = snapshot.fileContents?.[raw] ?? snapshot.fileContents?.[file];
+      const block = text ? /^services:\s*\n((?:[ \t]+.*\n?|\s*\n)*)/m.exec(text) : null;
+      if (block) composeServices = Math.max(composeServices, (block[1].match(/^ {1,4}[A-Za-z0-9_.-]+:\s*$/gm) ?? []).length);
+    }
+    if (MANIFEST.test(base)) manifestText += `
+${snapshot.fileContents?.[raw] ?? snapshot.fileContents?.[file] ?? ""}`;
+    const serviceRoot = directories.findIndex((segment) => ["services", "apps", "microservices"].includes(segment.toLowerCase()));
+    if (serviceRoot >= 0 && directories.length === serviceRoot + 2 && SERVICE_MANIFEST.test(base)) serviceDirs.add(directories.join("/"));
+    if (inTests) continue;
+    if (SOURCE_EXTENSION.test(base)) sourceFiles += 1;
+    (basenames.get(lowerBase) ?? basenames.set(lowerBase, []).get(lowerBase)).push(file);
+    directories.forEach((segment, index) => {
+      const name = segment.toLowerCase();
+      const path13 = directories.slice(0, index + 1).join("/");
+      if (!codePrefixes.has(path13)) return;
+      const examples = dirs.get(name) ?? [];
+      if (!examples.includes(path13) && examples.length < 3) examples.push(path13);
+      dirs.set(name, examples);
+      const next = directories[index + 1];
+      if (next !== void 0 && codePrefixes.has(`${path13}/${next}`)) {
+        const key = `${name}\0${path13}`;
+        (childIndex.get(key) ?? childIndex.set(key, /* @__PURE__ */ new Set()).get(key)).add(next);
+      }
+    });
+  }
+  const deployableNames = [.../* @__PURE__ */ new Set([...dockerDirs, ...serviceDirs])].sort();
+  const deployables = Math.max(dockerDirs.size, serviceDirs.size, composeServices);
+  const childrenOf = (tokens) => {
+    let best;
+    for (const [key, children] of childIndex) {
+      const name = key.split("\0")[0];
+      if (tokens.includes(name) && (!best || children.size > best.children.length)) best = { container: name, children: [...children].sort() };
+    }
+    return best;
+  };
+  return {
+    dirs,
+    basenames,
+    childrenOf,
+    manifestText,
+    shape: { sourceFiles, deployables, languages: [...facts.languages], frameworks: [...facts.frameworks] },
+    deployableNames
+  };
+}
+function detectStyles(context) {
+  const detections = [];
+  for (const style of ARCHITECTURE_CATALOG) {
+    const groups = STYLE_SIGNALS[style.id];
+    if (!groups) continue;
+    const results = groups.map((group) => ({ group, evidence: group.find(context) }));
+    const matched = results.filter((result) => result.evidence !== void 0);
+    if (matched.length < 2 || results.some((result) => result.group.required && result.evidence === void 0)) continue;
+    const score = matched.length / groups.length;
+    detections.push({
+      id: style.id,
+      name: style.name,
+      fit: fitFor(score),
+      score: Math.round(score * 100) / 100,
+      matched: matched.map((result) => `${result.group.label}: ${result.evidence}`),
+      missing: results.filter((result) => result.evidence === void 0).map((result) => result.group.label)
+    });
+  }
+  const order = new Map(ARCHITECTURE_CATALOG.map((style, index) => [style.id, index]));
+  return detections.sort((a, b) => b.score - a.score || order.get(a.id) - order.get(b.id));
+}
+var ALSO_CONSIDER = {
+  "simple-monolith": [{ styleId: "layered", reason: "the first structure to add once the code outgrows one folder" }],
+  layered: [
+    { styleId: "modular-monolith", reason: "groups code by feature instead of by technical layer, which limits how far a change spreads" },
+    { styleId: "clean", reason: "keeps business rules independent of the database and framework if the domain is complex" }
+  ],
+  mvc: [{ styleId: "modular-monolith", reason: "gives a growing application feature boundaries that MVC alone does not" }],
+  clean: [{ styleId: "hexagonal", reason: "a close relative that fits better when there are many integrations in and out" }],
+  hexagonal: [{ styleId: "clean", reason: "a close relative with use cases at its centre, suited to a rich domain" }],
+  "modular-monolith": [{ styleId: "microservices", reason: "only if separate teams, scaling needs or release cadence justify the operating cost" }],
+  microservices: [{ styleId: "modular-monolith", reason: "keeps the boundaries without the cost of running and monitoring many services" }],
+  "event-driven": [{ styleId: "modular-monolith", reason: "a simpler base if the event flows are few and stay inside one deployable" }],
+  serverless: [{ styleId: "layered", reason: "a conventional server application if the load is steady or the functions are long-running" }]
+};
+var MVC_FRAMEWORKS = /* @__PURE__ */ new Set(["django"]);
+function recommend(detected, shape) {
+  if (shape.sourceFiles === 0) return void 0;
+  const best = detected[0];
+  const caveats = [];
+  let styleId;
+  let headline;
+  const why = [];
+  if (best && best.fit === "strong") {
+    styleId = best.id;
+    headline = `Keep following ${best.name}, and enforce it.`;
+    why.push(`The structure matches it closely (${best.matched.length} of ${best.matched.length + best.missing.length} signals).`);
+    if (best.id === "microservices" && shape.deployables >= 3 && shape.sourceFiles < MICROSERVICES_MINIMUM_SOURCE_FILES) {
+      caveats.push(`${shape.deployables} deployables for only ${shape.sourceFiles} source files: check that each service earns its own deployment; a modular monolith costs less to run.`);
+    }
+    if ((best.id === "layered" || best.id === "mvc") && shape.sourceFiles >= LARGE_SOURCE_FILES) {
+      caveats.push(`At ${shape.sourceFiles} source files a layer-by-technology layout tends to couple features together; a modular monolith would give you feature boundaries.`);
+    }
+  } else if (best && best.score >= 0.5 && best.matched.length >= 2) {
+    styleId = best.id;
+    headline = `The closest match is ${best.name}, and it is only partly there; completing it is the natural next step.`;
+    why.push(`Found: ${best.matched.map((item) => item.split(":")[0]).join("; ")}.`, `Missing: ${best.missing.join("; ")}.`);
+  } else if (shape.sourceFiles < SMALL_SOURCE_FILES && shape.deployables <= 1) {
+    styleId = "simple-monolith";
+    headline = "Keep it simple: this is small enough not to need a named architecture yet.";
+    why.push(`Only ${shape.sourceFiles} source files${shape.deployables === 1 ? " in one deployable" : ""}, with no layers or modules to speak of.`);
+  } else if (shape.deployables >= 2) {
+    styleId = "layered";
+    headline = "Give each deployable its own clear structure; layered is the simplest start.";
+    why.push(`${shape.deployables} separate deployables were found, but no recognisable structure inside them.`);
+  } else if (shape.frameworks.some((framework) => MVC_FRAMEWORKS.has(framework))) {
+    styleId = "mvc";
+    headline = "Follow your framework's MVC layout.";
+    why.push(`The ${shape.frameworks.filter((framework) => MVC_FRAMEWORKS.has(framework)).join(", ")} framework is built around it, so its conventions and tooling will help.`);
+  } else if (shape.sourceFiles >= LARGE_SOURCE_FILES) {
+    styleId = "modular-monolith";
+    headline = "Introduce feature modules: this is large enough that boundaries matter.";
+    why.push(`${shape.sourceFiles} source files${shape.deployables === 1 ? " in one deployable" : ""} with no recognisable structure.`);
+  } else {
+    styleId = "layered";
+    headline = "Start with a layered structure.";
+    why.push(`${shape.sourceFiles} source files${shape.deployables === 1 ? " in one deployable" : ""} with no recognisable structure: layered is the simplest layout that fits a typical back end.`);
+  }
+  if (shape.deployables === 0 && shape.frameworks.length === 0) {
+    caveats.push("No deployable (Dockerfile, compose service) and no web framework was found, so this may be a library or a tool. These styles describe applications and services and fit a library only loosely.");
+  }
+  return { styleId, headline, why, caveats, alsoConsider: ALSO_CONSIDER[styleId] ?? [] };
+}
+var LIMITS = [
+  "This reads folder names, manifests and counts. It cannot see whether the code's dependencies actually follow a style: for Clean, Hexagonal, Microservices and Modular, `governance check --profile <profile>` does that.",
+  "It cannot see the team size, the load, the release process or how complicated the domain is, and those matter more than structure. Treat the suggestion as a starting point for a decision, not the decision.",
+  "A repository can match several styles at once (for example modular inside, microservices outside), and a style can be present in name only."
+];
+function adviseArchitecture(snapshot, facts) {
+  const context = buildContext(snapshot, facts);
+  const detected = detectStyles(context);
+  const limits = [...LIMITS];
+  if (context.shape.frameworks.some((framework) => ["react", "angular", "nextjs", "nuxt", "vite"].includes(framework))) {
+    limits.push("A front-end framework was found. How to structure a user interface (components, state, routing) is not covered by this reference, which describes the back end and system shape.");
+  }
+  const recommendation = recommend(detected, context.shape);
+  return { shape: context.shape, detected, ...recommendation ? { recommendation } : {}, limits };
+}
+var bullets = (items, indent = "") => items.map((item) => `${indent}- ${item}`);
+function styleReference(style, heading) {
+  return [
+    `${heading} ${style.name}`,
+    "",
+    style.summary,
+    "",
+    "Example layout:",
+    "",
+    "```text",
+    ...style.structure,
+    "```",
+    "",
+    "Strengths:",
+    ...bullets(style.strengths),
+    "",
+    "Weaknesses:",
+    ...bullets(style.weaknesses),
+    "",
+    "Fits when:",
+    ...bullets(style.bestWhen),
+    "",
+    "Avoid when:",
+    ...bullets(style.avoidWhen),
+    "",
+    "First steps:",
+    ...bullets(style.firstSteps),
+    "",
+    style.profile ? `Enforceable: yes, with the bundled \`${style.profile}\` profile (\`governance check --profile\`).` : "Enforceable: not yet; there is no bundled profile, so only the structure can be reviewed by eye."
+  ];
+}
+function formatCatalog() {
+  return [
+    "# Architecture styles: a reference",
+    "",
+    architecture_catalog_default.description,
+    "",
+    "| Style | In one line | Enforceable |",
+    "|---|---|---|",
+    ...ARCHITECTURE_CATALOG.map((style) => `| ${style.name} | ${style.summary.split(". ")[0].replace(/\.$/, "")} | ${style.profile ? "yes" : "no"} |`),
+    "",
+    ...ARCHITECTURE_CATALOG.flatMap((style) => [...styleReference(style, "##"), ""])
+  ].join("\n").trimEnd();
+}
+function formatAdvice(repository, advice) {
+  const { shape, detected, recommendation } = advice;
+  const lines = [
+    `# Architecture review: ${repository}`,
+    "",
+    "Advisory. Computed from folder names, manifests and counts; see the limits at the end.",
+    "",
+    "## What the repository looks like",
+    "",
+    `${shape.sourceFiles} source file${shape.sourceFiles === 1 ? "" : "s"}, ${shape.deployables} deployable${shape.deployables === 1 ? "" : "s"}${shape.languages.length ? `, ${shape.languages.join(", ")}` : ""}${shape.frameworks.length ? ` (${shape.frameworks.join(", ")})` : ""}.`,
+    ""
+  ];
+  if (detected.length === 0) {
+    lines.push("**No clear architecture detected.** None of the styles in the reference has enough of its signals in this repository.", "");
+  } else {
+    lines.push("Styles this repository resembles, best fit first:", "", "| Style | Fit | Found | Missing |", "|---|---|---|---|");
+    for (const item of detected) {
+      lines.push(`| ${item.name} | ${item.fit} (${Math.round(item.score * 100)}%) | ${item.matched.map((m) => m.replace(/\|/g, "\\|")).join("<br>")} | ${item.missing.length ? item.missing.join("<br>") : "nothing"} |`);
+    }
+    lines.push("");
+  }
+  lines.push("## What I would suggest", "");
+  if (!recommendation) {
+    lines.push("There is no source code to judge.", "");
+  } else {
+    const style = styleById(recommendation.styleId);
+    lines.push(`**${style.name}.** ${recommendation.headline}`, "", ...bullets(recommendation.why), "");
+    if (recommendation.caveats.length > 0) lines.push("Watch out:", ...bullets(recommendation.caveats), "");
+    if (recommendation.alsoConsider.length > 0) {
+      lines.push("Also consider:", ...recommendation.alsoConsider.map((option) => `- **${styleById(option.styleId).name}**: ${option.reason}`), "");
+    }
+    lines.push(...styleReference(style, "###"), "");
+  }
+  lines.push("## Limits", "", ...bullets(advice.limits), "", "Run `governance architecture --list` for the whole reference.");
+  return lines.join("\n");
+}
+
 // src/exceptions.ts
 import { spawn } from "node:child_process";
 import { mkdir as mkdir3, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -15292,6 +15981,8 @@ function usage() {
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
     "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--verify-signatures] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance architecture <repository> [--json]",
+    "  governance architecture --list [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
     "  governance history <repository> [--authority <relative-path>] [--json]",
@@ -15316,6 +16007,7 @@ function usage() {
     "  checkpoint  GPG-sign the newest history record (sequence number and hash) into .governance/history/checkpoints/<n>.asc. Verified by history --authority against the keys the policy registers; never replaces an existing checkpoint.",
     "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
     "  exception Manage the exception lifecycle in the pack: request, approve (with an expiry), renew (a fresh approval with a later expiry), expire (mark lapsed ones EXPIRED) and list (days left, signature status). approve and renew can GPG-sign the approval with --sign.",
+    "  architecture  Show which architecture style a repository resembles (layered, MVC, clean, hexagonal, modular monolith, microservices, event-driven, serverless), what it could follow instead and why. --list prints the reference of all styles with example layouts. Advice from folder names and counts, not a verdict.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -15357,7 +16049,7 @@ function parseCliArguments(argv) {
     return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception" && rawCommand !== "checkpoint") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception" && rawCommand !== "checkpoint" && rawCommand !== "architecture") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}
 
 ${usage()}`);
@@ -15375,6 +16067,7 @@ ${usage()}`);
   let json = false;
   let write = false;
   let record = false;
+  let list = false;
   let verifySignatures = false;
   const exceptionOptions = {};
   let format;
@@ -15408,6 +16101,11 @@ ${usage()}`);
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
       exceptionOptions[argument.slice(2)] = value;
       index += 1;
+      continue;
+    }
+    if (argument === "--list") {
+      if (rawCommand !== "architecture") throw new Error("--list is only supported by the architecture command.");
+      list = true;
       continue;
     }
     if (argument === "--run-tools") {
@@ -15496,7 +16194,7 @@ ${usage()}`);
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
   if (rawCommand === "checkpoint" && !exceptionOptions.sign) throw new Error("checkpoint requires --sign <gpg-key>.");
-  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff" || rawCommand === "checkpoint") {
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff" || rawCommand === "checkpoint" || rawCommand === "architecture") {
     const unsupported = [
       profilePath && "--profile",
       baseRef && "--base",
@@ -15531,6 +16229,7 @@ ${usage()}`);
     ...exception ? { exception } : {},
     ...diff ? { diff } : {},
     ...rawCommand === "checkpoint" ? { checkpointKey: exceptionOptions.sign } : {},
+    ...list ? { list: true } : {},
     ...rawCommand === "init" ? { init: initOptions } : {}
   };
 }
@@ -15642,6 +16341,19 @@ async function runCli(argv) {
       const records = await readHistory(nodeHistoryStore, args.repositoryPath);
       const result2 = diffAssessments(records, args.diff.from, args.diff.to);
       process.stdout.write(`${args.json ? JSON.stringify(result2, null, 2) : formatDiff(result2)}
+`);
+      return 0;
+    }
+    if (args.command === "architecture") {
+      if (args.list) {
+        process.stdout.write(`${args.json ? JSON.stringify({ styles: ARCHITECTURE_CATALOG }, null, 2) : formatCatalog()}
+`);
+        return 0;
+      }
+      const snapshot2 = await loadRepositorySnapshot(args.repositoryPath, nodeFileSystem, []);
+      const analysis = await analyzeRepository(snapshot2);
+      const advice = adviseArchitecture(snapshot2, analysis.facts);
+      process.stdout.write(`${args.json ? JSON.stringify({ repository: args.repositoryPath, ...advice }, null, 2) : formatAdvice(args.repositoryPath, advice)}
 `);
       return 0;
     }

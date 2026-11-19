@@ -141,6 +141,23 @@ node dist/cli/src/index.js diff [<repository>] <a> <b> [--json]
 
 `check --record` and `report --record` append one line to `.governance/history/assessments.jsonl` (never rewritten): the decision and reason, every violation and finding with its severity and status, each evidence item's status, the SHA-256 of the pack file and the git HEAD. Each record carries the previous record's hash and its own, so `history` can detect an edited, removed or reordered record and refuses to continue (exit 3); `--record` also refuses to extend a broken chain. `history` lists the assessments and, for every issue, when it was first seen, last seen, resolved (first assessment without it) and whether it came back. `diff <a> <b>` compares two numbered assessments: decision, resolved and introduced issues, and evidence that changed status. Each record also stores the repository fingerprint (a SHA-256 over file paths and the content of source files and manifests, excluding `.governance/history/` and `.governance/reports/`). Evidence that names a `repository_fingerprint` counts only while it equals the fingerprint of the code being assessed, so evidence produced against older code stops counting once the code changes. Commit the file to keep the history with the code. The chain shows tampering by accident or carelessness, not by someone who can rewrite the whole file (DEBT-GOV-017).
 
+## Which architecture does this repository follow? `architecture`
+
+```powershell
+node dist/cli/src/index.js architecture <repository> [--json]
+node dist/cli/src/index.js architecture --list [--json]
+```
+
+`architecture --list` prints a reference of nine styles (simple monolith, layered, MVC, Clean, Hexagonal, modular monolith, microservices, event-driven, serverless) with an example folder layout, strengths, weaknesses, when each fits and when to avoid it, first steps, and whether a bundled profile can enforce it (source: `model/architecture-catalog.json`).
+
+`architecture <repository>` reviews one repository in three parts:
+
+1. **What it looks like:** source files, deployables (Dockerfiles, compose services, folders under `services/` or `apps/` that have a manifest), languages and frameworks, and the styles it resembles, best fit first, each with the evidence found and what is missing. A style is reported only when at least two of its signals are present, a folder counts only if it holds code or view templates, and test folders, dependency folders and build output are ignored. "No clear architecture detected" is a valid answer.
+2. **What it suggests:** one style with its reasons, things to watch out for, and one or two alternatives. Roughly: a strong match is "keep it and enforce it"; a partial match is "the closest is X and completing it is the natural next step"; with no match, under 40 source files is "keep it simple", a large unstructured repository (300 or more files) is "feature modules", a Django project is MVC, and otherwise layered. Microservices with several deployables and little code, and layered or MVC at 300 files or more, get a warning.
+3. **How to get there:** the worked reference for the suggested style, and the `--profile` that enforces its dependency rules when one exists (Clean, Hexagonal, Microservices and a Modular example).
+
+It is advice from folder names, manifests and counts. It cannot see whether the code's dependencies follow a style (`check --profile` does that), nor the team, the load or the domain. The thresholds are rules of thumb, not research. See DEBT-GOV-023.
+
 ## Technical debt
 
 A pack's `debt` records now feed the decision and the reports (DEBT-020, OPS-04). Each record may carry `owner`, `target_date` and `last_reviewed` (dates as `YYYY-MM-DD`) and `controls`, the ids of the pack's controls it is recorded against:

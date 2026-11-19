@@ -19,6 +19,8 @@ import { discoverRepositories, formatDiscovery } from "./discover.js";
 import { formatSummaryMarkdown, summarizeRepository, writeDatedReport, writeSummary } from "./summary.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
+import { analyzeRepository } from "../../analyzer/src/pipeline.js";
+import { ARCHITECTURE_CATALOG, adviseArchitecture, formatAdvice, formatCatalog } from "./architecture-advice.js";
 import { approveException, exceptionRows, expireExceptions, formatExceptionRows, gpgSignaturePort, parseExpiry, renewException, requestException, signApproval, verifyApprovals, writePack, type ExceptionRow } from "./exceptions.js";
 import { createCheckpoint, formatCheckpointReport, verifyCheckpoints } from "./checkpoints.js";
 import { assessmentFacts, diffAssessments, formatDiff, formatHistory, nodeHistoryStore, readHistory, recordAssessment, sha256Hex } from "./history.js";
@@ -33,7 +35,7 @@ const VERSION = "0.6.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "exception" | "checkpoint" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "exception" | "checkpoint" | "architecture" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -55,6 +57,8 @@ interface ParsedArguments {
   exception?: { action: string; id?: string; control?: string; reason?: string; by?: string; role?: string; expires?: string; sign?: string };
   /** diff only: the two assessment numbers to compare. */
   diff?: { from: number; to: number };
+  /** architecture only: print the whole reference instead of reviewing a repository. */
+  list?: boolean;
   /** checkpoint only: the GPG key that signs. */
   checkpointKey?: string;
   format?: "markdown" | "json";
@@ -71,6 +75,8 @@ function usage(): string {
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
     "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--verify-signatures] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance architecture <repository> [--json]",
+    "  governance architecture --list [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
     "  governance history <repository> [--authority <relative-path>] [--json]",
@@ -95,6 +101,7 @@ function usage(): string {
     "  checkpoint  GPG-sign the newest history record (sequence number and hash) into .governance/history/checkpoints/<n>.asc. Verified by history --authority against the keys the policy registers; never replaces an existing checkpoint.",
     "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
     "  exception Manage the exception lifecycle in the pack: request, approve (with an expiry), renew (a fresh approval with a later expiry), expire (mark lapsed ones EXPIRED) and list (days left, signature status). approve and renew can GPG-sign the approval with --sign.",
+    "  architecture  Show which architecture style a repository resembles (layered, MVC, clean, hexagonal, modular monolith, microservices, event-driven, serverless), what it could follow instead and why. --list prints the reference of all styles with example layouts. Advice from folder names and counts, not a verdict.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -138,7 +145,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception" && rawCommand !== "checkpoint") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception" && rawCommand !== "checkpoint" && rawCommand !== "architecture") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -155,6 +162,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let json = false;
   let write = false;
   let record = false;
+  let list = false;
   let verifySignatures = false;
   const exceptionOptions: { id?: string; control?: string; reason?: string; by?: string; role?: string; expires?: string; sign?: string } = {};
   let format: "markdown" | "json" | undefined;
@@ -189,6 +197,11 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
       exceptionOptions[argument.slice(2) as "control"] = value;
       index += 1;
+      continue;
+    }
+    if (argument === "--list") {
+      if (rawCommand !== "architecture") throw new Error("--list is only supported by the architecture command.");
+      list = true;
       continue;
     }
     if (argument === "--run-tools") {
@@ -267,7 +280,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
   if (rawCommand === "checkpoint" && !exceptionOptions.sign) throw new Error("checkpoint requires --sign <gpg-key>.");
-  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff" || rawCommand === "checkpoint") {
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff" || rawCommand === "checkpoint" || rawCommand === "architecture") {
     const unsupported = [
       profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
       rawCommand !== "history" && authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", rawCommand === "init" && json && "--json", format && "--format",
@@ -296,6 +309,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     ...(exception ? { exception } : {}),
     ...(diff ? { diff } : {}),
     ...(rawCommand === "checkpoint" ? { checkpointKey: exceptionOptions.sign! } : {}),
+    ...(list ? { list: true } : {}),
     ...(rawCommand === "init" ? { init: initOptions } : {}),
   };
 }
@@ -412,6 +426,18 @@ export async function runCli(argv: string[]): Promise<number> {
       const result = diffAssessments(records, args.diff!.from, args.diff!.to);
       process.stdout.write(`${args.json ? JSON.stringify(result, null, 2) : formatDiff(result)}
 `);
+      return 0;
+    }
+
+    if (args.command === "architecture") {
+      if (args.list) {
+        process.stdout.write(`${args.json ? JSON.stringify({ styles: ARCHITECTURE_CATALOG }, null, 2) : formatCatalog()}\n`);
+        return 0;
+      }
+      const snapshot = await loadRepositorySnapshot(args.repositoryPath, nodeFileSystem, []);
+      const analysis = await analyzeRepository(snapshot);
+      const advice = adviseArchitecture(snapshot, analysis.facts);
+      process.stdout.write(`${args.json ? JSON.stringify({ repository: args.repositoryPath, ...advice }, null, 2) : formatAdvice(args.repositoryPath, advice)}\n`);
       return 0;
     }
 
