@@ -11,15 +11,10 @@ on:
       - ".github/fixtures/**"
       - "plugins/**"
       - ".claude-plugin/**"
+  # No path filter on pull requests, on purpose: the three Verify jobs are required checks, and a required
+  # check that never starts (because a pull request touched only other files) leaves the pull request
+  # waiting forever. Every pull request runs them.
   pull_request:
-    paths:
-      - "22-governance-operations/**"
-      - ".github/workflows/governance-operations.yml"
-      - ".github/workflows/governance-check.yml"
-      - ".github/scripts/**"
-      - ".github/fixtures/**"
-      - "plugins/**"
-      - ".claude-plugin/**"
   workflow_dispatch:
 
 permissions:
