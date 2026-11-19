@@ -290,6 +290,49 @@ describe("setup command", () => {
     expect(text).toContain("${CLAUDE_PLUGIN_ROOT}/templates/standards-index.json");
   });
 
+  it("fills the empty pack that init writes, but never one that has content", async () => {
+    const text = await skill();
+    expect(text).toContain("Never overwrite a pack that has content");
+    expect(text).toContain("packIsPlaceholder: true");
+    expect(text).toContain("`CHG-UNSPECIFIED`");
+    expect(text).toContain("Read it first");
+    expect(text).toContain("`existingPack: true` and `packIsPlaceholder: false`, skip it");
+  });
+
+  it("from the standalone bundle, discovery sees the pack init wrote as a placeholder until it has content", async () => {
+    const scratch = await mkdtemp(path.join(os.tmpdir(), "governance-placeholder-bundle-"));
+    try {
+      const bundle = path.join(scratch, "governance.mjs");
+      await copyFile(committedBundle, bundle);
+      const repo = path.join(scratch, "repo");
+      await mkdir(repo);
+      await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
+      const discovered = async () => (JSON.parse((await node(bundle, ["discover", ".", "--json"], repo)).stdout) as { repositories: Array<{ existingPack: boolean; packIsPlaceholder: boolean }> }).repositories[0]!;
+
+      expect(await discovered()).toMatchObject({ existingPack: false, packIsPlaceholder: false });
+      expect((await node(bundle, ["init", "."], repo)).code).toBe(0);
+      expect(await discovered()).toMatchObject({ existingPack: true, packIsPlaceholder: true });
+
+      const file = path.join(repo, ".governance", "governance-pack.json");
+      const pack = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
+      pack.standards = [{ id: "SEC-007", title: "Security Engineering Standard", version: "1.0.0", source: "x" }];
+      await writeFile(file, JSON.stringify(pack));
+      expect(await discovered()).toMatchObject({ existingPack: true, packIsPlaceholder: false });
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it("is what init points the user to for filling the pack in, instead of by hand", async () => {
+    const init = normalize(await readFile(path.join(pluginDirectory, "skills", "init", "SKILL.md"), "utf8"));
+    expect(init).toContain("/engineering-governance:setup");
+    expect(init).toContain("fills this file in place");
+    expect(init).toContain("unreviewed");
+    expect(init).toContain("Do not add controls, evidence, risks, decisions or exceptions yourself in this command");
+    const audit = normalize(await readFile(path.join(pluginDirectory, "skills", "audit", "SKILL.md"), "utf8"));
+    expect(audit).toContain("packIsPlaceholder: true");
+  });
+
   it("only offers standards that exist, with matching titles and unique ids", async () => {
     const index = JSON.parse(await readFile(path.join(pluginDirectory, "templates", "standards-index.json"), "utf8")) as {
       standards: Array<{ id: string; title: string; file: string }>;

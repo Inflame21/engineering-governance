@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { discoverRepositories, formatDiscovery, repositorySlug, sanitizeRemote } from "../src/discover.js";
+import { discoverRepositories, formatDiscovery, isPlaceholderPack, repositorySlug, sanitizeRemote } from "../src/discover.js";
+import { buildGovernancePackSkeleton } from "../src/init.js";
 import { parseCliArguments, runCli } from "../src/index.js";
 
 const run = promisify(execFile);
@@ -150,6 +151,7 @@ describe("discoverRepositories", () => {
       scripts: { lint: "eslint .", test: "vitest run" },
       docs: ["CLAUDE.md"],
       existingPack: false,
+      packIsPlaceholder: false,
     });
     expect(found!.directories).toContain("migrations");
     // Only single-line commands are read; a multi-line script is skipped, not mangled.
@@ -171,6 +173,59 @@ describe("discoverRepositories", () => {
     await mkdir(path.join(repository, ".governance"));
     await writeFile(path.join(repository, ".governance", "governance-pack.json"), "{}");
     expect((await discoverRepositories(root)).repositories[0]!.existingPack).toBe(true);
+  });
+
+  describe("telling the empty pack from init apart from a pack with content", () => {
+    async function withPack(content: string | undefined) {
+      const root = await temporaryDirectory();
+      const repository = path.join(root, "app");
+      await gitRepository(repository, false);
+      if (content !== undefined) {
+        await mkdir(path.join(repository, ".governance"));
+        await writeFile(path.join(repository, ".governance", "governance-pack.json"), content);
+      }
+      return (await discoverRepositories(root)).repositories[0]!;
+    }
+    const skeleton = () => buildGovernancePackSkeleton({ id: "app", name: "app", repository: "UNSET", environment: "development" });
+
+    it("calls the file init writes a placeholder, ready to fill", async () => {
+      const found = await withPack(JSON.stringify(skeleton(), null, 2));
+      expect(found).toMatchObject({ existingPack: true, packIsPlaceholder: true });
+      expect(formatDiscovery({ root: "/r", repositories: [found] })).toContain("pack: placeholder from init (empty, ready to fill)");
+    });
+
+    it("has no placeholder when there is no pack at all", async () => {
+      expect(await withPack(undefined)).toMatchObject({ existingPack: false, packIsPlaceholder: false });
+    });
+
+    it("keeps a placeholder a placeholder when only the project fields were edited", async () => {
+      const edited = { ...skeleton(), project: { id: "shop", name: "Shop", repository: "acme/shop", environment: "production" } };
+      expect((await withPack(JSON.stringify(edited))).packIsPlaceholder).toBe(true);
+    });
+
+    it.each([
+      ["a control", (p: Record<string, unknown>) => { p.controls = [{ id: "C-1" }]; }],
+      ["evidence", (p: Record<string, unknown>) => { p.evidence = [{ id: "E-1" }]; }],
+      ["a standard", (p: Record<string, unknown>) => { p.standards = [{ id: "SEC-007" }]; }],
+      ["a risk", (p: Record<string, unknown>) => { p.risks = [{ id: "R-1" }]; }],
+      ["a finding", (p: Record<string, unknown>) => { p.findings = [{ id: "F-1" }]; }],
+      ["debt", (p: Record<string, unknown>) => { p.debt = [{ id: "DEBT-1" }]; }],
+      ["a described change", (p: Record<string, unknown>) => { (p.change as Record<string, unknown>).id = "CHG-APP-1"; }],
+      ["declared changed files", (p: Record<string, unknown>) => { (p.change as Record<string, unknown>).files = ["a.ts"]; }],
+    ])("is not a placeholder once it has %s, so setup never overwrites it", async (_name, mutate) => {
+      const pack = skeleton() as unknown as Record<string, unknown>;
+      mutate(pack);
+      expect(await withPack(JSON.stringify(pack))).toMatchObject({ existingPack: true, packIsPlaceholder: false });
+    });
+
+    it.each(["{ not json", "[]", "null", "{}", ""])("treats an unreadable or unrecognised file (%j) as not a placeholder", async (content) => {
+      expect((await withPack(content)).packIsPlaceholder).toBe(false);
+    });
+
+    it("recognises exactly the skeleton that init builds", () => {
+      expect(isPlaceholderPack(skeleton())).toBe(true);
+      expect(isPlaceholderPack({ ...skeleton(), controls: [{}] })).toBe(false);
+    });
   });
 
   it("fails clearly for a folder that does not exist", async () => {
