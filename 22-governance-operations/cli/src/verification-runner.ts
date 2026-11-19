@@ -116,6 +116,11 @@ async function findTypeScriptCompiler(rootPath: string, workingDirectory: string
  * It never invokes a shell or installs dependencies, and callers must opt in
  * before passing this runner to governance commands.
  */
+/** The first non-empty line: osv-scanner prints four lines of build information for --version. */
+function firstLine(text: string): string | undefined {
+  return text.split(/\r?\n/).map((line) => line.trim()).find((line) => line !== "");
+}
+
 export const nodeVerificationToolRunner: VerificationToolRunner = {
   async isAvailable(tool: VerificationToolName, rootPath: string, workingDirectory: string): Promise<boolean> {
     assertAllowlistedTool(tool);
@@ -148,7 +153,7 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
           await resolveConfinedWorkingDirectory(rootPath, workingDirectory),
           5_000,
         );
-        return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
+        return result.exitCode === 0 ? firstLine(result.stdout) : undefined;
       }
       const result = await runExecutable(
         tool,
@@ -156,7 +161,7 @@ export const nodeVerificationToolRunner: VerificationToolRunner = {
         await resolveConfinedWorkingDirectory(rootPath, workingDirectory),
         5_000,
       );
-      return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
+      return result.exitCode === 0 ? firstLine(result.stdout) : undefined;
     } catch {
       return undefined;
     }

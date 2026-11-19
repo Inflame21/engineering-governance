@@ -16,10 +16,12 @@ import {
 /**
  * Dependency vulnerability scanning with OSV-Scanner (ADR-0001).
  *
- * The parser relies only on fields the OSV-Scanner output documentation shows (results[].source.path,
- * packages[].package, vulnerabilities[].id, groups[].ids) and on the exit-code contract (0 clean, 1
- * vulnerabilities, 127 general error, 128 no packages). It was written without running the tool, so
- * it is untested against real output. Anything it cannot parse is an ERROR, never a PASS.
+ * The parser relies on results[].source.path, packages[].package, vulnerabilities[].id and
+ * groups[].ids, and on the exit-code contract (0 clean, 1 vulnerabilities, 127 general error, 128 no
+ * packages). Checked against real output (osv-scanner 2.7.1, captured 2026-11-19,
+ * tests/fixtures/real-scanner-output): every one of those holds. Real output also carries a CVSS score
+ * for each group (groups[].max_severity) and a label (vulnerabilities[].database_specific.severity) on
+ * GitHub-reviewed advisories. Anything the parser cannot read is an ERROR, never a PASS.
  */
 
 const IDENTITY: ScannerIdentity = {
@@ -42,9 +44,10 @@ const PYTHON_MANIFESTS = ["pyproject.toml", "Pipfile"];
 const severityRank: Record<Severity, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
 
 /**
- * GitHub-reviewed advisories publish a severity label in `database_specific.severity`. That field is
- * advisory-database specific and is not part of OSV-Scanner's documented output contract, so a label
- * is used when present and its absence is handled fail-closed (see groupSeverity).
+ * GitHub-reviewed advisories publish a severity label in `database_specific.severity` (seen in real
+ * output as MODERATE, HIGH and CRITICAL). The field is advisory-database specific, so a label is used
+ * when present, the group's CVSS score is the fallback, and having neither is handled fail-closed (see
+ * groupSeverity).
  */
 const SEVERITY_LABELS: Record<string, Severity> = {
   CRITICAL: "P1",
@@ -60,13 +63,19 @@ interface OsvVulnerability {
   label?: string;
 }
 
+interface OsvGroup {
+  ids: string[];
+  /** CVSS base score of the worst advisory in the group (0 to 10), when the tool reported one. */
+  score?: number;
+}
+
 interface OsvPackage {
   source: string;
   name: string;
   version: string;
   ecosystem: string;
   vulnerabilities: OsvVulnerability[];
-  groups: string[][];
+  groups: OsvGroup[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -134,11 +143,13 @@ function parseOsvOutput(stdout: string): OsvPackage[] {
       if (entry.groups !== undefined && !Array.isArray(entry.groups)) {
         throw new Error("OSV-Scanner package groups is not an array.");
       }
-      const groups = ((entry.groups ?? []) as unknown[]).map((group): string[] => {
+      const groups = ((entry.groups ?? []) as unknown[]).map((group): OsvGroup => {
         if (!isRecord(group) || !Array.isArray(group.ids) || group.ids.some((id) => typeof id !== "string")) {
           throw new Error("OSV-Scanner group has no ids.");
         }
-        return group.ids as string[];
+        // Real output gives max_severity as a string such as "5.3"; an unreadable or out-of-range value is ignored.
+        const score = typeof group.max_severity === "string" || typeof group.max_severity === "number" ? Number(group.max_severity) : NaN;
+        return { ids: group.ids as string[], ...(Number.isFinite(score) && score >= 0 && score <= 10 ? { score } : {}) };
       });
       packages.push({ source, name, version, ecosystem, vulnerabilities, groups });
     }
@@ -146,35 +157,51 @@ function parseOsvOutput(stdout: string): OsvPackage[] {
   return packages;
 }
 
+interface Advisory {
+  members: OsvVulnerability[];
+  score?: number;
+}
+
 /** Vulnerabilities that share an alias are one advisory; the package's `groups` say which. */
-function advisoryGroups(pkg: OsvPackage): OsvVulnerability[][] {
+function advisoryGroups(pkg: OsvPackage): Advisory[] {
   const byId = new Map(pkg.vulnerabilities.map((vulnerability) => [vulnerability.id, vulnerability]));
   const used = new Set<string>();
-  const groups: OsvVulnerability[][] = [];
-  for (const ids of pkg.groups) {
-    const members = ids.filter((id) => byId.has(id) && !used.has(id));
+  const advisories: Advisory[] = [];
+  for (const group of pkg.groups) {
+    const members = group.ids.filter((id) => byId.has(id) && !used.has(id));
     if (members.length === 0) continue;
     for (const id of members) used.add(id);
-    groups.push(members.map((id) => byId.get(id)!));
+    advisories.push({ members: members.map((id) => byId.get(id)!), ...(group.score !== undefined ? { score: group.score } : {}) });
   }
   for (const vulnerability of pkg.vulnerabilities) {
-    if (!used.has(vulnerability.id)) groups.push([vulnerability]);
+    if (!used.has(vulnerability.id)) advisories.push({ members: [vulnerability] });
   }
-  return groups;
+  return advisories;
+}
+
+/** CVSS qualitative bands: 7.0 and above is high or critical (P1), 4.0 to 6.9 medium (P2), 0.1 to 3.9 low (P3). */
+function severityFromScore(score: number): Severity | undefined {
+  if (score >= 7) return "P1";
+  if (score >= 4) return "P2";
+  if (score > 0) return "P3";
+  return undefined;
 }
 
 /**
- * Unknown is not safe (GOV-022 section 10). An advisory whose severity cannot be established from any
- * alias is P1, so a missing label can never turn a serious vulnerability into a warning. The
- * documented output does not distinguish development-only dependencies, so every dependency is
- * treated as a runtime dependency.
+ * Unknown is not safe (GOV-022 section 10). The worst of the advisories' labels and the group's CVSS
+ * score decides; an advisory with neither is P1, so a missing label can never turn a serious
+ * vulnerability into a warning. The output does not distinguish development-only dependencies, so
+ * every dependency is treated as a runtime dependency.
  */
-function groupSeverity(group: OsvVulnerability[]): { severity: Severity; established: boolean } {
-  let worst: Severity | undefined;
-  for (const vulnerability of group) {
+function groupSeverity(advisory: Advisory): { severity: Severity; established: boolean } {
+  const candidates: Severity[] = [];
+  for (const vulnerability of advisory.members) {
     const severity = vulnerability.label ? SEVERITY_LABELS[vulnerability.label.trim().toUpperCase()] : undefined;
-    if (severity && (!worst || severityRank[severity] < severityRank[worst])) worst = severity;
+    if (severity) candidates.push(severity);
   }
+  const fromScore = advisory.score !== undefined ? severityFromScore(advisory.score) : undefined;
+  if (fromScore) candidates.push(fromScore);
+  const worst = candidates.sort((a, b) => severityRank[a] - severityRank[b])[0];
   return worst ? { severity: worst, established: true } : { severity: "P1", established: false };
 }
 
@@ -191,10 +218,10 @@ function oneLine(value: string, limit: number): string {
 function advisoryFindings(packages: OsvPackage[], rootPath: string): GovernanceFinding[] {
   const findings: GovernanceFinding[] = [];
   for (const pkg of packages) {
-    for (const group of advisoryGroups(pkg)) {
-      const ids = group.map((vulnerability) => vulnerability.id).sort();
-      const { severity, established } = groupSeverity(group);
-      const summary = group.find((vulnerability) => vulnerability.summary)?.summary;
+    for (const advisory of advisoryGroups(pkg)) {
+      const ids = advisory.members.map((vulnerability) => vulnerability.id).sort();
+      const { severity, established } = groupSeverity(advisory);
+      const summary = advisory.members.find((vulnerability) => vulnerability.summary)?.summary;
       const file = relativeSource(pkg.source, rootPath);
       findings.push({
         id: `FND-OSV-${stableId(`${file}:${pkg.ecosystem}:${pkg.name}:${pkg.version}:${ids.join(",")}`)}`,

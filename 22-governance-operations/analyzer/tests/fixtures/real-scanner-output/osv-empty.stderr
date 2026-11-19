@@ -1,0 +1,4 @@
+Starting filesystem walk for root: /
+Scanned /home/runner/work/_temp/fx/osv-empty/package-lock.json file and found 0 packages
+End status: 0 dirs visited, 1 inodes visited, 1 Extract calls, 155.686µs elapsed, 155.733µs wall time
+No package sources found, --help for usage information.
