@@ -93,7 +93,7 @@ on:
         type: boolean
         default: true
       history_retention_days:
-        description: Days to keep the history artifact (a proposal: see ADR-0005).
+        description: Days to keep the history artifact (a proposal, see ADR-0005).
         required: false
         type: number
         default: 400
