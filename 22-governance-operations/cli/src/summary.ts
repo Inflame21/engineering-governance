@@ -8,10 +8,11 @@ import type {
   Severity,
 } from "../../engine/src/types.js";
 import type { DebtSummary } from "../../engine/src/debt.js";
+import type { IncidentSummary } from "../../engine/src/incidents.js";
 import { runGovernanceCommand } from "./commands.js";
 import { loadGovernancePack } from "./config.js";
 import { discoverRepositories, type DiscoveredRepository } from "./discover.js";
-import { debtMarkdownLines } from "./output.js";
+import { debtMarkdownLines, incidentMarkdownLines } from "./output.js";
 import { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 import { createNewFile } from "./init.js";
 
@@ -66,6 +67,8 @@ export interface RepositorySummary {
   };
   /** Present only when the pack records technical debt. */
   debt?: DebtSummary;
+  /** Present only when the pack records incidents. */
+  incidents?: IncidentSummary;
   areas: AreaSummary[];
   reviewReports: string[];
 }
@@ -141,11 +144,13 @@ export async function summarizeRepository(repositoryPath: string, now: Date = ne
   let assessment: RepositorySummary["assessment"];
   let evaluated: ControlEvaluation[] = [];
   let debt: DebtSummary | undefined;
+  let incidents: IncidentSummary | undefined;
   if (pack) {
     const snapshot = await loadRepositorySnapshot(root, nodeFileSystem, []);
     const result = await runGovernanceCommand({ snapshot, governancePack: pack, json: true });
     evaluated = result.evaluation.controls;
     debt = result.evaluation.debt;
+    incidents = result.evaluation.incidents;
     const brief = (violation: GovernanceViolation) => ({ id: violation.controlId, severity: violation.severity, message: oneLine(violation.message, 200) });
     assessment = {
       decision: result.evaluation.decision.status,
@@ -212,6 +217,7 @@ export async function summarizeRepository(repositoryPath: string, now: Date = ne
     } : {}),
     ...(assessment ? { assessment } : {}),
     ...(debt ? { debt } : {}),
+    ...(incidents ? { incidents } : {}),
     controls,
     findings: {
       bySeverity,
@@ -268,6 +274,7 @@ export function formatSummaryMarkdown(summary: RepositorySummary): string {
   }
 
   if (summary.debt) lines.push(...debtMarkdownLines(summary.debt), "");
+  if (summary.incidents) lines.push(...incidentMarkdownLines(summary.incidents), "");
 
   const counts = summary.findings.bySeverity;
   lines.push("## Findings", "", `${summary.findings.open.length} open of ${summary.findings.total} (P0: ${counts.P0}, P1: ${counts.P1}, P2: ${counts.P2}, P3: ${counts.P3}).`, "");

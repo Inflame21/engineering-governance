@@ -1,4 +1,5 @@
 import type { DebtSummary } from "../../engine/src/debt.js";
+import type { IncidentSummary } from "../../engine/src/incidents.js";
 import { TOOL_RESULT_STATUSES } from "../../engine/src/evidence-policy.js";
 import type { GovernanceContext, GovernanceEvaluation } from "../../engine/src/types.js";
 import type { RepositoryAnalysis } from "../../analyzer/src/types.js";
@@ -185,13 +186,41 @@ const MAX_DEBT_ROWS = 30;
 export function debtMarkdownLines(debt: DebtSummary): string[] {
   const lines = ["", "## Technical debt", "", debtTotalsLine(debt)];
   if (debt.items.length === 0) return lines;
-  lines.push("", "| Debt | Severity | Status | Owner | Target | Recorded against | Needs |", "|---|---|---|---|---|---|---|");
+  const withIncidents = debt.items.some((item) => item.incidents.length > 0);
+  lines.push("", `| Debt | Severity | Status | Owner | Target | Recorded against |${withIncidents ? " Incidents |" : ""} Needs |`, `|---|---|---|---|---|---|${withIncidents ? "---|" : ""}---|`);
   for (const item of debt.items.slice(0, MAX_DEBT_ROWS)) {
     const target = item.target_date ? `${item.target_date}${item.overdue ? " (overdue)" : ""}` : "";
     const linked = item.linkedControls.map((control) => `${control.id} (${control.status})`).join(", ");
-    lines.push(`| ${cell(item.id)}${item.title ? ` ${cell(item.title)}` : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${target} | ${cell(linked)} | ${cell(item.reasons.length > 0 ? `${item.blocking ? "**blocks**: " : ""}${item.reasons.join("; ")}` : "")} |`);
+    lines.push(`| ${cell(item.id)}${item.title ? ` ${cell(item.title)}` : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${target} | ${cell(linked)} |${withIncidents ? ` ${cell(item.incidents.join(", "))} |` : ""} ${cell(item.reasons.length > 0 ? `${item.blocking ? "**blocks**: " : ""}${item.reasons.join("; ")}` : "")} |`);
   }
   if (debt.items.length > MAX_DEBT_ROWS) lines.push("", `…and ${debt.items.length - MAX_DEBT_ROWS} more in the JSON report.`);
+  return lines;
+}
+
+/** One line of totals for incidents (INC-019 section 39). */
+export function incidentTotalsLine(incidents: IncidentSummary): string {
+  const s = incidents.bySeverity;
+  const parts = [
+    `${incidents.total} recorded (P0: ${s.P0}, P1: ${s.P1}, P2: ${s.P2}, P3: ${s.P3}), ${incidents.active} active`,
+    `${incidents.materialReviewed} of ${incidents.materialResolved} resolved P0/P1 incidents have a completed review`,
+    `${incidents.actionsOpen} corrective action${incidents.actionsOpen === 1 ? "" : "s"} open, ${incidents.actionsOverdue} overdue`,
+    `${incidents.repeats} repeat${incidents.repeats === 1 ? "" : "s"}`,
+  ];
+  if (incidents.meanTimeToResolveHours !== undefined) parts.push(`mean time to resolve ${incidents.meanTimeToResolveHours} h`);
+  return `${parts.join("; ")}.`;
+}
+
+/** The incidents section shared by the report and the summary: totals, then one row per incident. */
+export function incidentMarkdownLines(incidents: IncidentSummary): string[] {
+  const lines = ["", "## Incidents", "", incidentTotalsLine(incidents)];
+  if (incidents.items.length === 0) return lines;
+  lines.push("", "| Incident | Severity | Status | Owner | Review | Actions open (overdue) | Recorded against | Needs |", "|---|---|---|---|---|---|---|---|");
+  for (const item of incidents.items.slice(0, MAX_DEBT_ROWS)) {
+    const open = item.actions.filter((action) => action.status === "OPEN" || action.status === "IN_PROGRESS");
+    const linked = [...item.linkedControls.map((control) => `${control.id} (${control.status})`), ...item.linkedDebt].join(", ");
+    lines.push(`| ${cell(item.id)} ${cell(item.title)}${item.repeatOf.length > 0 ? " (repeat)" : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${item.review?.status ?? "none"} | ${open.length} (${open.filter((action) => action.overdue).length}) | ${cell(linked)} | ${cell(item.reasons.join("; "))} |`);
+  }
+  if (incidents.items.length > MAX_DEBT_ROWS) lines.push("", `…and ${incidents.items.length - MAX_DEBT_ROWS} more in the JSON report.`);
   return lines;
 }
 
@@ -214,6 +243,7 @@ export function formatHumanResult(
     `Warnings: ${evaluation.decision.warnings.length}`,
     `Open risks: ${evaluation.decision.openRisks.length}`,
     ...(evaluation.debt ? [`Technical debt: ${debtTotalsLine(evaluation.debt)}`] : []),
+    ...(evaluation.incidents ? [`Incidents: ${incidentTotalsLine(evaluation.incidents)}`] : []),
   ];
 
   if (evaluation.decision.reason) lines.push("", `Reason: ${evaluation.decision.reason}`);
@@ -310,6 +340,7 @@ export function formatMarkdownResult(
   section("Blocking violations", decision.blockingViolations);
   section("Warnings", decision.warnings);
   if (evaluation.debt && (evaluation.debt.unresolvedTotal > 0 || evaluation.debt.resolved > 0)) lines.push(...debtMarkdownLines(evaluation.debt));
+  if (evaluation.incidents) lines.push(...incidentMarkdownLines(evaluation.incidents));
 
   const attention = evaluation.controls.filter((c) => c.status !== "PASS" && c.status !== "NOT_APPLICABLE");
   if (attention.length > 0) {

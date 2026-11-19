@@ -69,6 +69,14 @@
       },
       "default": []
     },
+    "incidents": {
+      "type": "array",
+      "description": "Incidents that happened, recorded so they feed back into later decisions (INC-019).",
+      "items": {
+        "$ref": "#/$defs/incident"
+      },
+      "default": []
+    },
     "findings": {
       "type": "array",
       "items": {
@@ -742,6 +750,69 @@
             "minLength": 1
           }
         }
+      },
+      "additionalProperties": false
+    },
+    "incident": {
+      "type": "object",
+      "required": ["id", "severity", "status", "title", "detected_at"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^INC-[0-9A-Z-]+$" },
+        "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+        "status": {
+          "enum": ["OPEN", "MITIGATED", "RESOLVED", "CLOSED"],
+          "description": "OPEN and MITIGATED are active. RESOLVED means recovery was verified. CLOSED means closure was communicated and follow-up assigned (INC-019 section 45)."
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "detected_at": { "type": "string", "format": "date-time" },
+        "resolved_at": { "type": "string", "format": "date-time", "description": "Required once the incident is RESOLVED or CLOSED." },
+        "owner": { "type": "string", "description": "The incident commander or owner of the response (INC-019 section 3.3)." },
+        "cause": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "description": "A short slug naming the root cause. A later incident with the same cause is reported as a repeat (INC-019 section 38)."
+        },
+        "controls": {
+          "type": "array",
+          "description": "Ids of the pack's controls whose failure, or whose assumption, this incident exposed (INC-019 section 51).",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "debt": {
+          "type": "array",
+          "description": "Ids of the pack's technical debt this incident is attributed to (INC-019 section 52).",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "review": {
+          "type": "object",
+          "description": "The post-incident review (INC-019 section 31).",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["NOT_REQUIRED", "PENDING", "COMPLETE"] },
+            "completed_at": { "type": "string", "format": "date-time" },
+            "reference": { "type": "string", "description": "Where the review is kept." }
+          },
+          "additionalProperties": false
+        },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/correctiveAction" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "correctiveAction": {
+      "type": "object",
+      "required": ["id", "description", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ACT-[0-9A-Z-]+$" },
+        "description": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["OPEN", "IN_PROGRESS", "DONE", "DEPRIORITIZED"] },
+        "owner": { "type": "string" },
+        "due_date": { "type": "string", "format": "date", "description": "Target date (INC-019 section 36)." },
+        "validation": { "type": "string", "description": "How completion will be validated (INC-019 section 36)." },
+        "justification": { "type": "string", "description": "Why the action was deprioritised and the risk accepted (INC-019 section 37)." }
       },
       "additionalProperties": false
     },

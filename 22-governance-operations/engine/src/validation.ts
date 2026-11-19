@@ -9,7 +9,9 @@ export type GovernanceValidationCode =
   | "UNKNOWN_EVIDENCE"
   | "UNKNOWN_CONTROL"
   | "INVALID_RISK_ACCEPTANCE"
-  | "INVALID_EXCEPTION";
+  | "INVALID_EXCEPTION"
+  | "UNKNOWN_DEBT"
+  | "INVALID_INCIDENT";
 
 export interface GovernancePackValidationIssue {
   code: GovernanceValidationCode;
@@ -57,6 +59,7 @@ export function validateGovernancePackSemantics(
     ["findings", pack.findings ?? []],
     ["exceptions", pack.exceptions ?? []],
     ["debt", pack.debt ?? []],
+    ["incidents", pack.incidents ?? []],
   ];
 
   for (const [name, items] of collections) {
@@ -66,6 +69,33 @@ export function validateGovernancePackSemantics(
   const standardIds = new Set(pack.standards.map((item) => item.id));
   const controlIds = new Set(pack.controls.map((item) => item.id));
   const evidenceIds = new Set(pack.evidence.map((item) => item.id));
+
+  const debtIds = new Set((pack.debt ?? []).map((item) => item.id));
+  (pack.incidents ?? []).forEach((incident, index) => {
+    const path = `/incidents/${index}`;
+    for (const controlId of incident.controls ?? []) {
+      if (!controlIds.has(controlId)) issues.push({ code: "UNKNOWN_CONTROL", path: `${path}/controls`, message: `Incident '${incident.id}' references unknown control '${controlId}'.` });
+    }
+    for (const debtId of incident.debt ?? []) {
+      if (!debtIds.has(debtId)) issues.push({ code: "UNKNOWN_DEBT", path: `${path}/debt`, message: `Incident '${incident.id}' references unknown debt '${debtId}'.` });
+    }
+    const detected = Date.parse(incident.detected_at);
+    const resolved = incident.resolved_at ? Date.parse(incident.resolved_at) : undefined;
+    if ((incident.status === "RESOLVED" || incident.status === "CLOSED") && resolved === undefined) {
+      issues.push({ code: "INVALID_INCIDENT", path, message: `Incident '${incident.id}' is ${incident.status} but has no resolved_at.` });
+    }
+    if (resolved !== undefined && !(resolved >= detected)) {
+      issues.push({ code: "INVALID_INCIDENT", path, message: `Incident '${incident.id}' was resolved before it was detected, or a timestamp is invalid.` });
+    }
+    if (incident.review?.status === "COMPLETE" && !incident.review.completed_at) {
+      issues.push({ code: "INVALID_INCIDENT", path: `${path}/review`, message: `Incident '${incident.id}' has a COMPLETE review with no completed_at.` });
+    }
+    const actionIds = new Set<string>();
+    (incident.actions ?? []).forEach((action, actionIndex) => {
+      if (actionIds.has(action.id)) issues.push({ code: "DUPLICATE_ID", path: `${path}/actions/${actionIndex}`, message: `Incident '${incident.id}' has more than one action '${action.id}'.` });
+      actionIds.add(action.id);
+    });
+  });
 
   (pack.debt ?? []).forEach((debt, index) => {
     for (const controlId of debt.controls ?? []) {

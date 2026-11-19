@@ -181,7 +181,7 @@ async function describeRepository(root: string, repository: string): Promise<Dis
 }
 
 const PLACEHOLDER_CHANGE_ID = "CHG-UNSPECIFIED";
-const PACK_COLLECTIONS = ["standards", "controls", "evidence", "risks", "decisions", "exceptions", "debt", "findings"] as const;
+const PACK_COLLECTIONS = ["standards", "controls", "evidence", "risks", "decisions", "exceptions", "debt", "findings", "incidents"] as const;
 const MAX_PACK_BYTES = 1_000_000;
 
 /** The pack `governance init` writes, and nothing more. Anything with content, or unreadable, is not a placeholder. */
