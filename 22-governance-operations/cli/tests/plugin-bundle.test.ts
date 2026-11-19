@@ -181,8 +181,17 @@ describe("plugin commands", () => {
     report: "report . --write $ARGUMENTS",
   };
 
-  it("provides exactly the nine commands", async () => {
-    expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual(COMMANDS);
+  it("provides exactly the nine CLI commands plus the static start guide", async () => {
+    expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual([...COMMANDS, "start"].sort());
+  });
+
+  it("start is explicit-only, runs nothing, and points at every other command", async () => {
+    const text = normalize(await readFile(path.join(pluginDirectory, "skills", "start", "SKILL.md"), "utf8"));
+    const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? "";
+    expect(frontmatter).toMatch(/^disable-model-invocation: true$/m);
+    expect(text).not.toContain("governance.mjs");
+    expect(text).not.toMatch(/^```!/m);
+    for (const command of COMMANDS) expect(text).toContain(`/engineering-governance:${command}`);
   });
 
   it.each(COMMANDS)("%s is explicit-only and runs the bundled CLI, surfacing its exit code", async (command) => {
