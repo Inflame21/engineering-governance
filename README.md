@@ -250,10 +250,13 @@ The [plugin](plugins/engineering-governance/README.md) bundles the CLI, so nothi
 /plugin install engineering-governance@engineering-governance
 ```
 
+New here? After installing, open Claude Code at your repository's root and run `/engineering-governance:start`. It explains the plugin and the order to run things in, and runs nothing. Then try `/engineering-governance:analyze` (changes nothing) and `/engineering-governance:audit` (a full set of reports).
+
 Nothing runs automatically. Options are passed through, for example `/engineering-governance:check --base origin/main --run-tools`.
 
 | Slash command | What it does |
 |---|---|
+| `/engineering-governance:start` | New here? Prints what the plugin does and which command to run first. Runs nothing and writes nothing. |
 | `/engineering-governance:audit [repository]` | Start here for reports. Documents the repository, reviews each applicable area, and writes an ordered set of Markdown reports with a prioritized plan to `.governance/reports/`. Slow and token-heavy; it asks before starting. |
 | `/engineering-governance:setup` | Drafts a governance pack for each repository in the folder and, with your permission, runs the project's own checks and records the real results as evidence. Also fills in the empty pack `init` wrote. AI-drafted, so review it. |
 | `/engineering-governance:review <area>` | Reviews one area (security, architecture, api, data, testing, cicd, frontend, observability) against the standards, writes a report, and adds the findings to the pack. Findings are leads for a person to confirm. |
