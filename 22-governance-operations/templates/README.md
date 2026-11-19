@@ -11,7 +11,7 @@ A project does not copy this repository. It calls a reusable workflow, pinned to
 | `.governance/project.json` | [model/example-project-registration.json](../model/example-project-registration.json) | Your project registration: owners, criticality, data classification, profiles. |
 | `.github/pull_request_template.md` | [github/pull_request_template.md](github/pull_request_template.md) | An evidence section for every pull request. |
 
-Replace `<GOVERNANCE_SHA>` in the workflow with one full commit SHA (or a `vMAJOR.MINOR.PATCH` tag) of this repository, in **both** places. Branch names are refused, so the baseline you run is always exactly identifiable. To upgrade, change both values in a reviewed pull request.
+Replace `<GOVERNANCE_SHA>` in the workflow with one full commit SHA (or a `vMAJOR.MINOR.PATCH` tag) of this repository, in **every** place it appears (the check, the comment and the production approval each name the baseline). Branch names are refused, so the baseline you run is always exactly identifiable. To upgrade, change both values in a reviewed pull request.
 
 ## What the check does
 
@@ -19,6 +19,7 @@ On each pull request it checks out the pinned baseline, builds the governance CL
 
 - publishes the Markdown report as the **job summary** (the decision, analysis, blocking violations and conditions);
 - uploads the machine-readable `report.json` as an **artifact** (30 days by default);
+- optionally posts the decision and its blockers as one **pull-request comment**, updated in place (see below);
 - exposes `decision` and `exit_code` as workflow outputs;
 - fails the job according to the policy you chose.
 
@@ -52,6 +53,18 @@ For pull requests, the changed files are verified against the base branch, so a 
 | `ERROR` (invalid pack, missing file, tool failure) | 3 | fails, and the summary shows the error |
 
 An unsupported, skipped or failed check is never a pass: see the CLI README, "Verification result states". While the catalog is `DRAFT`, its controls add one condition and block nothing.
+
+## Pull-request comment
+
+The template's `comment` job calls `governance-pr-comment.yml`, which downloads the report the check uploaded and posts the decision, the reason, the blocking violations and the conditions as one comment, then updates that same comment on every later run. It is a separate workflow because commenting needs `pull-requests: write`, and a reusable workflow cannot ask for more permission than its caller grants; keeping it out of the check means existing callers are not broken. Remove the job to opt out.
+
+The comment is a convenience, never the gate. On a pull request from a fork the token is read-only, so nothing is posted and the job still succeeds; the decision is still in the job summary. Text that comes from the repository (control titles, messages) is escaped before it is posted: no mentions, links, images, HTML or table breaks, and at most 15 items per list.
+
+## Production approval
+
+`production-approval.yml` is a manual (`workflow_dispatch`) workflow for `main` only. It runs the governance check with `conditions: fail`, and only if that passes does the `approve` job start, which pauses on the GitHub Environment `production` until a required reviewer approves. After approval it writes `production-approval.json` (commit, governance decision, who approved and their comment, who started the run) to the job summary and to an artifact kept for 400 days, and it fails if no approval was recorded. Put the deployment in a job that `needs: approve`.
+
+The gate is only as strong as the environment settings, which a workflow cannot create or enforce: in **Settings > Environments > production** set Required reviewers (at least two people), turn on **Prevent self-review**, and restrict deployment branches to `main`. If the environment has no required reviewers the run is not paused, and the approval record is empty, which fails the job rather than letting an ungated release look approved.
 
 ## Making it a required check
 
