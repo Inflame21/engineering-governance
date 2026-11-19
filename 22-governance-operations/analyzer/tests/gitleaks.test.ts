@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { runVerificationAdapters, type VerificationToolRunner } from "../src/verification.js";
 
 // The fake runner follows the Gitleaks README: with `--exit-code 2`, 0 is clean, 2 is leaks, 1 is an
-// error and 126 is an unknown flag. It is not captured from the real tool.
+// error and 126 is an unknown flag. Like the real tool at `--log-level error`, it prints nothing on a
+// clean run. Real captured output is replayed in real-scanner-output.test.ts.
 
 const FAKE_SECRET = "not-a-real-secret-do-not-record-0123456789";
 
@@ -31,7 +32,9 @@ function gitleaksRunner(options: {
       if (thrown) throw thrown;
       const exitCode = scope === "tree" ? options.tree ?? 0 : options.history ?? 0;
       // Hostile output: a real secret in stdout and stderr must never reach the report.
-      return { exitCode, stdout: `[{"Secret":"${FAKE_SECRET}","Match":"${FAKE_SECRET}"}]`, stderr: `leaked ${FAKE_SECRET}` };
+      return exitCode === 0
+        ? { exitCode, stdout: "", stderr: "" }
+        : { exitCode, stdout: `[{"Secret":"${FAKE_SECRET}","Match":"${FAKE_SECRET}"}]`, stderr: `leaked ${FAKE_SECRET}` };
     },
   };
 }

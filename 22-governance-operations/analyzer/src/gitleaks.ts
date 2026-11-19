@@ -21,7 +21,13 @@ import {
  *
  * Documented contract relied on: `--exit-code N` sets the exit code used when leaks are found, the
  * default exit code 1 is shared by leaks and errors, and 126 means an unknown flag. Passing
- * `--exit-code 2` separates the cases: 0 clean, 2 leaks, 1 error. Written without running the tool.
+ * `--exit-code 2` separates the cases: 0 clean, 2 leaks, 1 error.
+ *
+ * Checked against real output (gitleaks 8.30.1, captured 2026-11-19, tests/fixtures/real-scanner-output):
+ * the exit codes above hold, and a clean run prints nothing to stderr at `--log-level error`. One thing
+ * the documentation does not say: `gitleaks git` in a directory that is not a git repository logs
+ * "ERR ... not a git repository" and still exits 0. An exit 0 with anything on stderr is therefore not
+ * trusted as clean.
  */
 
 const IDENTITY: ScannerIdentity = {
@@ -39,9 +45,13 @@ const COMMON_ARGS = ["--exit-code", String(LEAK_EXIT_CODE), "--redact", "--no-ba
 type Scope = "working tree" | "git history";
 type ScopeResult = "clean" | "leaks" | "unavailable" | "error";
 
-function classify(exitCode: number, scope: Scope): ScopeResult {
-  if (exitCode === 0) return "clean";
+function classify(exitCode: number, scope: Scope, stderr = ""): ScopeResult {
   if (exitCode === LEAK_EXIT_CODE) return "leaks";
+  if (exitCode === 0) {
+    if (stderr.trim() === "") return "clean";
+    // Real gitleaks reports a missing git repository on stderr and exits 0, so silence is the only clean.
+    return scope === "git history" && /not a git repository/i.test(stderr) ? "unavailable" : "error";
+  }
   // For history, exit 1 is most often "not a git repository"; the tool cannot say. Anything else,
   // including 126 (unknown flag), means the invocation itself is wrong.
   if (exitCode === 1 && scope === "git history") return "unavailable";
@@ -112,8 +122,8 @@ export async function runGitleaksAdapter(
   }
 
   const results: Record<Scope, ScopeResult> = {
-    "working tree": classify(tree.exitCode, "working tree"),
-    "git history": history ? classify(history.exitCode, "git history") : "error",
+    "working tree": classify(tree.exitCode, "working tree", tree.stderr),
+    "git history": history ? classify(history.exitCode, "git history", history.stderr) : "error",
   };
   const findings = (["working tree", "git history"] as const)
     .filter((scope) => results[scope] === "leaks")
@@ -121,12 +131,12 @@ export async function runGitleaksAdapter(
 
   const limitations: string[] = [];
   if (results["working tree"] === "error") {
-    limitations.push(`gitleaks exited with code ${tree.exitCode} on the working tree; the result cannot be trusted.`);
+    limitations.push(`gitleaks exited with code ${tree.exitCode} on the working tree${tree.exitCode === 0 ? " but reported errors" : ""}; the result cannot be trusted.`);
   }
   if (results["git history"] === "unavailable") {
-    limitations.push("git history could not be scanned (gitleaks exit 1: not a git repository, or a tool error).");
+    limitations.push("git history could not be scanned (not a git repository, or a tool error).");
   } else if (results["git history"] === "error") {
-    limitations.push(historyFailure ?? `gitleaks exited with code ${history?.exitCode} on git history; the result cannot be trusted.`);
+    limitations.push(historyFailure ?? `gitleaks exited with code ${history?.exitCode} on git history${history?.exitCode === 0 ? " but reported errors" : ""}; the result cannot be trusted.`);
   } else if (results["git history"] === "clean") {
     limitations.push("Only the git history present in this clone was scanned; a shallow clone has less.");
   }

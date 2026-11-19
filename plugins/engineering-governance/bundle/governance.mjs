@@ -11820,9 +11820,12 @@ var IDENTITY = {
 var TOOL_TIMEOUT_MS = 12e4;
 var LEAK_EXIT_CODE = 2;
 var COMMON_ARGS = ["--exit-code", String(LEAK_EXIT_CODE), "--redact", "--no-banner", "--no-color", "--log-level", "error"];
-function classify(exitCode, scope) {
-  if (exitCode === 0) return "clean";
+function classify(exitCode, scope, stderr = "") {
   if (exitCode === LEAK_EXIT_CODE) return "leaks";
+  if (exitCode === 0) {
+    if (stderr.trim() === "") return "clean";
+    return scope === "git history" && /not a git repository/i.test(stderr) ? "unavailable" : "error";
+  }
   if (exitCode === 1 && scope === "git history") return "unavailable";
   return "error";
 }
@@ -11876,18 +11879,18 @@ async function runGitleaksAdapter(snapshot, runner, fingerprint) {
     historyFailure = `gitleaks failed to run on git history: ${error instanceof Error ? error.message : String(error)}`;
   }
   const results = {
-    "working tree": classify(tree.exitCode, "working tree"),
-    "git history": history ? classify(history.exitCode, "git history") : "error"
+    "working tree": classify(tree.exitCode, "working tree", tree.stderr),
+    "git history": history ? classify(history.exitCode, "git history", history.stderr) : "error"
   };
   const findings = ["working tree", "git history"].filter((scope) => results[scope] === "leaks").map(leakFinding);
   const limitations = [];
   if (results["working tree"] === "error") {
-    limitations.push(`gitleaks exited with code ${tree.exitCode} on the working tree; the result cannot be trusted.`);
+    limitations.push(`gitleaks exited with code ${tree.exitCode} on the working tree${tree.exitCode === 0 ? " but reported errors" : ""}; the result cannot be trusted.`);
   }
   if (results["git history"] === "unavailable") {
-    limitations.push("git history could not be scanned (gitleaks exit 1: not a git repository, or a tool error).");
+    limitations.push("git history could not be scanned (not a git repository, or a tool error).");
   } else if (results["git history"] === "error") {
-    limitations.push(historyFailure ?? `gitleaks exited with code ${history?.exitCode} on git history; the result cannot be trusted.`);
+    limitations.push(historyFailure ?? `gitleaks exited with code ${history?.exitCode} on git history${history?.exitCode === 0 ? " but reported errors" : ""}; the result cannot be trusted.`);
   } else if (results["git history"] === "clean") {
     limitations.push("Only the git history present in this clone was scanned; a shallow clone has less.");
   }
@@ -11995,7 +11998,8 @@ function parseOsvOutput(stdout) {
         if (!isRecord(group) || !Array.isArray(group.ids) || group.ids.some((id) => typeof id !== "string")) {
           throw new Error("OSV-Scanner group has no ids.");
         }
-        return group.ids;
+        const score = typeof group.max_severity === "string" || typeof group.max_severity === "number" ? Number(group.max_severity) : NaN;
+        return { ids: group.ids, ...Number.isFinite(score) && score >= 0 && score <= 10 ? { score } : {} };
       });
       packages.push({ source, name, version, ecosystem, vulnerabilities, groups });
     }
@@ -12005,24 +12009,33 @@ function parseOsvOutput(stdout) {
 function advisoryGroups(pkg) {
   const byId = new Map(pkg.vulnerabilities.map((vulnerability) => [vulnerability.id, vulnerability]));
   const used = /* @__PURE__ */ new Set();
-  const groups = [];
-  for (const ids of pkg.groups) {
-    const members = ids.filter((id) => byId.has(id) && !used.has(id));
+  const advisories = [];
+  for (const group of pkg.groups) {
+    const members = group.ids.filter((id) => byId.has(id) && !used.has(id));
     if (members.length === 0) continue;
     for (const id of members) used.add(id);
-    groups.push(members.map((id) => byId.get(id)));
+    advisories.push({ members: members.map((id) => byId.get(id)), ...group.score !== void 0 ? { score: group.score } : {} });
   }
   for (const vulnerability of pkg.vulnerabilities) {
-    if (!used.has(vulnerability.id)) groups.push([vulnerability]);
+    if (!used.has(vulnerability.id)) advisories.push({ members: [vulnerability] });
   }
-  return groups;
+  return advisories;
 }
-function groupSeverity(group) {
-  let worst;
-  for (const vulnerability of group) {
+function severityFromScore(score) {
+  if (score >= 7) return "P1";
+  if (score >= 4) return "P2";
+  if (score > 0) return "P3";
+  return void 0;
+}
+function groupSeverity(advisory) {
+  const candidates = [];
+  for (const vulnerability of advisory.members) {
     const severity = vulnerability.label ? SEVERITY_LABELS[vulnerability.label.trim().toUpperCase()] : void 0;
-    if (severity && (!worst || severityRank[severity] < severityRank[worst])) worst = severity;
+    if (severity) candidates.push(severity);
   }
+  const fromScore = advisory.score !== void 0 ? severityFromScore(advisory.score) : void 0;
+  if (fromScore) candidates.push(fromScore);
+  const worst = candidates.sort((a, b) => severityRank[a] - severityRank[b])[0];
   return worst ? { severity: worst, established: true } : { severity: "P1", established: false };
 }
 function relativeSource(source, rootPath) {
@@ -12036,10 +12049,10 @@ function oneLine(value, limit) {
 function advisoryFindings(packages, rootPath) {
   const findings = [];
   for (const pkg of packages) {
-    for (const group of advisoryGroups(pkg)) {
-      const ids = group.map((vulnerability) => vulnerability.id).sort();
-      const { severity, established } = groupSeverity(group);
-      const summary = group.find((vulnerability) => vulnerability.summary)?.summary;
+    for (const advisory of advisoryGroups(pkg)) {
+      const ids = advisory.members.map((vulnerability) => vulnerability.id).sort();
+      const { severity, established } = groupSeverity(advisory);
+      const summary = advisory.members.find((vulnerability) => vulnerability.summary)?.summary;
       const file = relativeSource(pkg.source, rootPath);
       findings.push({
         id: `FND-OSV-${stableId3(`${file}:${pkg.ecosystem}:${pkg.name}:${pkg.version}:${ids.join(",")}`)}`,
@@ -13955,6 +13968,9 @@ async function findTypeScriptCompiler(rootPath, workingDirectory) {
   }
   return void 0;
 }
+function firstLine(text) {
+  return text.split(/\r?\n/).map((line) => line.trim()).find((line) => line !== "");
+}
 var nodeVerificationToolRunner = {
   async isAvailable(tool, rootPath, workingDirectory) {
     assertAllowlistedTool(tool);
@@ -13981,7 +13997,7 @@ var nodeVerificationToolRunner = {
           await resolveConfinedWorkingDirectory(rootPath, workingDirectory),
           5e3
         );
-        return result2.exitCode === 0 ? result2.stdout.trim() || void 0 : void 0;
+        return result2.exitCode === 0 ? firstLine(result2.stdout) : void 0;
       }
       const result = await runExecutable(
         tool,
@@ -13989,7 +14005,7 @@ var nodeVerificationToolRunner = {
         await resolveConfinedWorkingDirectory(rootPath, workingDirectory),
         5e3
       );
-      return result.exitCode === 0 ? result.stdout.trim() || void 0 : void 0;
+      return result.exitCode === 0 ? firstLine(result.stdout) : void 0;
     } catch {
       return void 0;
     }

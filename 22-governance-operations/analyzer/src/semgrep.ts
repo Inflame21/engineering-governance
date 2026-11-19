@@ -23,7 +23,9 @@ import {
  * Relies on the documented flags (`--config`, `--json`, `--error`, `--metrics=off`,
  * `--disable-version-check`, `--exclude`), the exit codes (0 clean, 1 findings with `--error`, 2 and
  * above errors), and the top-level `results` and `errors` fields and per-result `check_id`, `path`,
- * `start.line`, `extra.message` and `extra.severity`. Written without running the tool.
+ * `start.line`, `extra.message` and `extra.severity`. Checked against real output (semgrep 1.186.0, captured
+ * 2026-11-19, tests/fixtures/real-scanner-output): all of these hold. A real error entry has `code`, `level`,
+ * `type` and `message`; only the count is used. An invalid rule file exits 7.
  */
 
 export const SEMGREP_RULES_DIRECTORY = ".governance/semgrep";
