@@ -1,0 +1,323 @@
+{
+  "version": "1.0.0",
+  "description": "A reference of common architecture styles with example layouts, trade-offs and when each fits. Used by `governance architecture` to explain what a repository looks like and what it could follow. It is advice, not a standard: the governance standards decide what is required, this only describes options. Where a style has a bundled architecture profile, `check --profile` can enforce its dependency rules.",
+  "styles": [
+    {
+      "id": "simple-monolith",
+      "name": "Simple monolith",
+      "summary": "One deployable with little internal structure: code is grouped by what is convenient. The right starting point for a small or exploratory project.",
+      "structure": [
+        "app/",
+        "  main.py",
+        "  helpers.py",
+        "  models.py",
+        "tests/"
+      ],
+      "strengths": [
+        "Fastest to start and easy to run, debug and deploy",
+        "No abstractions to maintain before they are needed"
+      ],
+      "weaknesses": [
+        "Coupling grows unnoticed; nothing stops any file using any other",
+        "Boundaries are hard to find and cut later"
+      ],
+      "bestWhen": [
+        "A prototype, a small tool or an early product",
+        "One or two developers and a domain that is still being learned",
+        "Roughly under 40 source files"
+      ],
+      "avoidWhen": [
+        "Several teams change it at once",
+        "It must live for years or is regulated"
+      ],
+      "firstSteps": [
+        "Keep input and output (HTTP, files, database) out of the functions that decide things",
+        "When folders start to be needed, name them by concern and move to a layered or modular layout"
+      ]
+    },
+    {
+      "id": "layered",
+      "name": "Layered (n-tier)",
+      "summary": "Code is split by technical role into presentation, business logic and data access, and each layer may only call the one below it.",
+      "structure": [
+        "src/",
+        "  controllers/    (presentation: routes, request handling)",
+        "  services/       (business logic)",
+        "  repositories/   (data access)",
+        "  models/         (data shapes)"
+      ],
+      "strengths": [
+        "Familiar to almost every developer, so onboarding is quick",
+        "A good fit for CRUD-style applications",
+        "Simple to reason about at small and medium size"
+      ],
+      "weaknesses": [
+        "Layers are organised by technology, so one feature change touches every layer",
+        "Business rules tend to leak into controllers and database code",
+        "The business layer ends up depending on persistence details"
+      ],
+      "bestWhen": [
+        "CRUD-heavy back ends and internal tools",
+        "Small and medium teams with a stable, well-understood domain"
+      ],
+      "avoidWhen": [
+        "Complex business rules that must not depend on a database or framework",
+        "Many independent features that different teams own"
+      ],
+      "firstSteps": [
+        "Make dependencies one-way: controllers call services, services call repositories, never the reverse",
+        "Do not query the database from controllers",
+        "Pass plain data objects between layers instead of database rows"
+      ]
+    },
+    {
+      "id": "mvc",
+      "name": "MVC (Model, View, Controller)",
+      "summary": "A web-application pattern: models hold data and rules, views render output, controllers handle requests and connect the two. Most server-rendered frameworks are built around it.",
+      "structure": [
+        "app/",
+        "  models/",
+        "  views/          (or templates/)",
+        "  controllers/"
+      ],
+      "strengths": [
+        "Native to frameworks such as Rails, Django, Laravel and Spring MVC, so tooling and conventions help",
+        "Clear separation of rendering from request handling"
+      ],
+      "weaknesses": [
+        "Fat controllers and fat models are common",
+        "Says nothing about how a large domain is divided, so it strains as the application grows"
+      ],
+      "bestWhen": [
+        "Server-rendered websites and admin tools",
+        "Teams that want the conventions of an MVC framework"
+      ],
+      "avoidWhen": [
+        "The user interface is a separate single-page app talking to an API",
+        "The domain logic is large and needs to be independent of the web framework"
+      ],
+      "firstSteps": [
+        "Keep controllers thin: parse the request, call one function, choose a response",
+        "Move rules that are not about persistence out of models into plain services"
+      ]
+    },
+    {
+      "id": "clean",
+      "name": "Clean Architecture (Onion)",
+      "summary": "Business rules sit in the middle and depend on nothing. Use cases surround them, and frameworks, databases and the web sit on the outside. Dependencies point inward only.",
+      "structure": [
+        "src/",
+        "  domain/          (entities and business rules; imports nothing outward)",
+        "  application/     (use cases)",
+        "  infrastructure/  (database, external services)",
+        "  presentation/    (web, CLI)"
+      ],
+      "strengths": [
+        "Business logic can be tested without a database, a web server or a framework",
+        "Frameworks and databases can be replaced with limited impact",
+        "The dependency rule can be checked mechanically"
+      ],
+      "weaknesses": [
+        "More files and mapping code than a layered design",
+        "Overkill for simple CRUD",
+        "Only works if the team keeps the discipline"
+      ],
+      "bestWhen": [
+        "A rich domain with real business rules",
+        "A product that will live for years and outlast its framework"
+      ],
+      "avoidWhen": [
+        "Thin CRUD over a database",
+        "A throwaway or short-lived project"
+      ],
+      "firstSteps": [
+        "Create the domain folder first and forbid it from importing anything from the other folders",
+        "Put each user action in one use case that takes and returns plain data",
+        "Enforce the rule with `governance check --profile 22-governance-operations/model/architecture-profile-clean-architecture.json`"
+      ],
+      "profile": "clean-architecture"
+    },
+    {
+      "id": "hexagonal",
+      "name": "Hexagonal (Ports and Adapters)",
+      "summary": "The application core defines ports (interfaces) for what it offers and what it needs. Adapters on the outside, such as a REST controller, a queue consumer or a database, plug into those ports.",
+      "structure": [
+        "src/",
+        "  domain/",
+        "  application/",
+        "    ports/",
+        "      inbound/    (what the core offers)",
+        "      outbound/   (what the core needs)",
+        "  adapters/",
+        "    inbound/      (REST, CLI, queue consumer)",
+        "    outbound/     (database, payment provider)"
+      ],
+      "strengths": [
+        "Many ways in (API, queue, CLI) and many things out (database, third parties) stay interchangeable",
+        "The core is testable with simple fakes for each port",
+        "The dependency rule can be checked mechanically"
+      ],
+      "weaknesses": [
+        "Interface and wiring overhead",
+        "Easy to create ports that only have one implementation and no value"
+      ],
+      "bestWhen": [
+        "Several inbound channels or several outbound integrations",
+        "Integration-heavy services where external systems change often"
+      ],
+      "avoidWhen": [
+        "A small CRUD application with one database and one interface"
+      ],
+      "firstSteps": [
+        "Define one outbound port per external dependency the core needs (storage, payments, email)",
+        "Keep adapters free of business rules",
+        "Enforce the rule with `governance check --profile 22-governance-operations/model/architecture-profile-hexagonal.json`"
+      ],
+      "profile": "hexagonal-architecture"
+    },
+    {
+      "id": "modular-monolith",
+      "name": "Modular monolith",
+      "summary": "One deployable, divided into feature modules with strict boundaries. Each module owns its logic and data and talks to others only through a small public interface.",
+      "structure": [
+        "src/",
+        "  modules/",
+        "    orders/     (its own logic, data and public API)",
+        "    billing/",
+        "    catalog/",
+        "  shared/       (small, stable utilities only)"
+      ],
+      "strengths": [
+        "Strong boundaries without the cost of running distributed services",
+        "Simple to deploy, debug and test end to end",
+        "Modules that need it can be split out into services later"
+      ],
+      "weaknesses": [
+        "Needs discipline to stop modules reaching into each other",
+        "A shared database makes it tempting to cross boundaries"
+      ],
+      "bestWhen": [
+        "A medium to large product with several distinct features",
+        "Several teams working in one codebase",
+        "You want boundaries now but are not ready for microservices"
+      ],
+      "avoidWhen": [
+        "A very small application, where the module overhead is not repaid"
+      ],
+      "firstSteps": [
+        "Identify two or three business capabilities and give each a folder with one public entry point",
+        "Forbid importing another module's internals; allow only its public interface",
+        "Adapt the example profile `architecture-profile-modular-example.json` to your module names and enforce it"
+      ],
+      "profile": "modular-architecture-example"
+    },
+    {
+      "id": "microservices",
+      "name": "Microservices",
+      "summary": "The system is a set of small services, each deployed on its own, owning its data and communicating over the network.",
+      "structure": [
+        "services/",
+        "  orders/       (own code, own database, own Dockerfile)",
+        "  billing/",
+        "  catalog/",
+        "gateway/",
+        "docker-compose.yml"
+      ],
+      "strengths": [
+        "Teams can build, deploy and scale their services independently",
+        "A failure can be contained to one service",
+        "Different services can use different technology"
+      ],
+      "weaknesses": [
+        "Distributed-systems complexity: network failures, data consistency, versioning, tracing",
+        "High operational cost: pipelines, monitoring and deployment for every service",
+        "Wrong boundaries produce a distributed monolith, which is worse than a monolith"
+      ],
+      "bestWhen": [
+        "Several autonomous teams and clear business boundaries",
+        "Parts of the system have very different scaling needs",
+        "Mature automation and monitoring are already in place"
+      ],
+      "avoidWhen": [
+        "A small team or an early product whose boundaries are still moving",
+        "Services would share one database or must always be released together"
+      ],
+      "firstSteps": [
+        "Give each service its own data store and its own pipeline before adding more services",
+        "Put contracts (OpenAPI or protobuf) in version control and test against them",
+        "Enforce the rule with `governance check --profile 22-governance-operations/model/architecture-profile-microservices.json`"
+      ],
+      "profile": "microservices"
+    },
+    {
+      "id": "event-driven",
+      "name": "Event-driven",
+      "summary": "Components communicate by publishing and reacting to events through a broker instead of calling each other directly. Often combined with CQRS or event sourcing.",
+      "structure": [
+        "src/",
+        "  events/         (event definitions)",
+        "  producers/",
+        "  consumers/      (or handlers/, subscribers/)",
+        "  sagas/          (long-running workflows)"
+      ],
+      "strengths": [
+        "Producers and consumers are decoupled and can scale separately",
+        "Absorbs traffic spikes and suits workflows that span services",
+        "The event stream is a natural audit trail"
+      ],
+      "weaknesses": [
+        "Harder to trace and debug than a direct call",
+        "Eventual consistency, ordering and duplicate delivery must be handled",
+        "Event contracts need versioning"
+      ],
+      "bestWhen": [
+        "Workflows that cross several services or systems",
+        "Integration-heavy systems and asynchronous processing"
+      ],
+      "avoidWhen": [
+        "Simple request and response CRUD",
+        "The team has no experience with brokers or eventual consistency"
+      ],
+      "firstSteps": [
+        "Make consumers idempotent so a repeated event does no harm",
+        "Version every event schema and keep it in one place",
+        "Add a correlation id to every event so a flow can be traced"
+      ]
+    },
+    {
+      "id": "serverless",
+      "name": "Serverless (functions)",
+      "summary": "The application is a set of functions run on demand by a cloud platform, triggered by requests or events, with no servers to manage.",
+      "structure": [
+        "functions/",
+        "  create-order/",
+        "  send-receipt/",
+        "serverless.yml    (or SAM, Netlify, Vercel or Firebase configuration)",
+        "shared/"
+      ],
+      "strengths": [
+        "No servers to operate and you pay for use",
+        "Scales automatically, down to zero",
+        "Quick to ship small, event-driven features"
+      ],
+      "weaknesses": [
+        "Cold starts, execution time limits and platform-specific behaviour",
+        "Vendor lock-in and harder local testing",
+        "Costs can exceed a server at steady high load"
+      ],
+      "bestWhen": [
+        "Spiky or occasional workloads, glue code and small APIs",
+        "Small teams that do not want to run infrastructure"
+      ],
+      "avoidWhen": [
+        "Long-running, stateful or latency-critical workloads",
+        "A steady heavy load where a server is cheaper"
+      ],
+      "firstSteps": [
+        "Keep each function small and stateless, and share logic through a library",
+        "Put infrastructure in code (serverless.yml, SAM or CDK) and review it",
+        "Set timeouts and concurrency limits on every function"
+      ]
+    }
+  ]
+}
