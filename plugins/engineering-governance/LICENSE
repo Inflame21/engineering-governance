@@ -1,139 +1,166 @@
-ENGINEERING GOVERNANCE USE-AND-ADAPT LICENSE
-Version 1.0
+# PolyForm Shield License 1.0.0
 
-Copyright (c) 2026 Inflame21. All rights reserved, except for the rights granted below.
+Required Notice: Copyright (c) 2026 Inflame21 (<https://github.com/Inflame21>)
 
-This is a custom license. It is not an open-source license, because it does
-not allow redistribution.
+<https://polyformproject.org/licenses/shield/1.0.0>
 
+## Acceptance
 
-1. DEFINITIONS
+In order to get any license under these terms, you must agree
+to them as both strict obligations and conditions to all
+your licenses.
 
-"Materials" means everything in this repository and in any release or plugin
-package made from it: the standards documents, schemas, control and profile
-files, the command-line tool, the Claude Code plugin, templates, workflows,
-examples and documentation.
+## Copyright License
 
-"Licensor" means Inflame21.
+The licensor grants you a copyright license for the
+software to do everything you might do with the software
+that would otherwise infringe the licensor's copyright
+in it for any permitted purpose.  However, you may
+only distribute the software according to [Distribution
+License](#distribution-license) and make changes or new works
+based on the software according to [Changes and New Works
+License](#changes-and-new-works-license).
 
-"You" means the individual or organization using the Materials. An
-organization and the entities it controls are treated as one "You".
+## Distribution License
 
+The licensor grants you an additional copyright license
+to distribute copies of the software.  Your license
+to distribute covers distributing the software with
+changes and new works permitted by [Changes and New Works
+License](#changes-and-new-works-license).
 
-2. WHAT YOU MAY DO
+## Notices
 
-Subject to the conditions below, the Licensor grants You a worldwide,
-non-exclusive, royalty-free, non-transferable license to:
+You must ensure that anyone who gets a copy of any part of
+the software from you also gets a copy of these terms or the
+URL for them above, as well as copies of any plain-text lines
+beginning with `Required Notice:` that the licensor provided
+with the software.  For example:
 
-  (a) use the Materials for any purpose, including commercial purposes, such
-      as assessing and governing Your own software projects and delivering
-      Your own products and services;
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
 
-  (b) copy the Materials as needed for that use; and
+## Changes and New Works License
 
-  (c) modify the Materials for Your own use.
+The licensor grants you an additional copyright license to
+make changes and new works based on the software for any
+permitted purpose.
 
+## Patent License
 
-3. REDISTRIBUTION IS NOT ALLOWED
+The licensor grants you a patent license for the software that
+covers patent claims the licensor can license, or becomes able
+to license, that you would infringe by using the software.
 
-You may not Redistribute the Materials or any modified version of them.
+## Noncompete
 
-"Redistribute" means to publish, sell, sublicense, rent, lend, or otherwise
-make the Materials, a copy, a fork or a modified version available to anyone
-outside Your organization, whether free or for a fee. This includes offering
-them as a standalone package, as part of another product, or as a hosted
-service whose purpose is to provide the Materials themselves.
+Any purpose is a permitted purpose, except for providing any
+product that competes with the software or any product the
+licensor or any of its affiliates provides using the software.
 
+## Competition
 
-4. WHAT IS NOT REDISTRIBUTION
+Goods and services compete even when they provide functionality
+through different kinds of interfaces or for different technical
+platforms.  Applications can compete with services, libraries
+with plugins, frameworks with development tools, and so on,
+even if they're written in different programming languages
+or for different computer architectures.  Goods and services
+compete even when provided free of charge.  If you market a
+product as a practical substitute for the software or another
+product, it definitely competes.
 
-  (a) Sharing within Your organization. Making the Materials available to
-      Your own employees, to contractors working for You, and to entities You
-      control.
+## New Products
 
-  (b) Your project files. You may place in Your own project repositories,
-      including public ones, files that the Materials generate or that exist
-      to be copied into a project: governance packs, architecture profiles,
-      registry records, workflow and pull-request templates, and the reports
-      and decisions produced by running the tools. What Your use produces
-      about Your own projects is Yours. This does not permit publishing the
-      command-line tool, the plugin bundle, the standards documents or any
-      other Materials themselves.
+If you are using the software to provide a product that does
+not compete, but the licensor or any of its affiliates brings
+your product into competition by providing a new version of
+the software or another product using the software, you may
+continue using versions of the software available under these
+terms beforehand to provide your competing product, but not
+any later versions.
 
-  (c) Platform terms. Nothing in this license limits rights that any person
-      has under the terms of service of a code-hosting platform on which the
-      Licensor has published the Materials, such as viewing and forking
-      there.
+## Discontinued Products
 
-  (d) Installation channels. Installing the Materials through a channel the
-      Licensor provides, such as the Claude Code plugin marketplace, onto
-      Your own machines and those of Your organization.
+You may begin using the software to compete with a product
+or service that the licensor or any of its affiliates has
+stopped providing, unless the licensor includes a plain-text
+line beginning with `Licensor Line of Business:` with the
+software that mentions that line of business.  For example:
 
-  (e) Quotation. Short quotations for commentary, review, teaching or
-      criticism, with attribution, to the extent the law permits.
+> Licensor Line of Business: YoyodyneCMS Content Management
+System (http://example.com/cms)
 
+## Sales of Business
 
-5. CONDITIONS
+If the licensor or any of its affiliates sells a line of
+business developing the software or using the software
+to provide a product, the buyer can also enforce
+[Noncompete](#noncompete) for that product.
 
-  (a) Keep this license text and the copyright notice with every copy You
-      make.
+## Fair Use
 
-  (b) A modified version must state that it was modified, and must not be
-      presented as the Licensor's work or as endorsed by the Licensor.
+You may have "fair use" rights for the software under the
+law. These terms do not limit them.
 
-  (c) Do not remove or obscure the notices of the Licensor or of third
-      parties.
+## No Other Rights
 
+These terms do not allow you to sublicense or transfer any of
+your licenses to anyone else, or prevent the licensor from
+granting licenses to anyone else.  These terms do not imply
+any other licenses.
 
-6. THIRD-PARTY COMPONENTS
+## Patent Defense
 
-Some components are licensed by others on their own terms. Where the Materials
-include such a component, its notice and license are in THIRD-PARTY-NOTICES.md
-or in the component's own files. This license does not change those terms.
+If you make any written claim that the software infringes or
+contributes to infringement of any patent, your patent license
+for the software granted under these terms ends immediately. If
+your company makes such a claim, your patent license ends
+immediately for work on behalf of your company.
 
+## Violations
 
-7. OUTPUT IS NOT CERTIFICATION
+The first time you are notified in writing that you have
+violated any of these terms, or done anything with the software
+not covered by your licenses, your licenses can nonetheless
+continue if you come into full compliance with these terms,
+and take practical steps to correct past violations, within
+32 days of receiving notice.  Otherwise, all your licenses
+end immediately.
 
-The Materials help assess engineering evidence. A GO decision, a report, or
-any other output is not a certification, an audit, legal or compliance
-advice, or an approval to run a system in production. You are responsible for
-the decisions You make using the Materials.
+## No Liability
 
+***As far as the law allows, the software comes as is, without
+any warranty or condition, and the licensor will not be liable
+to you for any damages arising out of these terms or the use
+or nature of the software, under any kind of legal claim.***
 
-8. CONTRIBUTIONS
+## Definitions
 
-If You submit a contribution to the Licensor, such as a pull request, You
-grant the Licensor a perpetual, worldwide, irrevocable, royalty-free license
-to use, modify, sublicense and distribute it as part of the Materials under
-any terms, and You confirm that You have the right to do so.
+The **licensor** is the individual or entity offering these
+terms, and the **software** is the software the licensor makes
+available under these terms.
 
+A **product** can be a good or service, or a combination
+of them.
 
-9. TERMINATION
+**You** refers to the individual or entity agreeing to these
+terms.
 
-Your rights under this license end automatically if You breach it. If You stop
-the breach and correct it within 30 days after the Licensor notifies You, Your
-rights are reinstated.
+**Your company** is any legal entity, sole proprietorship,
+or other kind of organization that you work for, plus all
+its affiliates.
 
+**Affiliates** means the other organizations than an
+organization has control over, is under the control of, or is
+under common control with.
 
-10. NO WARRANTY
+**Control** means ownership of substantially all the assets of
+an entity, or the power to direct its management and policies
+by vote, contract, or otherwise.  Control can be direct or
+indirect.
 
-THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, ACCURACY, AND NON-INFRINGEMENT.
+**Your licenses** are all the licenses granted to you for the
+software under these terms.
 
-
-11. LIMITATION OF LIABILITY
-
-TO THE FULLEST EXTENT THE LAW PERMITS, THE LICENSOR IS NOT LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
-ARISING FROM OR IN CONNECTION WITH THE MATERIALS OR THEIR USE, INCLUDING ANY
-DECISION MADE, OR ANY SOFTWARE RELEASED, ON THE STRENGTH OF THEIR OUTPUT.
-
-
-12. GENERAL
-
-This license is the whole agreement about the Materials. If a provision is
-unenforceable, the rest remains in effect. A failure to enforce a provision is
-not a waiver of it. All rights not expressly granted are reserved. The
-Licensor may release later versions of the Materials under different terms;
-that does not change the terms of a copy You already hold.
+**Use** means anything you do with the software requiring one
+of your licenses.

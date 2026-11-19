@@ -69,7 +69,7 @@ Without a pack, `check` exits with code 3 and says so. It never reports a decisi
 - **The commands run `node` on your machine.** Claude Code asks for permission unless you allow `Bash(node *governance.mjs*)`.
 - **The analysis runs in the current directory.** Start Claude Code at the repository root.
 - Scanner results do not feed any governance control yet (DEBT-GOV-009 in the debt register).
-- Licensed under the custom [Engineering Governance Use-and-Adapt License](LICENSE): use for any purpose and modify for your own use, no redistribution. It is not open source. Third-party notices for the bundled code are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+- Licensed under the [PolyForm Shield License 1.0.0](LICENSE): use, modify and redistribute for any purpose except providing a competing product. It is source-available, not open source. Third-party notices for the bundled code are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Maintaining the plugin
 
