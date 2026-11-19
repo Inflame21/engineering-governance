@@ -1,0 +1,126 @@
+name: Capture scanner output
+
+# Throwaway workflow on a throwaway branch. It runs osv-scanner, gitleaks and semgrep with exactly the
+# commands the governance adapters use, against fixtures it builds at run time (so no secret-shaped text is
+# ever committed), and pushes the raw stdout, stderr, exit codes and versions to the branch
+# capture/scanner-output-results so the adapters can be checked against real output (DEBT-GOV-010).
+# Never merge this to main.
+
+on:
+  push:
+    branches: [capture/scanner-output]
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Install the scanners
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/bin"
+          asset_url() { curl -fsSL "https://api.github.com/repos/$1/releases/latest" | python3 -c "import sys,json,re; r=json.load(sys.stdin); print(next(a['browser_download_url'] for a in r['assets'] if re.fullmatch(sys.argv[1], a['name'])))" "$2"; }
+          curl -fsSL "$(asset_url google/osv-scanner 'osv-scanner_linux_amd64')" -o "$HOME/bin/osv-scanner"
+          chmod +x "$HOME/bin/osv-scanner"
+          curl -fsSL "$(asset_url gitleaks/gitleaks 'gitleaks_[0-9.]+_linux_x64\.tar\.gz')" | tar -xz -C "$HOME/bin" gitleaks
+          pip install --quiet semgrep
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Build fixtures
+        run: |
+          set -euo pipefail
+          fx="$RUNNER_TEMP/fx"; mkdir -p "$fx"
+          # osv-scanner: vulnerable, clean and empty lockfiles
+          mkdir -p "$fx/osv-vuln" && cd "$fx/osv-vuln" && npm init -y >/dev/null && npm install lodash@4.17.15 minimist@1.2.0 --package-lock-only --no-audit --no-fund >/dev/null
+          mkdir -p "$fx/osv-clean" && cd "$fx/osv-clean" && npm init -y >/dev/null && npm install is-odd@3.0.1 --package-lock-only --no-audit --no-fund >/dev/null
+          mkdir -p "$fx/osv-empty" && cd "$fx/osv-empty" && printf '{"name":"e","lockfileVersion":3,"requires":true,"packages":{"":{"name":"e"}}}\n' > package-lock.json
+          # gitleaks: a token-shaped string generated now, committed only inside this throwaway fixture repo
+          mkdir -p "$fx/leak" && cd "$fx/leak" && git init -q -b main && git config user.email c@example.test && git config user.name capture
+          printf 'token = "ghp_%s"\n' "$(head -c 400 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 36)" > config.txt
+          git add . && git commit -qm leak
+          mkdir -p "$fx/clean-git" && cd "$fx/clean-git" && git init -q -b main && git config user.email c@example.test && git config user.name capture
+          echo "hello" > readme.txt && git add . && git commit -qm clean
+          mkdir -p "$fx/no-git" && echo "hello" > "$fx/no-git/readme.txt"
+          # semgrep: an ERROR rule, a WARNING rule and an INFO rule, and sources that trigger them or not
+          mkdir -p "$fx/sg-hit/.governance/semgrep" "$fx/sg-hit/src" "$fx/sg-clean/.governance/semgrep" "$fx/sg-clean/src" "$fx/sg-bad/.governance/semgrep" "$fx/sg-bad/src"
+          cat > "$fx/sg-hit/.governance/semgrep/rules.yml" <<'RULES'
+          rules:
+            - id: no-eval
+              languages: [javascript]
+              severity: ERROR
+              message: Do not call eval
+              pattern: eval(...)
+            - id: no-console-log
+              languages: [javascript]
+              severity: WARNING
+              message: Remove console.log
+              pattern: console.log(...)
+            - id: note-debugger
+              languages: [javascript]
+              severity: INFO
+              message: Found a debugger statement
+              pattern: debugger
+          RULES
+          printf 'function f(x) {\n  eval(x);\n  console.log(x);\n  debugger;\n}\n' > "$fx/sg-hit/src/app.js"
+          cp "$fx/sg-hit/.governance/semgrep/rules.yml" "$fx/sg-clean/.governance/semgrep/rules.yml"
+          printf 'function f(x) {\n  return x + 1;\n}\n' > "$fx/sg-clean/src/app.js"
+          printf 'rules:\n  - id: broken\n    this is not valid: [\n' > "$fx/sg-bad/.governance/semgrep/rules.yml"
+          printf 'function f(x) {\n  return x;\n}\n' > "$fx/sg-bad/src/app.js"
+          echo "$fx" > "$RUNNER_TEMP/fx-path"
+
+      - name: Run the adapter commands and record everything
+        run: |
+          set -uo pipefail
+          fx="$(cat "$RUNNER_TEMP/fx-path")"
+          out="$GITHUB_WORKSPACE/_scanner-output"; mkdir -p "$out"
+          capture() {
+            local name="$1" dir="$2"; shift 2
+            ( cd "$dir" && "$@" > "$out/$name.stdout" 2> "$out/$name.stderr"; echo $? > "$out/$name.exit" ) || true
+            echo "$name: exit $(cat "$out/$name.exit"), stdout $(wc -c < "$out/$name.stdout") bytes"
+          }
+          { uname -a; osv-scanner --version; gitleaks version; semgrep --version; node --version; } > "$out/versions.txt" 2>&1 || true
+          # osv-scanner: the adapter runs scan source --format json --lockfile=<each lockfile>
+          capture osv-vuln "$fx/osv-vuln" osv-scanner scan source --format json --lockfile=package-lock.json
+          capture osv-clean "$fx/osv-clean" osv-scanner scan source --format json --lockfile=package-lock.json
+          capture osv-empty "$fx/osv-empty" osv-scanner scan source --format json --lockfile=package-lock.json
+          capture osv-missing "$fx/osv-clean" osv-scanner scan source --format json --lockfile=does-not-exist.json
+          # gitleaks: both scopes, with the adapter's common arguments
+          common=(--exit-code 2 --redact --no-banner --no-color --log-level error)
+          capture gitleaks-dir-leak "$fx/leak" gitleaks dir "${common[@]}" .
+          capture gitleaks-git-leak "$fx/leak" gitleaks git "${common[@]}" .
+          capture gitleaks-dir-clean "$fx/clean-git" gitleaks dir "${common[@]}" .
+          capture gitleaks-git-clean "$fx/clean-git" gitleaks git "${common[@]}" .
+          capture gitleaks-dir-nogit "$fx/no-git" gitleaks dir "${common[@]}" .
+          capture gitleaks-git-nogit "$fx/no-git" gitleaks git "${common[@]}" .
+          # semgrep: the adapter's command
+          sg=(semgrep scan --json --error --quiet --metrics=off --disable-version-check --config=.governance/semgrep --exclude=.governance/semgrep .)
+          capture semgrep-hit "$fx/sg-hit" "${sg[@]}"
+          capture semgrep-clean "$fx/sg-clean" "${sg[@]}"
+          capture semgrep-badrule "$fx/sg-bad" "${sg[@]}"
+          cp "$fx/osv-vuln/package-lock.json" "$out/osv-vuln.package-lock.json"
+
+      - name: Push the captured output
+        run: |
+          set -euo pipefail
+          git config user.email "capture@example.test"
+          git config user.name "scanner-capture"
+          git checkout -q --orphan capture/scanner-output-results
+          git rm -rfq --cached . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name _scanner-output ! -name .git -exec rm -rf {} +
+          git add _scanner-output
+          git commit -qm "Captured scanner output from run ${GITHUB_RUN_ID}"
+          git push --force origin capture/scanner-output-results
