@@ -69,5 +69,6 @@ export function toGovernanceContext(
       changedFiles: analysis.changeScope.files,
     } : {}),
     evaluatedAt: new Date().toISOString(),
+    ...(analysis.snapshotFingerprint ? { repositoryFingerprint: analysis.snapshotFingerprint.digest } : {}),
   };
 }

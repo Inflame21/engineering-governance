@@ -206,6 +206,12 @@ export interface GovernanceContext {
   facts?: Record<string, unknown>;
   /** Partial or failed analysis must not be treated as proof that controls do not apply. */
   analysisStatus?: GovernanceAnalysisStatus;
+  /**
+   * Fingerprint of the repository state being assessed. Evidence that names a different
+   * repository_fingerprint was produced against other code, so it no longer proves anything about this
+   * state and is not usable. Evidence that names none is unaffected.
+   */
+  repositoryFingerprint?: string;
   unsupportedCapabilities?: string[];
   analyzerLimitations?: string[];
   /** Findings emitted by repository analyzers; unresolved high-severity findings affect the decision. */

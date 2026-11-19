@@ -474,7 +474,7 @@ The following is the initial task register. A task is complete only when impleme
 - [x] **EVD-02:** Record command, tool version, result, and artifact references.
 - [x] **EVD-03:** Distinguish tool failure, code failure, and skipped checks.
 - [x] **EVD-04:** Link evidence to controls, findings, changes, and decisions.
-- [ ] **EVD-05:** Test staleness, tampering, and reproducibility.
+- [x] **EVD-05:** Test staleness, tampering, and reproducibility. (`engine/tests/evidence-integrity.test.ts`, `cli/tests/evidence-reproducibility.test.ts`. Writing them found and fixed three defects: evidence bound to an old `repository_fingerprint` still counted, the fingerprint could collide through embedded separators, and recording an assessment changed the next one's fingerprint. Limits in DEBT-GOV-020.)
 
 ### Phase 8 — CI
 

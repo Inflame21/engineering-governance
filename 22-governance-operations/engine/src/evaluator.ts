@@ -48,7 +48,10 @@ function evidenceIsUsable(
   control: GovernanceControl,
   item: GovernanceEvidence,
   evaluatedAt?: string,
+  repositoryFingerprint?: string,
 ): boolean {
+  // Bound to a different repository state: it describes code that is no longer what is being assessed.
+  if (item.repository_fingerprint && repositoryFingerprint && item.repository_fingerprint !== repositoryFingerprint) return false;
   const legacyFreshness = item.freshness.trim().toLowerCase();
   if (
     item.status !== "VERIFIED" ||
@@ -72,6 +75,7 @@ function evidenceForControl(
   control: GovernanceControl,
   evidence: GovernanceEvidence[],
   evaluatedAt?: string,
+  repositoryFingerprint?: string,
 ): { missing: string[]; supporting: string[] } {
   const required = control.required_evidence ?? [];
   const byId = new Map(evidence.map((item) => [item.id, item]));
@@ -92,7 +96,7 @@ function evidenceForControl(
   for (const evidenceId of evidenceIds) {
     const item = byId.get(evidenceId);
     // Evidence that does not declare support for this control is a mislink, not proof.
-    if (!item || !item.supports_controls.includes(control.id) || !evidenceIsUsable(control, item, evaluatedAt)) {
+    if (!item || !item.supports_controls.includes(control.id) || !evidenceIsUsable(control, item, evaluatedAt, repositoryFingerprint)) {
       missing.add(evidenceId);
       continue;
     }
@@ -104,7 +108,7 @@ function evidenceForControl(
   // unverified, or otherwise unusable.  The model has no assertion scope that
   // could safely prove the records address different checks, so fail closed.
   for (const item of explicitlyLinked) {
-    if (!evidenceIsUsable(control, item, evaluatedAt)) missing.add(item.id);
+    if (!evidenceIsUsable(control, item, evaluatedAt, repositoryFingerprint)) missing.add(item.id);
   }
 
   return { missing: [...missing].sort(), supporting: [...supporting].sort() };
@@ -133,7 +137,7 @@ export function evaluateControl(
     };
   }
 
-  const { missing, supporting } = evidenceForControl(control, evidence, context.evaluatedAt);
+  const { missing, supporting } = evidenceForControl(control, evidence, context.evaluatedAt, context.repositoryFingerprint);
 
   if (applicability.status === "UNVERIFIED") {
     return {

@@ -505,7 +505,7 @@ export async function runCli(argv: string[]): Promise<number> {
     if (args.record) {
       const packText = (await nodeFileSystem.readTextFile(args.repositoryPath, packPath)) ?? "";
       const head = await nodeGitCommandRunner.run(["rev-parse", "HEAD"], args.repositoryPath, 10_000).catch(() => undefined);
-      const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : undefined);
+      const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : undefined, result.analysis.snapshotFingerprint?.digest);
       const saved = await recordAssessment(nodeHistoryStore, args.repositoryPath, facts);
       process.stdout.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
 `);
