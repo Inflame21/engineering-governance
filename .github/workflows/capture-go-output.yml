@@ -107,6 +107,23 @@ jobs:
           capture osv-go-clean "$fx/osv-clean" osv-scanner scan source --format json --lockfile=go.mod
           capture osv-go-empty "$fx/osv-empty" osv-scanner scan source --format json --lockfile=go.mod
           capture osv-go-nested "$fx/osv-nested" osv-scanner scan source --format json --lockfile=svc/go.mod
+          # osv-scanner: its flags, and whether it runs the Go toolchain on the scanned module
+          capture osv-help "$fx" osv-scanner scan source --help
+          mkdir -p "$fx/osv-real"
+          printf 'module example.com/real\n\ngo 1.21\n\nrequire github.com/gin-gonic/gin v1.6.3\n' > "$fx/osv-real/go.mod"
+          printf 'package main\n\nimport "github.com/gin-gonic/gin"\n\nfunc main() {\n\t_ = gin.Default()\n}\n' > "$fx/osv-real/main.go"
+          sudo apt-get install -y -qq strace > /dev/null 2>&1 || true
+          capture osv-real-default "$fx/osv-real" strace -f -e trace=execve -o "$out/osv-real-default.strace" osv-scanner scan source --format json --lockfile=go.mod
+          capture osv-real-nocall "$fx/osv-real" strace -f -e trace=execve -o "$out/osv-real-nocall.strace" osv-scanner scan source --format json --no-call-analysis=go --lockfile=go.mod
+          capture osv-real-nocall-all "$fx/osv-real" strace -f -e trace=execve -o "$out/osv-real-nocall-all.strace" osv-scanner scan source --format json --no-call-analysis=all --lockfile=go.mod
+          grep -hE 'execve\("[^"]*/(go|govulncheck|gofmt)"' "$out"/osv-real-*.strace > "$out/osv-real-go-execs.txt" 2>&1 || echo "no go/govulncheck/gofmt exec found" > "$out/osv-real-go-execs.txt"
+          for f in "$out"/osv-real-*.strace; do echo "$(basename "$f"): $(grep -cE 'execve\("[^"]*/(go|govulncheck)"' "$f" || true) go execs" >> "$out/osv-real-go-exec-counts.txt"; done
+          # gofmt argument handling: a leading ./ and a file named like a flag
+          printf 'package x\n\nfunc Broken( {\n' > "$fx/gofmt/-x.go"
+          capture gofmt-dotslash "$fx/gofmt" gofmt -e -l ./bad/broken.go ./ok/main.go
+          capture gofmt-dashfile-bare "$fx/gofmt" gofmt -e -l -x.go
+          capture gofmt-dashfile-dotslash "$fx/gofmt" gofmt -e -l ./-x.go
+          capture gofmt-dashdash "$fx/gofmt" gofmt -e -l -- -x.go
           # semgrep on Go, with the adapter's command
           sg=(semgrep scan --json --error --quiet --metrics=off --disable-version-check --config=.governance/semgrep --exclude=.governance/semgrep .)
           capture semgrep-go-hit "$fx/sg-hit" "${sg[@]}"
