@@ -18,7 +18,8 @@ import { nodeVerificationToolRunner } from "./verification-runner.js";
 import { discoverRepositories, formatDiscovery } from "./discover.js";
 import { formatSummaryMarkdown, summarizeRepository, writeDatedReport, writeSummary } from "./summary.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
-import { loadGitChangeScope } from "./git-scope.js";
+import { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
+import { assessmentFacts, diffAssessments, formatDiff, formatHistory, nodeHistoryStore, readHistory, recordAssessment, sha256Hex } from "./history.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
 export { loadArchitectureProfile, loadAuthorityPolicy, loadControlCatalog, loadGovernancePack, loadProjectRegistry } from "./config.js";
@@ -30,7 +31,7 @@ const VERSION = "0.6.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -44,6 +45,10 @@ interface ParsedArguments {
   json: boolean;
   /** summarize and report: save the Markdown under .governance/reports/. */
   write?: boolean;
+  /** check and report: append the assessment to .governance/history/. */
+  record?: boolean;
+  /** diff only: the two assessment numbers to compare. */
+  diff?: { from: number; to: number };
   format?: "markdown" | "json";
   /** init only: values for the generated pack's project record. */
   init?: { id?: string; name?: string; repository?: string; environment?: string };
@@ -54,12 +59,14 @@ function usage(): string {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
-    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
+    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
+    "  governance history <repository> [--json]",
+    "  governance diff [<repository>] <a> <b> [--json]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -70,6 +77,8 @@ function usage(): string {
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
     "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
+    "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened).",
+    "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -88,6 +97,7 @@ function usage(): string {
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
     "  --run-tools Execute installed local checks: the TypeScript compiler, Python syntax, and the osv-scanner, gitleaks and semgrep scanners (never installs anything).",
     "  --id, --name, --repo, --environment  init only: the generated pack's project id (lowercase slug), name, repository and environment.",
+    "  --record  check/report: append the assessment (decision, issues, evidence statuses, pack hash, git head) to the append-only history .governance/history/assessments.jsonl. Refuses if the existing chain was altered.",
     "  --json    Emit machine-readable JSON.",
     "  --format  Report format for the report command: markdown (default) or json.",
     "  -h, --help",
@@ -110,7 +120,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -126,8 +136,10 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let runTools = false;
   let json = false;
   let write = false;
+  let record = false;
   let format: "markdown" | "json" | undefined;
   let repositoryProvided = false;
+  const positionals: string[] = [];
   const initOptions: NonNullable<ParsedArguments["init"]> = {};
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -139,6 +151,11 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     if (argument === "--write") {
       if (rawCommand !== "summarize" && rawCommand !== "report") throw new Error("--write is only supported by the summarize and report commands.");
       write = true;
+      continue;
+    }
+    if (argument === "--record") {
+      if (rawCommand !== "check" && rawCommand !== "report") throw new Error("--record is only supported by the check and report commands.");
+      record = true;
       continue;
     }
     if (argument === "--run-tools") {
@@ -184,19 +201,31 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       continue;
     }
     if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
+    if (rawCommand === "diff") {
+      positionals.push(argument);
+      continue;
+    }
     if (repositoryProvided) throw new Error(`Unexpected argument: ${argument}`);
     repositoryPath = argument;
     repositoryProvided = true;
   }
 
+  let diff: { from: number; to: number } | undefined;
+  if (rawCommand === "diff") {
+    if (positionals.length !== 2 && positionals.length !== 3) throw new Error("diff needs two assessment numbers: governance diff [<repository>] <a> <b>.");
+    if (positionals.length === 3) repositoryPath = positionals.shift()!;
+    const [from, to] = positionals.map(Number) as [number, number];
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < 1) throw new Error("diff takes two assessment numbers (positive integers), as shown by `governance history`.");
+    diff = { from, to };
+  }
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
-  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize") {
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff") {
     const unsupported = [
       profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
       authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", rawCommand === "init" && json && "--json", format && "--format",
     ].filter(Boolean);
-    if ((rawCommand === "discover" || rawCommand === "summarize") && packExplicit) unsupported.unshift("--pack");
+    if (rawCommand !== "init" && packExplicit) unsupported.unshift("--pack");
     if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
   }
 
@@ -215,6 +244,8 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     json,
     ...(format ? { format } : {}),
     ...(write ? { write: true } : {}),
+    ...(record ? { record: true } : {}),
+    ...(diff ? { diff } : {}),
     ...(rawCommand === "init" ? { init: initOptions } : {}),
   };
 }
@@ -248,6 +279,21 @@ export async function runCli(argv: string[]): Promise<number> {
         process.stdout.write(`${args.json ? JSON.stringify(summary, null, 2) : formatSummaryMarkdown(summary)}
 `);
       }
+      return 0;
+    }
+
+    if (args.command === "history") {
+      const records = await readHistory(nodeHistoryStore, args.repositoryPath);
+      process.stdout.write(`${args.json ? JSON.stringify(records, null, 2) : formatHistory(records)}
+`);
+      return 0;
+    }
+
+    if (args.command === "diff") {
+      const records = await readHistory(nodeHistoryStore, args.repositoryPath);
+      const result = diffAssessments(records, args.diff!.from, args.diff!.to);
+      process.stdout.write(`${args.json ? JSON.stringify(result, null, 2) : formatDiff(result)}
+`);
       return 0;
     }
 
@@ -354,6 +400,14 @@ export async function runCli(argv: string[]): Promise<number> {
       ...(args.runTools ? { verificationRunner: nodeVerificationToolRunner } : {}),
     });
     process.stdout.write(`${result.output}\n`);
+    if (args.record) {
+      const packText = (await nodeFileSystem.readTextFile(args.repositoryPath, packPath)) ?? "";
+      const head = await nodeGitCommandRunner.run(["rev-parse", "HEAD"], args.repositoryPath, 10_000).catch(() => undefined);
+      const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : undefined);
+      const saved = await recordAssessment(nodeHistoryStore, args.repositoryPath, facts);
+      process.stdout.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
+`);
+    }
     if (args.write) {
       const written = await writeDatedReport(args.repositoryPath, "report", new Date().toISOString().slice(0, 10), `${result.output}\n`);
       process.stdout.write(`Wrote ${written}\n`);

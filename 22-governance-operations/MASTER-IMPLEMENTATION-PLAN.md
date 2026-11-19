@@ -486,8 +486,8 @@ The following is the initial task register. A task is complete only when impleme
 
 ### Phase 9 — Audit and operations
 
-- [ ] **OPS-01:** Persist assessment and decision history.
-- [ ] **OPS-02:** Track finding lifecycle and remediation evidence.
+- [x] **OPS-01:** Persist assessment and decision history. (`check`/`report --record` appends to the hash-chained `.governance/history/assessments.jsonl`; `governance history` verifies it; limits in DEBT-GOV-017.)
+- [x] **OPS-02:** Track finding lifecycle and remediation evidence. (`governance history` derives each issue's first seen, resolved and reopened state; `governance diff <a> <b>` shows resolved and introduced issues and evidence that changed status.)
 - [ ] **OPS-03:** Implement exception approval, expiry, and renewal.
 - [ ] **OPS-04:** Integrate debt and incident feedback.
 - [ ] **OPS-05:** Define retention, access control, and audit integrity.

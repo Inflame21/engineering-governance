@@ -131,6 +131,16 @@ node dist/cli/src/index.js discover <folder> [--json]
 
 `governance report <repository> --write` prints the assessment report and also saves the same Markdown to `.governance/reports/report-<date>.md`. It never overwrites: a second report the same day is `-2`. The exit code is still the decision's. `--write` cannot be combined with `--format json`.
 
+## Assessment history: `--record`, `history`, `diff`
+
+```powershell
+node dist/cli/src/index.js check <repository> --record
+node dist/cli/src/index.js history <repository> [--json]
+node dist/cli/src/index.js diff [<repository>] <a> <b> [--json]
+```
+
+`check --record` and `report --record` append one line to `.governance/history/assessments.jsonl` (never rewritten): the decision and reason, every violation and finding with its severity and status, each evidence item's status, the SHA-256 of the pack file and the git HEAD. Each record carries the previous record's hash and its own, so `history` can detect an edited, removed or reordered record and refuses to continue (exit 3); `--record` also refuses to extend a broken chain. `history` lists the assessments and, for every issue, when it was first seen, last seen, resolved (first assessment without it) and whether it came back. `diff <a> <b>` compares two numbered assessments: decision, resolved and introduced issues, and evidence that changed status. Commit the file to keep the history with the code. The chain shows tampering by accident or carelessness, not by someone who can rewrite the whole file (DEBT-GOV-017).
+
 ## One status report per repository: `summarize`
 
 ```bash

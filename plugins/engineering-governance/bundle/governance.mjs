@@ -3237,8 +3237,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path10) {
-      let input = path10;
+    function removeDotSegments(path11) {
+      let input = path11;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3312,11 +3312,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path10) {
-      if (path10 === "" || path10[0] === "/") {
-        return removeDotSegments(path10);
+    function removeDotSegmentsRelative(path11) {
+      if (path11 === "" || path11[0] === "/") {
+        return removeDotSegments(path11);
       }
-      const segments = path10.split("/");
+      const segments = path11.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3679,8 +3679,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
+        const path11 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -8055,7 +8055,7 @@ var require_dist = __commonJS({
 });
 
 // src/index.ts
-import path9 from "node:path";
+import path10 from "node:path";
 import { pathToFileURL } from "node:url";
 
 // ../analyzer/src/architecture.ts
@@ -10774,10 +10774,10 @@ var KNOWN_ARCHITECTURE_PROFILE_IDS = new Set(
 function formatSchemaErrors(errors) {
   return errors.map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`).join("; ");
 }
-async function loadGovernancePack(rootPath, path10, fs) {
-  const content = await fs.readTextFile(rootPath, path10);
+async function loadGovernancePack(rootPath, path11, fs) {
+  const content = await fs.readTextFile(rootPath, path11);
   if (content === void 0) {
-    throw new Error(`Governance pack not found: ${path10}`);
+    throw new Error(`Governance pack not found: ${path11}`);
   }
   let parsed;
   try {
@@ -10800,9 +10800,9 @@ async function loadGovernancePack(rootPath, path10, fs) {
   }
   return pack;
 }
-async function loadArchitectureProfile(rootPath, path10, fs) {
-  const content = await fs.readTextFile(rootPath, path10);
-  if (content === void 0) throw new Error(`Architecture profile not found: ${path10}`);
+async function loadArchitectureProfile(rootPath, path11, fs) {
+  const content = await fs.readTextFile(rootPath, path11);
+  if (content === void 0) throw new Error(`Architecture profile not found: ${path11}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10830,8 +10830,8 @@ function getRegisteredArchitectureProfile(id) {
   if (!profile) throw new Error(`Unknown architecture profile '${id}'`);
   return validateArchitectureProfileObject(structuredClone(profile));
 }
-async function loadProjectRegistry(rootPath, path10, fs) {
-  const normalized = path10.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+async function loadProjectRegistry(rootPath, path11, fs) {
+  const normalized = path11.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const files = normalized.endsWith(".json") ? [normalized] : (await fs.listFiles(rootPath)).map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${normalized}/`) && file.endsWith(".json")).sort();
   if (files.length === 0) {
     throw new Error(`No project registration records (*.json) found in ${normalized || "."}`);
@@ -10900,9 +10900,9 @@ function assertPackMatchesRegistration(pack, registration) {
   }
   if (issues.length > 0) throw new Error(`Governance pack does not belong to the registered project: ${issues.join("; ")}`);
 }
-async function loadControlCatalog(rootPath, path10, fs) {
-  const content = await fs.readTextFile(rootPath, path10);
-  if (content === void 0) throw new Error(`Control catalog not found: ${path10}`);
+async function loadControlCatalog(rootPath, path11, fs) {
+  const content = await fs.readTextFile(rootPath, path11);
+  if (content === void 0) throw new Error(`Control catalog not found: ${path11}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -10924,9 +10924,9 @@ async function loadControlCatalog(rootPath, path10, fs) {
   }
   return catalog;
 }
-async function loadAuthorityPolicy(rootPath, path10, fs) {
-  const content = await fs.readTextFile(rootPath, path10);
-  if (content === void 0) throw new Error(`Authority policy not found: ${path10}`);
+async function loadAuthorityPolicy(rootPath, path11, fs) {
+  const content = await fs.readTextFile(rootPath, path11);
+  if (content === void 0) throw new Error(`Authority policy not found: ${path11}`);
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -12135,13 +12135,13 @@ function parseSemgrepOutput(stdout) {
     if (!isRecord2(entry) || !isRecord2(entry.extra) || !isRecord2(entry.start)) {
       throw new Error("Semgrep result entry is malformed.");
     }
-    const { check_id: checkId, path: path10 } = entry;
+    const { check_id: checkId, path: path11 } = entry;
     const { message, severity } = entry.extra;
     const { line } = entry.start;
-    if (typeof checkId !== "string" || typeof path10 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
+    if (typeof checkId !== "string" || typeof path11 !== "string" || typeof message !== "string" || typeof severity !== "string" || typeof line !== "number") {
       throw new Error("Semgrep result is missing check_id, path, line, message or severity.");
     }
-    return { checkId, path: path10, line, message, severity };
+    return { checkId, path: path11, line, message, severity };
   });
   return { matches, scanErrors: parsed.errors.length };
 }
@@ -14659,6 +14659,178 @@ async function loadGitChangeScope(repositoryRoot, baseRef, runner = nodeGitComma
   }
 }
 
+// src/history.ts
+import { createHash as createHash3 } from "node:crypto";
+import { appendFile, mkdir as mkdir2, readFile as readFile3 } from "node:fs/promises";
+import path9 from "node:path";
+var HISTORY_PATH = ".governance/history/assessments.jsonl";
+var GENESIS = "0".repeat(64);
+var nodeHistoryStore = {
+  async read(repositoryPath) {
+    try {
+      return await readFile3(path9.join(repositoryPath, HISTORY_PATH), "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return void 0;
+      throw error;
+    }
+  },
+  async append(repositoryPath, line) {
+    const file = path9.join(repositoryPath, HISTORY_PATH);
+    await mkdir2(path9.dirname(file), { recursive: true });
+    await appendFile(file, `${line}
+`, "utf8");
+  }
+};
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+var sha256 = (text) => createHash3("sha256").update(text).digest("hex");
+function hashRecord(record) {
+  return sha256(canonical(record));
+}
+function assessmentFacts(pack, packText, evaluation, findings, head) {
+  const issues = [
+    ...evaluation.violations.map((v) => ({ key: `violation:${v.controlId}`, severity: v.severity, status: v.status, message: v.message })),
+    ...findings.map((f) => ({ key: `finding:${f.id}`, severity: f.severity, status: f.status, message: f.message }))
+  ].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  return {
+    decision: evaluation.decision.status,
+    reason: evaluation.decision.reason,
+    project: pack.project.id,
+    change: pack.change.id,
+    pack_sha256: sha256(packText),
+    ...head ? { head } : {},
+    issues,
+    evidence: Object.fromEntries(pack.evidence.map((e) => [e.id, e.status]))
+  };
+}
+function verifyHistory(text) {
+  const records = [];
+  const lines = (text ?? "").split("\n").filter((line) => line.trim() !== "");
+  let previous = GENESIS;
+  for (const [index, line] of lines.entries()) {
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      throw new Error(`History is corrupt: line ${index + 1} is not valid JSON.`);
+    }
+    const { hash, ...rest } = record;
+    if (record.seq !== index + 1) throw new Error(`History is corrupt: line ${index + 1} has sequence ${record.seq}.`);
+    if (record.prev_hash !== previous) throw new Error(`History chain is broken at record ${record.seq}: it does not follow the record before it.`);
+    if (hash !== hashRecord(rest)) throw new Error(`History was altered: record ${record.seq} does not match its hash.`);
+    records.push(record);
+    previous = hash;
+  }
+  return records;
+}
+async function recordAssessment(store, repositoryPath, assessment, now = /* @__PURE__ */ new Date()) {
+  const records = verifyHistory(await store.read(repositoryPath));
+  const last = records.at(-1);
+  const body = {
+    seq: (last?.seq ?? 0) + 1,
+    recorded_at: now.toISOString(),
+    prev_hash: last?.hash ?? GENESIS,
+    assessment
+  };
+  const record = { ...body, hash: hashRecord(body) };
+  await store.append(repositoryPath, canonical(record));
+  return record;
+}
+async function readHistory(store, repositoryPath) {
+  return verifyHistory(await store.read(repositoryPath));
+}
+function issueLifecycles(records) {
+  const byKey = /* @__PURE__ */ new Map();
+  for (const record of records) {
+    const present = new Set(record.assessment.issues.map((i) => i.key));
+    for (const issue of record.assessment.issues) {
+      const known = byKey.get(issue.key);
+      if (!known) {
+        byKey.set(issue.key, { key: issue.key, severity: issue.severity, message: issue.message, first_seen: record.seq, last_seen: record.seq, state: "OPEN", reopened: false });
+      } else {
+        if (known.state === "RESOLVED") known.reopened = true;
+        Object.assign(known, { last_seen: record.seq, severity: issue.severity, message: issue.message, state: "OPEN" });
+        delete known.resolved_at;
+      }
+    }
+    for (const known of byKey.values()) {
+      if (!present.has(known.key) && known.state === "OPEN") {
+        known.state = "RESOLVED";
+        known.resolved_at = record.seq;
+      }
+    }
+  }
+  return [...byKey.values()];
+}
+function diffAssessments(records, a, b) {
+  const find = (seq) => {
+    const record = records.find((r) => r.seq === seq);
+    if (!record) throw new Error(`No assessment ${seq} in the history (it holds ${records.length}).`);
+    return record;
+  };
+  const from = find(a);
+  const to = find(b);
+  const before = new Map(from.assessment.issues.map((i) => [i.key, i]));
+  const after = new Map(to.assessment.issues.map((i) => [i.key, i]));
+  const ids = [.../* @__PURE__ */ new Set([...Object.keys(from.assessment.evidence), ...Object.keys(to.assessment.evidence)])].sort();
+  return {
+    from: a,
+    to: b,
+    decision: { from: from.assessment.decision, to: to.assessment.decision },
+    pack_changed: from.assessment.pack_sha256 !== to.assessment.pack_sha256,
+    head: { ...from.assessment.head ? { from: from.assessment.head } : {}, ...to.assessment.head ? { to: to.assessment.head } : {} },
+    introduced: [...after.values()].filter((i) => !before.has(i.key)),
+    resolved: [...before.values()].filter((i) => !after.has(i.key)),
+    changed: [...after.values()].flatMap((i) => {
+      const old = before.get(i.key);
+      return old && `${old.severity}/${old.status}` !== `${i.severity}/${i.status}` ? [{ key: i.key, from: `${old.severity}/${old.status}`, to: `${i.severity}/${i.status}` }] : [];
+    }),
+    evidence: ids.flatMap((id) => {
+      const x = from.assessment.evidence[id] ?? "(absent)";
+      const y = to.assessment.evidence[id] ?? "(absent)";
+      return x === y ? [] : [{ id, from: x, to: y }];
+    })
+  };
+}
+function formatHistory(records) {
+  if (records.length === 0) return `No assessments recorded yet. Run \`governance check <repository> --record\` to start ${HISTORY_PATH}.`;
+  const lines = [`# Assessment history (${records.length}, chain verified)`, "", "| # | Recorded | Decision | Issues | Head |", "|---|---|---|---|---|"];
+  for (const r of records) {
+    lines.push(`| ${r.seq} | ${r.recorded_at} | ${r.assessment.decision} | ${r.assessment.issues.length} | ${r.assessment.head?.slice(0, 8) ?? "-"} |`);
+  }
+  const lifecycles = issueLifecycles(records);
+  lines.push("", "## Issue lifecycle", "");
+  if (lifecycles.length === 0) lines.push("No issues have ever been recorded.");
+  else {
+    lines.push("| Issue | Severity | State | First seen | Last seen | Resolved at |", "|---|---|---|---|---|---|");
+    for (const l of lifecycles) {
+      lines.push(`| ${l.key}${l.reopened ? " (reopened)" : ""} | ${l.severity} | ${l.state} | #${l.first_seen} | #${l.last_seen} | ${l.resolved_at ? `#${l.resolved_at}` : "-"} |`);
+    }
+  }
+  return lines.join("\n");
+}
+function formatDiff(d) {
+  const issue = (i) => `- ${i.key} (${i.severity}, ${i.status}): ${i.message}`;
+  const section = (title, items) => ["", `## ${title}`, "", ...items.length ? items : ["None."]];
+  return [
+    `# Assessment #${d.from} to #${d.to}`,
+    "",
+    `Decision: ${d.decision.from} to ${d.decision.to}${d.decision.from === d.decision.to ? " (unchanged)" : ""}`,
+    `Governance pack: ${d.pack_changed ? "changed" : "unchanged"}`,
+    `Git head: ${d.head.from?.slice(0, 8) ?? "-"} to ${d.head.to?.slice(0, 8) ?? "-"}`,
+    ...section("Resolved", d.resolved.map(issue)),
+    ...section("Introduced", d.introduced.map(issue)),
+    ...section("Changed", d.changed.map((c) => `- ${c.key}: ${c.from} to ${c.to}`)),
+    ...section("Evidence status changes", d.evidence.map((e) => `- ${e.id}: ${e.from} to ${e.to}`))
+  ].join("\n");
+}
+
 // src/index.ts
 var VERSION = "0.6.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
@@ -14667,12 +14839,14 @@ function usage() {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
-    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--format markdown|json]",
+    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
+    "  governance history <repository> [--json]",
+    "  governance diff [<repository>] <a> <b> [--json]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -14683,6 +14857,8 @@ function usage() {
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
     "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
+    "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened).",
+    "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -14701,6 +14877,7 @@ function usage() {
     "  --base    Verify changed-file scope against a Git base revision (for example, origin/main).",
     "  --run-tools Execute installed local checks: the TypeScript compiler, Python syntax, and the osv-scanner, gitleaks and semgrep scanners (never installs anything).",
     "  --id, --name, --repo, --environment  init only: the generated pack's project id (lowercase slug), name, repository and environment.",
+    "  --record  check/report: append the assessment (decision, issues, evidence statuses, pack hash, git head) to the append-only history .governance/history/assessments.jsonl. Refuses if the existing chain was altered.",
     "  --json    Emit machine-readable JSON.",
     "  --format  Report format for the report command: markdown (default) or json.",
     "  -h, --help",
@@ -14721,7 +14898,7 @@ function parseCliArguments(argv) {
     return { command: "version", repositoryPath: ".", packPath: DEFAULT_PACK_PATH, packExplicit: false, runTools: false, json: false };
   }
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}
 
 ${usage()}`);
@@ -14738,8 +14915,10 @@ ${usage()}`);
   let runTools = false;
   let json = false;
   let write = false;
+  let record = false;
   let format;
   let repositoryProvided = false;
+  const positionals = [];
   const initOptions = {};
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index];
@@ -14750,6 +14929,11 @@ ${usage()}`);
     if (argument === "--write") {
       if (rawCommand !== "summarize" && rawCommand !== "report") throw new Error("--write is only supported by the summarize and report commands.");
       write = true;
+      continue;
+    }
+    if (argument === "--record") {
+      if (rawCommand !== "check" && rawCommand !== "report") throw new Error("--record is only supported by the check and report commands.");
+      record = true;
       continue;
     }
     if (argument === "--run-tools") {
@@ -14795,13 +14979,25 @@ ${usage()}`);
       continue;
     }
     if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
+    if (rawCommand === "diff") {
+      positionals.push(argument);
+      continue;
+    }
     if (repositoryProvided) throw new Error(`Unexpected argument: ${argument}`);
     repositoryPath = argument;
     repositoryProvided = true;
   }
+  let diff;
+  if (rawCommand === "diff") {
+    if (positionals.length !== 2 && positionals.length !== 3) throw new Error("diff needs two assessment numbers: governance diff [<repository>] <a> <b>.");
+    if (positionals.length === 3) repositoryPath = positionals.shift();
+    const [from, to] = positionals.map(Number);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < 1) throw new Error("diff takes two assessment numbers (positive integers), as shown by `governance history`.");
+    diff = { from, to };
+  }
   if (projectId !== void 0 && registryPath === void 0) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
-  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize") {
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff") {
     const unsupported = [
       profilePath && "--profile",
       baseRef && "--base",
@@ -14813,12 +15009,12 @@ ${usage()}`);
       rawCommand === "init" && json && "--json",
       format && "--format"
     ].filter(Boolean);
-    if ((rawCommand === "discover" || rawCommand === "summarize") && packExplicit) unsupported.unshift("--pack");
+    if (rawCommand !== "init" && packExplicit) unsupported.unshift("--pack");
     if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
   }
   return {
     command: rawCommand,
-    repositoryPath: path9.resolve(repositoryPath),
+    repositoryPath: path10.resolve(repositoryPath),
     packPath,
     packExplicit,
     ...registryPath ? { registryPath } : {},
@@ -14831,6 +15027,8 @@ ${usage()}`);
     json,
     ...format ? { format } : {},
     ...write ? { write: true } : {},
+    ...record ? { record: true } : {},
+    ...diff ? { diff } : {},
     ...rawCommand === "init" ? { init: initOptions } : {}
   };
 }
@@ -14864,6 +15062,19 @@ async function runCli(argv) {
         process.stdout.write(`${args.json ? JSON.stringify(summary, null, 2) : formatSummaryMarkdown(summary)}
 `);
       }
+      return 0;
+    }
+    if (args.command === "history") {
+      const records = await readHistory(nodeHistoryStore, args.repositoryPath);
+      process.stdout.write(`${args.json ? JSON.stringify(records, null, 2) : formatHistory(records)}
+`);
+      return 0;
+    }
+    if (args.command === "diff") {
+      const records = await readHistory(nodeHistoryStore, args.repositoryPath);
+      const result2 = diffAssessments(records, args.diff.from, args.diff.to);
+      process.stdout.write(`${args.json ? JSON.stringify(result2, null, 2) : formatDiff(result2)}
+`);
       return 0;
     }
     if (args.command === "discover") {
@@ -14952,6 +15163,14 @@ async function runCli(argv) {
     });
     process.stdout.write(`${result.output}
 `);
+    if (args.record) {
+      const packText = await nodeFileSystem.readTextFile(args.repositoryPath, packPath) ?? "";
+      const head = await nodeGitCommandRunner.run(["rev-parse", "HEAD"], args.repositoryPath, 1e4).catch(() => void 0);
+      const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : void 0);
+      const saved = await recordAssessment(nodeHistoryStore, args.repositoryPath, facts);
+      process.stdout.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
+`);
+    }
     if (args.write) {
       const written = await writeDatedReport(args.repositoryPath, "report", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), `${result.output}
 `);
@@ -14967,7 +15186,7 @@ async function runCli(argv) {
     return 3;
   }
 }
-var entrypoint = process.argv[1] ? pathToFileURL(path9.resolve(process.argv[1])).href : void 0;
+var entrypoint = process.argv[1] ? pathToFileURL(path10.resolve(process.argv[1])).href : void 0;
 if (entrypoint === import.meta.url) {
   process.exitCode = await runCli(process.argv.slice(2));
 }
