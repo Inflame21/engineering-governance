@@ -355,6 +355,8 @@ export interface AuthorityPolicy {
   policy_id: string;
   policy_version: string;
   description: string;
+  /** When true, an approval holds only with a verified signature; no flag is needed and none can turn it off. */
+  require_signed_approvals?: boolean;
   roles: AuthorityRole[];
 }
 

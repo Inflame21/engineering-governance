@@ -1,0 +1,22 @@
+# Independent review for the governance-sensitive paths of a project repository (ADR-0005).
+# Copy to .github/CODEOWNERS and replace @your-org/governance-reviewers with the people or team who
+# may approve changes to these paths. They must be different from the people who normally write the code.
+#
+# These rules only bind when the branch ruleset has "Require review from Code Owners" turned on, and a
+# repository administrator can bypass a ruleset that has bypass actors: remove them for this branch.
+
+# The pack: controls, evidence, risks, exceptions
+/.governance/governance-pack.json          @your-org/governance-reviewers
+/.governance/project.json                  @your-org/governance-reviewers
+
+# Approvals, the assessment history and its signed checkpoints
+/.governance/approvals/                    @your-org/governance-reviewers
+/.governance/history/                      @your-org/governance-reviewers
+
+# A policy kept in this repository (the reusable workflow normally takes the policy from the pinned baseline)
+/.governance/authority*.json               @your-org/governance-reviewers
+
+# The workflows that run and gate the check, the pinned baseline and the production approval
+/.github/workflows/governance.yml          @your-org/governance-reviewers
+/.github/workflows/production-approval.yml @your-org/governance-reviewers
+/.github/CODEOWNERS                        @your-org/governance-reviewers

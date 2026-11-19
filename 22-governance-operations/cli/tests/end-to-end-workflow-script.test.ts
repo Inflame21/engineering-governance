@@ -69,6 +69,8 @@ describe.skipIf(!runnable)("reusable workflow script", () => {
     await repo("complete", pack());
     await repo("blocked", pack({ risks: [{ id: "RSK-1", severity: "P1", title: "Intentional blocker", status: "OPEN" }] }));
     await repo("no-pack", null);
+    await repo("recorded", pack());
+    await repo("not-recorded", pack());
     // Hostile text that tries to forge GitHub workflow commands through the report.
     await repo("hostile", pack({
       risks: [{ id: "RSK-2", severity: "P1", title: "::error title=forged::injected command\n::set-output name=pwned::true", status: "OPEN" }],
@@ -121,6 +123,24 @@ describe.skipIf(!runnable)("reusable workflow script", () => {
     expect(result.outputs).toMatch(/^exit_code=\d$/m);
     expect(result.summary).toContain(`## Governance check: ${decision}`);
   }, 60_000);
+
+  it("records one history entry per check when RECORD_HISTORY is true, and none otherwise", async () => {
+    const history = (name: string) => path.join(base, name, ".governance", "history", "assessments.jsonl");
+    const recorded = await run({ TARGET_DIR: fixtures.recorded!, CONDITIONS: "pass", RECORD_HISTORY: "true", BASE_REF: "HEAD" });
+    expect(recorded.exitCode).toBe(0);
+    const lines = (await readFile(history("recorded"), "utf8")).trim().split("\n");
+    expect(lines).toHaveLength(1); // the script runs the report twice; it records once
+    expect(JSON.parse(lines[0]!)).toMatchObject({ seq: 1, assessment: { decision: "GO" } });
+    expect(recorded.summary).not.toContain("Recorded assessment"); // the status line stays out of the report
+
+    await run({ TARGET_DIR: fixtures.recorded!, CONDITIONS: "pass", RECORD_HISTORY: "true", BASE_REF: "HEAD" });
+    expect((await readFile(history("recorded"), "utf8")).trim().split("\n")).toHaveLength(2);
+
+    await run({ TARGET_DIR: fixtures["not-recorded"]!, CONDITIONS: "pass", BASE_REF: "HEAD" });
+    await expect(readFile(history("not-recorded"), "utf8")).rejects.toThrow();
+    const invalid = await run({ TARGET_DIR: fixtures.recorded!, CONDITIONS: "pass", RECORD_HISTORY: "maybe" });
+    expect(invalid.exitCode).toBe(2);
+  }, 90_000);
 
   it("writes a machine-readable report and a Markdown summary", async () => {
     const result = await run({ TARGET_DIR: fixtures.complete!, CONDITIONS: "fail", BASE_REF: "HEAD" });

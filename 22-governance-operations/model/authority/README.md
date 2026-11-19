@@ -42,7 +42,7 @@ Because every role here is `DRAFT`, passing `--authority` today changes no resul
 
 ## Approving a role
 
-1. Name the holders (`name`, optionally `handle`, and `key_fingerprint`, the full GPG fingerprint they sign approvals with; `check --verify-signatures` uses it to authenticate a signed approval). `UNASSIGNED` is rejected for an `APPROVED` role.
+1. Optionally set `require_signed_approvals: true` so an approval holds only with a verified signature (no flag needed, none can turn it off); it needs `key_fingerprint` on the holders. Name the holders (`name`, optionally `handle`, and `key_fingerprint`, the full GPG fingerprint they sign approvals with; `check --verify-signatures` uses it to authenticate a signed approval). `UNASSIGNED` is rejected for an `APPROVED` role.
 2. Set `status` to `APPROVED` and add `effective_from`.
 3. Have the change reviewed by someone with authority over EXC-021.
 

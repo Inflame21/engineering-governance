@@ -20,6 +20,7 @@ import { formatSummaryMarkdown, summarizeRepository, writeDatedReport, writeSumm
 import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 import { approveException, exceptionRows, expireExceptions, formatExceptionRows, gpgSignaturePort, parseExpiry, renewException, requestException, signApproval, verifyApprovals, writePack, type ExceptionRow } from "./exceptions.js";
+import { createCheckpoint, formatCheckpointReport, verifyCheckpoints } from "./checkpoints.js";
 import { assessmentFacts, diffAssessments, formatDiff, formatHistory, nodeHistoryStore, readHistory, recordAssessment, sha256Hex } from "./history.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
@@ -32,7 +33,7 @@ const VERSION = "0.6.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "exception" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "exception" | "checkpoint" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -54,6 +55,8 @@ interface ParsedArguments {
   exception?: { action: string; id?: string; control?: string; reason?: string; by?: string; role?: string; expires?: string; sign?: string };
   /** diff only: the two assessment numbers to compare. */
   diff?: { from: number; to: number };
+  /** checkpoint only: the GPG key that signs. */
+  checkpointKey?: string;
   format?: "markdown" | "json";
   /** init only: values for the generated pack's project record. */
   init?: { id?: string; name?: string; repository?: string; environment?: string };
@@ -70,7 +73,8 @@ function usage(): string {
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
-    "  governance history <repository> [--json]",
+    "  governance history <repository> [--authority <relative-path>] [--json]",
+    "  governance checkpoint <repository> --sign <gpg-key>",
     "  governance diff [<repository>] <a> <b> [--json]",
     "  governance exception request <repository> --id <EXC-id> --control <id> --reason <text> --by <name> [--pack <relative-path>]",
     "  governance exception approve <repository> --id <EXC-id> --by <name> --role <ROLE> --expires <date> [--sign <gpg-key>] [--pack <relative-path>]",
@@ -87,7 +91,8 @@ function usage(): string {
     "  report    Same assessment and exit codes as check, rendered as a Markdown (default) or JSON report.",
     "  analyze   Inspect repository languages, frameworks, and analyzer coverage without a pack.",
     "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
-    "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened).",
+    "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened). With --authority it also verifies the signed checkpoints, which show deleted newest records or a rewritten chain.",
+    "  checkpoint  GPG-sign the newest history record (sequence number and hash) into .governance/history/checkpoints/<n>.asc. Verified by history --authority against the keys the policy registers; never replaces an existing checkpoint.",
     "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
     "  exception Manage the exception lifecycle in the pack: request, approve (with an expiry), renew (a fresh approval with a later expiry), expire (mark lapsed ones EXPIRED) and list (days left, signature status). approve and renew can GPG-sign the approval with --sign.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
@@ -133,7 +138,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception" && rawCommand !== "checkpoint") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -180,7 +185,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     }
     if (argument === "--control" || argument === "--reason" || argument === "--by" || argument === "--role" || argument === "--expires" || argument === "--sign") {
       const value = rest[index + 1];
-      if (rawCommand !== "exception") throw new Error(`${argument} is only supported by the exception command.`);
+      if (rawCommand !== "exception" && !(rawCommand === "checkpoint" && argument === "--sign")) throw new Error(`${argument} is only supported by the exception command.`);
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
       exceptionOptions[argument.slice(2) as "control"] = value;
       index += 1;
@@ -261,10 +266,11 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   if (verifySignatures && !authorityPath) throw new Error("--verify-signatures requires --authority (the policy holds each approver's key).");
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
-  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff") {
+  if (rawCommand === "checkpoint" && !exceptionOptions.sign) throw new Error("checkpoint requires --sign <gpg-key>.");
+  if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff" || rawCommand === "checkpoint") {
     const unsupported = [
       profilePath && "--profile", baseRef && "--base", registryPath && "--registry", catalogPath && "--catalog",
-      authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", rawCommand === "init" && json && "--json", format && "--format",
+      rawCommand !== "history" && authorityPath && "--authority", projectId && "--project", runTools && "--run-tools", rawCommand === "init" && json && "--json", format && "--format",
     ].filter(Boolean);
     if (rawCommand !== "init" && packExplicit) unsupported.unshift("--pack");
     if (unsupported.length > 0) throw new Error(`${unsupported.join(", ")} not supported by the ${rawCommand} command.`);
@@ -289,6 +295,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     ...(verifySignatures ? { verifySignatures: true } : {}),
     ...(exception ? { exception } : {}),
     ...(diff ? { diff } : {}),
+    ...(rawCommand === "checkpoint" ? { checkpointKey: exceptionOptions.sign! } : {}),
     ...(rawCommand === "init" ? { init: initOptions } : {}),
   };
 }
@@ -381,8 +388,22 @@ export async function runCli(argv: string[]): Promise<number> {
 
     if (args.command === "history") {
       const records = await readHistory(nodeHistoryStore, args.repositoryPath);
-      process.stdout.write(`${args.json ? JSON.stringify(records, null, 2) : formatHistory(records)}
-`);
+      const policy = args.authorityPath ? await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem) : undefined;
+      const checkpoints = policy ? await verifyCheckpoints(args.repositoryPath, records, policy, gpgSignaturePort) : undefined;
+      process.stdout.write(args.json
+        ? `${JSON.stringify(checkpoints ? { records, checkpoints } : records, null, 2)}\n`
+        : `${formatHistory(records)}${checkpoints ? formatCheckpointReport(checkpoints, records.length) : ""}\n`);
+      if (checkpoints && checkpoints.problems.length > 0) {
+        process.stderr.write(`Governance CLI error: the history failed its integrity check (${checkpoints.problems.length} problem${checkpoints.problems.length === 1 ? "" : "s"}).\n`);
+        return 3;
+      }
+      return 0;
+    }
+
+    if (args.command === "checkpoint") {
+      const records = await readHistory(nodeHistoryStore, args.repositoryPath);
+      const made = await createCheckpoint(args.repositoryPath, records, args.checkpointKey!, gpgSignaturePort);
+      process.stdout.write(`Signed assessment ${made.seq} in ${made.file}\n`);
       return 0;
     }
 
@@ -485,7 +506,8 @@ export async function runCli(argv: string[]): Promise<number> {
     const controlCatalog = args.catalogPath
       ? await loadControlCatalog(args.repositoryPath, args.catalogPath, nodeFileSystem)
       : undefined;
-    const verifiedApprovals = args.verifySignatures && authorityPolicy
+    // A policy can require signed approvals itself, so verification cannot be left out by omitting a flag.
+    const verifiedApprovals = (args.verifySignatures || authorityPolicy?.require_signed_approvals === true) && authorityPolicy
       ? (await verifyApprovals(governancePack, authorityPolicy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file)))
           .filter((check) => check.verified).map((check) => check.id)
       : undefined;
@@ -507,7 +529,7 @@ export async function runCli(argv: string[]): Promise<number> {
       const head = await nodeGitCommandRunner.run(["rev-parse", "HEAD"], args.repositoryPath, 10_000).catch(() => undefined);
       const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : undefined, result.analysis.snapshotFingerprint?.digest);
       const saved = await recordAssessment(nodeHistoryStore, args.repositoryPath, facts);
-      process.stdout.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
+      process.stderr.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
 `);
     }
     if (args.write) {
