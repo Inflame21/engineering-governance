@@ -14309,8 +14309,29 @@ async function describeRepository(root, repository) {
         return void 0;
       }
     }))).filter((directory) => Boolean(directory)),
-    existingPack: await exists(path6.join(repository, ".governance", "governance-pack.json"))
+    existingPack: await exists(path6.join(repository, ".governance", "governance-pack.json")),
+    packIsPlaceholder: await readPackIsPlaceholder(path6.join(repository, ".governance", "governance-pack.json"))
   };
+}
+var PLACEHOLDER_CHANGE_ID = "CHG-UNSPECIFIED";
+var PACK_COLLECTIONS = ["standards", "controls", "evidence", "risks", "decisions", "exceptions", "debt", "findings"];
+var MAX_PACK_BYTES = 1e6;
+function isPlaceholderPack(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const pack = value;
+  const change = pack.change;
+  if (typeof change !== "object" || change === null || change.id !== PLACEHOLDER_CHANGE_ID) return false;
+  if (Array.isArray(change.files) && change.files.length > 0) return false;
+  return PACK_COLLECTIONS.every((name) => pack[name] === void 0 || Array.isArray(pack[name]) && pack[name].length === 0);
+}
+async function readPackIsPlaceholder(file) {
+  try {
+    const info = await lstat2(file);
+    if (!info.isFile() || info.size > MAX_PACK_BYTES) return false;
+    return isPlaceholderPack(JSON.parse(await readFile2(file, "utf8")));
+  } catch {
+    return false;
+  }
 }
 async function discoverRepositories(rootPath) {
   const root = path6.resolve(rootPath);
@@ -14350,7 +14371,7 @@ function formatDiscovery(result) {
       `  remote ${facts.repositorySlug ?? facts.remote ?? "none"}`,
       `  package manager ${repository.packageManager ?? "unknown"}; scripts: ${Object.keys(repository.scripts).join(", ") || "none"}`,
       `  CI: ${repository.ci.map((workflow) => `${workflow.file} (${workflow.commands.length} commands)`).join(", ") || "none"}`,
-      `  docs: ${repository.docs.join(", ") || "none"}; pack: ${repository.existingPack ? "exists" : "none"}`,
+      `  docs: ${repository.docs.join(", ") || "none"}; pack: ${repository.existingPack ? repository.packIsPlaceholder ? "placeholder from init (empty, ready to fill)" : "exists" : "none"}`,
       ""
     );
   }

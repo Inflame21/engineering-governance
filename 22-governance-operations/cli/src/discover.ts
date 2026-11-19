@@ -29,6 +29,12 @@ export interface DiscoveredRepository {
   /** Notable directories present at the repository root. */
   directories: string[];
   existingPack: boolean;
+  /**
+   * True when the pack file is exactly what `governance init` writes and nobody has filled in: no standards,
+   * controls, evidence, risks, decisions, exceptions, debt or findings, and the change still unspecified.
+   * `setup` may fill such a pack in place; a pack with any content is never touched.
+   */
+  packIsPlaceholder: boolean;
 }
 
 export interface DiscoveryResult {
@@ -170,7 +176,32 @@ async function describeRepository(root: string, repository: string): Promise<Dis
       }
     }))).filter((directory): directory is string => Boolean(directory)),
     existingPack: await exists(path.join(repository, ".governance", "governance-pack.json")),
+    packIsPlaceholder: await readPackIsPlaceholder(path.join(repository, ".governance", "governance-pack.json")),
   };
+}
+
+const PLACEHOLDER_CHANGE_ID = "CHG-UNSPECIFIED";
+const PACK_COLLECTIONS = ["standards", "controls", "evidence", "risks", "decisions", "exceptions", "debt", "findings"] as const;
+const MAX_PACK_BYTES = 1_000_000;
+
+/** The pack `governance init` writes, and nothing more. Anything with content, or unreadable, is not a placeholder. */
+export function isPlaceholderPack(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const pack = value as Record<string, unknown>;
+  const change = pack.change as Record<string, unknown> | undefined;
+  if (typeof change !== "object" || change === null || change.id !== PLACEHOLDER_CHANGE_ID) return false;
+  if (Array.isArray(change.files) && change.files.length > 0) return false;
+  return PACK_COLLECTIONS.every((name) => pack[name] === undefined || (Array.isArray(pack[name]) && (pack[name] as unknown[]).length === 0));
+}
+
+async function readPackIsPlaceholder(file: string): Promise<boolean> {
+  try {
+    const info = await lstat(file);
+    if (!info.isFile() || info.size > MAX_PACK_BYTES) return false;
+    return isPlaceholderPack(JSON.parse(await readFile(file, "utf8")));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -219,7 +250,7 @@ export function formatDiscovery(result: DiscoveryResult): string {
       `  remote ${facts.repositorySlug ?? facts.remote ?? "none"}`,
       `  package manager ${repository.packageManager ?? "unknown"}; scripts: ${Object.keys(repository.scripts).join(", ") || "none"}`,
       `  CI: ${repository.ci.map((workflow) => `${workflow.file} (${workflow.commands.length} commands)`).join(", ") || "none"}`,
-      `  docs: ${repository.docs.join(", ") || "none"}; pack: ${repository.existingPack ? "exists" : "none"}`,
+      `  docs: ${repository.docs.join(", ") || "none"}; pack: ${repository.existingPack ? (repository.packIsPlaceholder ? "placeholder from init (empty, ready to fill)" : "exists") : "none"}`,
       "",
     );
   }
