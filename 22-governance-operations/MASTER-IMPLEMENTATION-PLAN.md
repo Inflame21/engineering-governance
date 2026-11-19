@@ -466,7 +466,7 @@ The following is the initial task register. A task is complete only when impleme
 - [x] **ADP-03:** Normalize findings and retain original evidence.
 - [x] **ADP-04:** Add capability negotiation and version reporting.
 - [x] **ADP-05:** Add conformance tests for every adapter.
-- [ ] **ADP-06:** Expand languages without modifying universal rules.
+- [x] **ADP-06:** Expand languages without modifying universal rules. (Go: an adapter, `go.mod` parsing and frameworks, Go imports in the architecture dependency graph, a `gofmt` syntax check, and Go in the osv-scanner and semgrep adapters; the engine is unchanged. Limits in DEBT-GOV-025.)
 
 ### Phase 7 — Evidence
 

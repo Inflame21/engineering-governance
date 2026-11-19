@@ -1,0 +1,5 @@
+Starting filesystem walk for root: /
+Scanned /home/runner/work/_temp/fx/osv-nested/svc/go.mod file and found 2 packages
+End status: 0 dirs visited, 1 inodes visited, 1 Extract calls, 136.446µs elapsed, 136.497µs wall time
+Failed to run code analysis (govulncheck) on '/home/runner/work/_temp/fx/osv-nested/svc/go.mod' because govulncheck: no packages matched the provided patterns
+(the Go toolchain is required)

@@ -1,0 +1,6 @@
+2478  execve("/usr/bin/go", ["go", "version"], 0x263623ddf008 /* 114 vars */) = 0
+2483  execve("/usr/bin/go", ["go", "env", "GOMOD"], 0x263623b6e008 /* 114 vars */) = 0
+2488  execve("/usr/bin/go", ["go", "env", "GOROOT"], 0x263623b6e408 /* 114 vars */) = 0
+2493  execve("/usr/bin/go", ["go", "list", "-e", "-f", "{{context.ReleaseTags}}", "--", "unsafe"], 0x263623a62408 /* 116 vars */ <unfinished ...>
+2494  execve("/usr/bin/go", ["go", "list", "-f", "{{context.GOARCH}} {{context.Com"..., "--", "unsafe"], 0x263623ab2008 /* 115 vars */ <unfinished ...>
+2503  execve("/usr/bin/go", ["go", "list", "-e", "-json=Name,ImportPath,Error,Dir,"..., "-compiled=true", "-test=false", "-export=false", "-deps=true", "-find=false", "-buildvcs=false", "-pgo=off", "--", "./..."], 0x263623b6e808 /* 115 vars */) = 0

@@ -141,6 +141,16 @@ node dist/cli/src/index.js diff [<repository>] <a> <b> [--json]
 
 `check --record` and `report --record` append one line to `.governance/history/assessments.jsonl` (never rewritten): the decision and reason, every violation and finding with its severity and status, each evidence item's status, the SHA-256 of the pack file and the git HEAD. Each record carries the previous record's hash and its own, so `history` can detect an edited, removed or reordered record and refuses to continue (exit 3); `--record` also refuses to extend a broken chain. `history` lists the assessments and, for every issue, when it was first seen, last seen, resolved (first assessment without it) and whether it came back. `diff <a> <b>` compares two numbered assessments: decision, resolved and introduced issues, and evidence that changed status. Each record also stores the repository fingerprint (a SHA-256 over file paths and the content of source files and manifests, excluding `.governance/history/` and `.governance/reports/`). Evidence that names a `repository_fingerprint` counts only while it equals the fingerprint of the code being assessed, so evidence produced against older code stops counting once the code changes. Commit the file to keep the history with the code. The chain shows tampering by accident or carelessness, not by someone who can rewrite the whole file (DEBT-GOV-017).
 
+## Go
+
+Go repositories are analysed alongside TypeScript and Python, added as an adapter without changing the engine or the universal rules (ADP-06):
+
+- **Detection:** the `go` adapter derives `capability:http-api`, `capability:database-access` and `tests:go` signals from the layout and `go.mod`. Frameworks come from a `go.mod`'s direct requirements (gin, echo, fiber, chi, gorilla/mux, grpc); a repository using only the standard library simply has none.
+- **Architecture profiles:** Go imports are extracted (single and block form, aliases, comments, cgo skipped) and the module path in `go.mod` decides which imports are local, so the boundary rules of a profile (`check --profile`) are verified for Go. A Go import names a package, so each is attributed to the first non-test file of the imported package.
+- **`--run-tools`:** `gofmt -e -l` checks syntax (the counterpart of the Python check). It never compiles, vets, tests or rewrites anything, and says so; formatting-only differences are ignored. osv-scanner reads `go.mod`, always with call analysis off because it would otherwise run the Go toolchain on the repository, and semgrep rule sets can target Go.
+
+Limits (DEBT-GOV-025): Go services have no entries in the system graph (routes, databases, events), the syntax check does not catch type errors or failing tests, and `go.work`, `replace` directives and build tags are not understood.
+
 ## Which architecture does this repository follow? `architecture`
 
 ```powershell

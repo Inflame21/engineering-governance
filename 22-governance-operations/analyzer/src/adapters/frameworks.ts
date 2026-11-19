@@ -1,5 +1,5 @@
 import type { RepositoryAdapterOutput, RepositoryAnalyzerAdapter, RepositoryEvidence, RepositorySnapshot } from "../types.js";
-import { hasPackageDependency, hasPythonDependency, parsePackageJson } from "../manifest.js";
+import { goFrameworks, hasPackageDependency, hasPythonDependency, parseGoMod, parsePackageJson } from "../manifest.js";
 
 export const frameworkAdapter: RepositoryAnalyzerAdapter = {
   id: "framework-detection",
@@ -8,7 +8,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
   capabilities: ["manifest-dependency-detection", "framework-detection"],
   supports: (snapshot) =>
     snapshot.files.some((file) =>
-      /(^|\/)(package\.json|pyproject\.toml|requirements\.txt)$/.test(file),
+      /(^|\/)(package\.json|pyproject\.toml|requirements\.txt|go\.mod)$/.test(file),
     ),
   async analyze(snapshot: RepositorySnapshot): Promise<RepositoryAdapterOutput> {
     const signals = new Set<string>();
@@ -27,7 +27,7 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
 
     for (const [manifestPath, content] of Object.entries(snapshot.fileContents ?? {})) {
       const basename = manifestPath.split("/").at(-1);
-      if (basename !== "package.json" && basename !== "pyproject.toml" && basename !== "requirements.txt") {
+      if (basename !== "package.json" && basename !== "pyproject.toml" && basename !== "requirements.txt" && basename !== "go.mod") {
         continue;
       }
       inspectedManifestCount += 1;
@@ -46,6 +46,12 @@ export const frameworkAdapter: RepositoryAnalyzerAdapter = {
           manifestErrors.push(
             `${manifestPath}: ${error instanceof Error ? error.message : String(error)}`,
           );
+        }
+      } else if (basename === "go.mod") {
+        successfullyInspectedManifestCount += 1;
+        for (const framework of goFrameworks(parseGoMod(content))) {
+          frameworks.add(framework);
+          signals.add(`framework:${framework}`);
         }
       } else {
         successfullyInspectedManifestCount += 1;
