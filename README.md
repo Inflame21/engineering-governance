@@ -158,6 +158,114 @@ Status uses the vocabulary in the [master implementation plan](22-governance-ope
 
 The goal is to prevent the framework from becoming documentation-only governance.
 
+## Using the Governance CLI
+
+The CLI is a development preview. Its decision is one piece of evidence, not a production-readiness approval. Full detail is in the [CLI README](22-governance-operations/cli/README.md).
+
+### Set up
+
+Requires Node.js 22 or later (`gpg` only for signed approvals and checkpoints; `osv-scanner`, `gitleaks` and `semgrep` only for `--run-tools`).
+
+```bash
+cd 22-governance-operations/cli
+npm ci
+npm run build
+```
+
+In the examples below, `governance` stands for `node 22-governance-operations/cli/dist/cli/src/index.js`, run from the root of this repository. `<repo>` is the repository you want to assess; use `.` for the one you are standing in.
+
+### Typical workflow
+
+1. **Look first:** `governance analyze <repo>` shows what the framework can and cannot see. It needs no pack.
+2. **Create a pack:** `governance init <repo>` writes `.governance/governance-pack.json`. The pack asserts nothing, so `check` returns NO-GO until you add real controls and evidence.
+3. **Fill it in:** add the controls that apply, each tied to a standard, with evidence from real checks or reviews. Set `project.repository` (it starts as `UNSET`) and the `change` being assessed. Never copy the example pack into a real project, because its evidence is declared, not real.
+4. **Validate it:** `governance validate <repo>` exits 0 if the pack is valid and 3 if not. It is quick enough for a pre-commit hook.
+5. **Get a decision:** `governance check <repo> --base origin/main --run-tools`.
+6. **Read the report:** `governance report <repo> --write` saves it as Markdown.
+7. **Keep the record:** add `--record` to `check` or `report`, then use `history` and `diff` to see what changed between assessments.
+
+### Command reference
+
+| Command | What it does | Usage |
+|---|---|---|
+| `analyze` | Detects languages, frameworks, packages, architecture and analyzer coverage. No pack needed. | `governance analyze <repo> [--profile <file>] [--base <git-ref>] [--run-tools] [--json]` |
+| `init` | Creates a pack that asserts nothing. Never overwrites an existing file. | `governance init <repo> [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>] [--pack <file>]` |
+| `validate` | Checks the pack, profile, registry, catalog or authority policy against their schemas. No analysis. | `governance validate <repo> [--pack <file>] [--profile <file>] [--registry <file-or-dir>] [--catalog <file>] [--authority <file>]` |
+| `check` | Analyzes the repository, evaluates the pack and derives **GO**, **GO WITH CONDITIONS** or **NO-GO**. | `governance check <repo> [--pack <file>] [--profile <file>] [--base <git-ref>] [--run-tools] [--record] [--json]` |
+| `report` | The same assessment and exit codes as `check`, rendered as Markdown (default) or JSON. `--write` also saves it to `.governance/reports/`. | `governance report <repo> [--write] [--format markdown\|json] [same options as check]` |
+| `summarize` | One status report per repository: decision, controls, open findings, and which of the eight review areas are covered. Computed from files. | `governance summarize <repo> [--json] [--write]` |
+| `architecture` | Shows which architecture style the repository resembles and what it could follow instead. Advice from folder names and counts, not a verification. | `governance architecture <repo> [--json]` or `governance architecture --list` |
+| `discover` | Read-only scan of a folder for git repositories, with facts about each. | `governance discover <folder> [--json]` |
+| `history` | Verifies the hash-chained assessment history and lists each issue's first seen, resolved and reopened state. | `governance history <repo> [--authority <file>] [--json]` |
+| `diff` | Compares two numbered recorded assessments: decision, resolved and new issues, changed evidence. | `governance diff [<repo>] <a> <b> [--json]` |
+| `checkpoint` | GPG-signs the newest history record, so deleted newest records can be detected. | `governance checkpoint <repo> --sign <gpg-key>` |
+| `exception` | Manages the exception lifecycle in the pack: `request`, `approve`, `renew`, `expire`, `list`. | see [Exceptions](#exceptions) |
+
+Flags that `check` and `report` also accept:
+
+- `--base <git-ref>`: compares the pack's declared `change.files` with the files changed since that revision. Without it the scope is "not requested" and the decision is at best conditional.
+- `--run-tools`: runs the local checks (TypeScript, Python syntax, Go syntax, and the `osv-scanner`, `gitleaks` and `semgrep` scanners if installed). Opt-in. Use it only on repositories you trust. A tool that is missing is reported as `UNSUPPORTED`; it never counts as a pass.
+- `--record`: appends the assessment to `.governance/history/assessments.jsonl`.
+- `--registry <file-or-dir> --project <id>`: lets a project record decide which pack and architecture profile apply.
+- `--catalog <file>`: checks the pack against the control catalog.
+- `--authority <file>` and `--verify-signatures`: applies the approver-authority policy and requires signed exception approvals to verify.
+
+Paths given to `--pack`, `--profile` and the other file flags are relative to the repository being assessed. By default `check` reads `.governance/governance-pack.json`.
+
+#### Exceptions
+
+```bash
+governance exception request <repo> --id EXC-001 --control SEC-AUTH-001 --reason "Bounded, tracked in TICKET-1" --by "Requester Name"
+governance exception approve <repo> --id EXC-001 --by "Approver Name" --role <ROLE> --expires 2026-12-31 [--sign <gpg-key>]
+governance exception renew   <repo> --id EXC-001 --by "Approver Name" --role <ROLE> --expires 2027-03-31 [--sign <gpg-key>]
+governance exception expire  <repo>
+governance exception list    <repo> [--authority <file>] [--json]
+```
+
+1. `request` adds a REQUESTED exception to the pack.
+2. `approve` records the approver, their role and an expiry. The requester cannot approve their own request.
+3. `renew` is a fresh approval with a later expiry for an approved or expired exception.
+4. `expire` marks every approved exception whose time has passed as EXPIRED. An expired exception stops holding at check time either way.
+5. `list` shows days left, and with `--authority` whether each signature verifies.
+
+These commands edit the pack but never take a decision; `check` still decides. An exception can waive a P2 or P3 control. A P1 waiver holds only when the approver holds an approved role in the authority policy (none is approved yet), and a P0 waiver never holds.
+
+### Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | GO, complete analysis, or a pack created by `init` |
+| `1` | GO WITH CONDITIONS or partial analysis |
+| `2` | NO-GO |
+| `3` | Invalid arguments, invalid pack, or an execution error |
+
+Without a pack, `check` exits 3 and says so. It never reports a decision for a project it could not assess.
+
+### Using it from Claude Code
+
+The [plugin](plugins/engineering-governance/README.md) bundles the CLI, so nothing needs to be built.
+
+```text
+/plugin marketplace add Inflame21/engineering-governance
+/plugin install engineering-governance@engineering-governance
+```
+
+Nothing runs automatically. Options are passed through, for example `/engineering-governance:check --base origin/main --run-tools`.
+
+| Slash command | What it does |
+|---|---|
+| `/engineering-governance:audit [repository]` | Start here for reports. Documents the repository, reviews each applicable area, and writes an ordered set of Markdown reports with a prioritized plan to `.governance/reports/`. Slow and token-heavy; it asks before starting. |
+| `/engineering-governance:setup` | Drafts a governance pack for each repository in the folder and, with your permission, runs the project's own checks and records the real results as evidence. Also fills in the empty pack `init` wrote. AI-drafted, so review it. |
+| `/engineering-governance:review <area>` | Reviews one area (security, architecture, api, data, testing, cicd, frontend, observability) against the standards, writes a report, and adds the findings to the pack. Findings are leads for a person to confirm. |
+| `/engineering-governance:summary` | Writes one status report per repository, with clearly labelled AI suggestions appended. |
+| `/engineering-governance:init` | Creates the empty pack. |
+| `/engineering-governance:analyze` | Inspects structure and analyzer coverage. |
+| `/engineering-governance:check` | Derives the decision. Needs a pack. |
+| `/engineering-governance:report` | The same assessment as `check`, as a full report. |
+| `/engineering-governance:validate` | Validates the pack, profile, registry, catalog or authority policy. |
+
+Only `audit`, `setup`, `review`, `summary`, `report` and `init` write files, and none overwrites one. Start Claude Code at the repository root. Only `validate` and `check` have been seen running in a live session so far.
+
 ## Repository Structure
 
 ```
