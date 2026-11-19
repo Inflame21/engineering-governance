@@ -88,6 +88,24 @@ describe("pull-request comment workflow", () => {
   });
 });
 
+describe("required checks", () => {
+  const text = read(".github/workflows/governance-operations.yml");
+
+  it("run on every pull request: no path filter on the pull_request trigger", () => {
+    // The Verify jobs are required checks. With a path filter, a pull request that touches only other files
+    // never starts them, and GitHub waits for their status forever.
+    const block = /^  pull_request:\n((?:    .*\n|\n)*)/m.exec(text);
+    expect(block, "the workflow must have a pull_request trigger").not.toBeNull();
+    expect(block![1]).not.toMatch(/paths(-ignore)?:/);
+    expect(block![1]).not.toMatch(/branches(-ignore)?:/);
+  });
+
+  it("names the three required jobs the repository ruleset waits for", () => {
+    expect(text).toContain("name: Verify ${{ matrix.label }}");
+    for (const label of ["engine", "analyzer", "CLI"]) expect(text).toContain(`label: ${label}`);
+  });
+});
+
 describe("production approval template", () => {
   const text = read("22-governance-operations/templates/github/production-approval.yml");
 
