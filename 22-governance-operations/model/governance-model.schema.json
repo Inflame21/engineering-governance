@@ -566,6 +566,11 @@
         "approved_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "approval_signature": {
+          "type": "string",
+          "description": "Repository-relative path of a detached, ASCII-armored GPG signature over the canonical approval payload. The CLI verifies it against the approver's registered key when asked to (check --verify-signatures).",
+          "minLength": 1
         }
       },
       "additionalProperties": false,

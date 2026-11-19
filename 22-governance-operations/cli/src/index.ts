@@ -19,6 +19,7 @@ import { discoverRepositories, formatDiscovery } from "./discover.js";
 import { formatSummaryMarkdown, summarizeRepository, writeDatedReport, writeSummary } from "./summary.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
 import { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
+import { approveException, exceptionRows, expireExceptions, formatExceptionRows, gpgSignaturePort, parseExpiry, renewException, requestException, signApproval, verifyApprovals, writePack, type ExceptionRow } from "./exceptions.js";
 import { assessmentFacts, diffAssessments, formatDiff, formatHistory, nodeHistoryStore, readHistory, recordAssessment, sha256Hex } from "./history.js";
 
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
@@ -31,7 +32,7 @@ const VERSION = "0.6.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
-  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "help" | "version";
+  command: "check" | "validate" | "report" | "analyze" | "init" | "discover" | "summarize" | "history" | "diff" | "exception" | "help" | "version";
   repositoryPath: string;
   packPath: string;
   profilePath?: string;
@@ -47,6 +48,10 @@ interface ParsedArguments {
   write?: boolean;
   /** check and report: append the assessment to .governance/history/. */
   record?: boolean;
+  /** check and report: verify each approved exception's GPG signature (needs --authority) so unsigned approvals do not hold. */
+  verifySignatures?: boolean;
+  /** exception only: which action and its values. */
+  exception?: { action: string; id?: string; control?: string; reason?: string; by?: string; role?: string; expires?: string; sign?: string };
   /** diff only: the two assessment numbers to compare. */
   diff?: { from: number; to: number };
   format?: "markdown" | "json";
@@ -59,14 +64,19 @@ function usage(): string {
     "Engineering Governance CLI",
     "",
     "Usage:",
-    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--json]",
+    "  governance check <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--verify-signatures] [--json]",
     "  governance validate <repository> [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>]",
-    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--format markdown|json]",
+    "  governance report <repository> [--write] [--pack <relative-path>] [--profile <relative-path>] [--registry <relative-path>] [--catalog <relative-path>] [--authority <relative-path>] [--project <id>] [--base <git-ref>] [--run-tools] [--record] [--verify-signatures] [--format markdown|json]",
     "  governance analyze <repository> [--profile <relative-path>] [--base <git-ref>] [--run-tools] [--json]",
     "  governance discover <folder> [--json]",
     "  governance summarize <repository> [--json] [--write]",
     "  governance history <repository> [--json]",
     "  governance diff [<repository>] <a> <b> [--json]",
+    "  governance exception request <repository> --id <EXC-id> --control <id> --reason <text> --by <name> [--pack <relative-path>]",
+    "  governance exception approve <repository> --id <EXC-id> --by <name> --role <ROLE> --expires <date> [--sign <gpg-key>] [--pack <relative-path>]",
+    "  governance exception renew <repository> --id <EXC-id> --by <name> --role <ROLE> --expires <date> [--sign <gpg-key>] [--pack <relative-path>]",
+    "  governance exception expire <repository> [--pack <relative-path>]",
+    "  governance exception list <repository> [--authority <relative-path>] [--pack <relative-path>] [--json]",
     "  governance init <repository> [--pack <relative-path>] [--id <slug>] [--name <text>] [--repo <owner/name>] [--environment <name>]",
     "  governance --help",
     "  governance --version",
@@ -79,6 +89,7 @@ function usage(): string {
     "  summarize One status report for a repository: decision, controls, findings and which review areas are covered, all computed from files. --write saves it to .governance/reports/.",
     "  history   Verify the hash-chained assessment history in .governance/history/ and list every recorded assessment and each issue's lifecycle (first seen, resolved, reopened).",
     "  diff      Compare two recorded assessments by number: decision, resolved and introduced issues, and evidence that changed status.",
+    "  exception Manage the exception lifecycle in the pack: request, approve (with an expiry), renew (a fresh approval with a later expiry), expire (mark lapsed ones EXPIRED) and list (days left, signature status). approve and renew can GPG-sign the approval with --sign.",
     "  discover  Find the git repositories in a folder and report facts about each (scripts, CI commands, docs, git state). Read-only.",
     "  init      Create a governance pack that asserts nothing, never overwriting an existing file. check returns NO-GO until controls are added.",
     "",
@@ -98,6 +109,8 @@ function usage(): string {
     "  --run-tools Execute installed local checks: the TypeScript compiler, Python syntax, and the osv-scanner, gitleaks and semgrep scanners (never installs anything).",
     "  --id, --name, --repo, --environment  init only: the generated pack's project id (lowercase slug), name, repository and environment.",
     "  --record  check/report: append the assessment (decision, issues, evidence statuses, pack hash, git head) to the append-only history .governance/history/assessments.jsonl. Refuses if the existing chain was altered.",
+    "  --verify-signatures  check/report: with --authority, verify each approved exception's GPG signature against the approver's key_fingerprint in the policy. An approval without a verified signature does not waive the control.",
+    "  --control, --reason, --by, --role, --expires, --sign  exception only: the control, reason, requester (request) or approver (approve, renew), authority role, expiry (a date or timestamp) and GPG key id.",
     "  --json    Emit machine-readable JSON.",
     "  --format  Report format for the report command: markdown (default) or json.",
     "  -h, --help",
@@ -120,7 +133,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   }
 
   const [rawCommand, ...rest] = argv;
-  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff") {
+  if (rawCommand !== "check" && rawCommand !== "analyze" && rawCommand !== "validate" && rawCommand !== "report" && rawCommand !== "init" && rawCommand !== "discover" && rawCommand !== "summarize" && rawCommand !== "history" && rawCommand !== "diff" && rawCommand !== "exception") {
     throw new Error(`Unknown command: ${rawCommand ?? "(empty)"}\n\n${usage()}`);
   }
 
@@ -137,6 +150,8 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
   let json = false;
   let write = false;
   let record = false;
+  let verifySignatures = false;
+  const exceptionOptions: { id?: string; control?: string; reason?: string; by?: string; role?: string; expires?: string; sign?: string } = {};
   let format: "markdown" | "json" | undefined;
   let repositoryProvided = false;
   const positionals: string[] = [];
@@ -156,6 +171,19 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     if (argument === "--record") {
       if (rawCommand !== "check" && rawCommand !== "report") throw new Error("--record is only supported by the check and report commands.");
       record = true;
+      continue;
+    }
+    if (argument === "--verify-signatures") {
+      if (rawCommand !== "check" && rawCommand !== "report") throw new Error("--verify-signatures is only supported by the check and report commands.");
+      verifySignatures = true;
+      continue;
+    }
+    if (argument === "--control" || argument === "--reason" || argument === "--by" || argument === "--role" || argument === "--expires" || argument === "--sign") {
+      const value = rest[index + 1];
+      if (rawCommand !== "exception") throw new Error(`${argument} is only supported by the exception command.`);
+      if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
+      exceptionOptions[argument.slice(2) as "control"] = value;
+      index += 1;
       continue;
     }
     if (argument === "--run-tools") {
@@ -191,9 +219,10 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     }
     if (argument === "--id" || argument === "--name" || argument === "--repo" || argument === "--environment") {
       const value = rest[index + 1];
-      if (rawCommand !== "init") throw new Error(`${argument} is only supported by the init command.`);
+      if (rawCommand !== "init" && !(rawCommand === "exception" && argument === "--id")) throw new Error(`${argument} is only supported by the init command.`);
       if (!value || value.startsWith("--")) throw new Error(`${argument} requires a value.`);
-      if (argument === "--id") initOptions.id = value;
+      if (argument === "--id" && rawCommand === "exception") exceptionOptions.id = value;
+      else if (argument === "--id") initOptions.id = value;
       else if (argument === "--name") initOptions.name = value;
       else if (argument === "--repo") initOptions.repository = value;
       else initOptions.environment = value;
@@ -201,7 +230,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
       continue;
     }
     if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
-    if (rawCommand === "diff") {
+    if (rawCommand === "diff" || rawCommand === "exception") {
       positionals.push(argument);
       continue;
     }
@@ -210,6 +239,17 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     repositoryProvided = true;
   }
 
+  let exception: NonNullable<ParsedArguments["exception"]> | undefined;
+  if (rawCommand === "exception") {
+    const [action, maybeRepository, ...extra] = positionals;
+    if (!action || !["request", "approve", "renew", "expire", "list"].includes(action) || extra.length > 0) throw new Error("exception needs an action: request, approve, renew, expire or list, then an optional repository.");
+    if (maybeRepository) repositoryPath = maybeRepository;
+    const require = (name: keyof typeof exceptionOptions, flag: string): void => { if (!exceptionOptions[name]) throw new Error(`exception ${action} requires ${flag}.`); };
+    if (action === "request") { require("id", "--id"); require("control", "--control"); require("reason", "--reason"); require("by", "--by"); }
+    if (action === "approve" || action === "renew") { require("id", "--id"); require("by", "--by"); require("expires", "--expires"); }
+    if (action !== "approve" && action !== "renew" && exceptionOptions.sign) throw new Error("--sign is only supported by exception approve and renew.");
+    exception = { action, ...exceptionOptions };
+  }
   let diff: { from: number; to: number } | undefined;
   if (rawCommand === "diff") {
     if (positionals.length !== 2 && positionals.length !== 3) throw new Error("diff needs two assessment numbers: governance diff [<repository>] <a> <b>.");
@@ -218,6 +258,7 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < 1) throw new Error("diff takes two assessment numbers (positive integers), as shown by `governance history`.");
     diff = { from, to };
   }
+  if (verifySignatures && !authorityPath) throw new Error("--verify-signatures requires --authority (the policy holds each approver's key).");
   if (projectId !== undefined && registryPath === undefined) throw new Error("--project requires --registry.");
   if (write && format === "json") throw new Error("--write saves Markdown; it cannot be combined with --format json.");
   if (rawCommand === "init" || rawCommand === "discover" || rawCommand === "summarize" || rawCommand === "history" || rawCommand === "diff") {
@@ -245,9 +286,61 @@ export function parseCliArguments(argv: string[]): ParsedArguments {
     ...(format ? { format } : {}),
     ...(write ? { write: true } : {}),
     ...(record ? { record: true } : {}),
+    ...(verifySignatures ? { verifySignatures: true } : {}),
+    ...(exception ? { exception } : {}),
     ...(diff ? { diff } : {}),
     ...(rawCommand === "init" ? { init: initOptions } : {}),
   };
+}
+
+async function runExceptionCommand(args: ParsedArguments): Promise<number> {
+  const options = args.exception!;
+  const now = new Date();
+  const pack = await loadGovernancePack(args.repositoryPath, args.packPath, nodeFileSystem);
+  const save = async (next: typeof pack): Promise<void> => {
+    // Re-validate the edited pack exactly as check would load it, before anything is written.
+    await loadGovernancePack(args.repositoryPath, args.packPath, { readTextFile: async () => JSON.stringify(next) });
+    await writePack(args.repositoryPath, args.packPath, next);
+  };
+
+  if (options.action === "list") {
+    const rows: ExceptionRow[] = exceptionRows(pack, now);
+    if (args.authorityPath) {
+      const policy = await loadAuthorityPolicy(args.repositoryPath, args.authorityPath, nodeFileSystem);
+      const checks = await verifyApprovals(pack, policy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file));
+      for (const row of rows) {
+        const check = checks.find((item) => item.id === row.id);
+        if (check) row.signature = check.verified ? "verified" : `NOT verified: ${check.detail}`;
+      }
+    }
+    process.stdout.write(`${args.json ? JSON.stringify(rows, null, 2) : formatExceptionRows(rows)}\n`);
+    return 0;
+  }
+
+  if (options.action === "expire") {
+    const { pack: next, expired } = expireExceptions(pack, now);
+    if (expired.length > 0) await save(next);
+    process.stdout.write(expired.length > 0 ? `Marked EXPIRED: ${expired.join(", ")}\n` : "No approved exception has lapsed.\n");
+    return 0;
+  }
+
+  let next: typeof pack;
+  if (options.action === "request") {
+    next = requestException(pack, { id: options.id!, control: options.control!, reason: options.reason!, requestedBy: options.by! }, now);
+  } else {
+    const input = { by: options.by!, ...(options.role ? { role: options.role } : {}), expires: options.expires! };
+    parseExpiry(options.expires, now); // fail on a bad or past expiry before asking GPG for a passphrase
+    next = (options.action === "approve" ? approveException : renewException)(pack, options.id!, input, now);
+    if (options.sign) {
+      const approved = (next.exceptions ?? []).find((item) => item.id === options.id)!;
+      const signaturePath = await signApproval(args.repositoryPath, approved, options.sign, gpgSignaturePort);
+      next = { ...next, exceptions: (next.exceptions ?? []).map((item) => (item.id === approved.id ? { ...item, approval_signature: signaturePath } : item)) };
+    }
+  }
+  await save(next);
+  const saved = (next.exceptions ?? []).find((item) => item.id === options.id)!;
+  process.stdout.write(`${options.action === "request" ? "Requested" : options.action === "approve" ? "Approved" : "Renewed"} ${saved.id}${saved.expires_at ? ` until ${saved.expires_at}` : ""}${saved.approval_signature ? `; signed (${saved.approval_signature})` : options.action === "request" ? "" : "; not signed"}\n`);
+  return 0;
 }
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -280,6 +373,10 @@ export async function runCli(argv: string[]): Promise<number> {
 `);
       }
       return 0;
+    }
+
+    if (args.command === "exception") {
+      return await runExceptionCommand(args);
     }
 
     if (args.command === "history") {
@@ -388,9 +485,14 @@ export async function runCli(argv: string[]): Promise<number> {
     const controlCatalog = args.catalogPath
       ? await loadControlCatalog(args.repositoryPath, args.catalogPath, nodeFileSystem)
       : undefined;
+    const verifiedApprovals = args.verifySignatures && authorityPolicy
+      ? (await verifyApprovals(governancePack, authorityPolicy, gpgSignaturePort, (file) => nodeFileSystem.readTextFile(args.repositoryPath, file)))
+          .filter((check) => check.verified).map((check) => check.id)
+      : undefined;
     const result = await runGovernanceCommand({
       snapshot,
       governancePack,
+      ...(verifiedApprovals ? { verifiedApprovals } : {}),
       ...(controlCatalog ? { controlCatalog } : {}),
       ...(authorityPolicy ? { authorityPolicy } : {}),
       ...(registration ? { registration } : {}),

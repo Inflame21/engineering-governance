@@ -224,3 +224,34 @@ describe("risk acceptance by approver authority", () => {
     expect(evaluate(accepted("P9" as Severity), { approverAuthority: AUTHORITY }).decision.status).toBe("NO-GO");
   });
 });
+
+describe("signed approvals and expiry warning", () => {
+  const message = (pack: GovernancePack, extra: Partial<GovernanceContext> = {}) =>
+    evaluate(pack, { approverAuthority: AUTHORITY, ...extra }).decision.warnings.find((w) => w.controlId === "EXCEPTION:EXC-1")?.message ?? "";
+
+  it("without verifiedApprovals the approval is taken as declared, and the report says so", () => {
+    expect(message(waiver("P1"))).toContain("declared in the governance pack, not authenticated");
+  });
+
+  it("an approval that was not verified does not waive the control", () => {
+    const result = evaluate(waiver("P1"), { approverAuthority: AUTHORITY, verifiedApprovals: [] });
+    expect(result.decision.status).toBe("NO-GO");
+    expect(message(waiver("P1"), { verifiedApprovals: [] })).toContain("no verified signature");
+  });
+
+  it("a verified approval waives it and the report says the signature was verified", () => {
+    const result = evaluate(waiver("P1"), { approverAuthority: AUTHORITY, verifiedApprovals: ["EXC-1"] });
+    expect(result.decision.status).toBe("GO_WITH_CONDITIONS");
+    expect(message(waiver("P1"), { verifiedApprovals: ["EXC-1"] })).toContain("signature was verified");
+  });
+
+  it("warns how many days remain once an exception is within 14 days of expiring", () => {
+    expect(message(waiver("P1", { expires_at: "2026-11-20T00:00:00Z" }))).toContain("(expiring in 3 days)");
+    expect(message(waiver("P1", { expires_at: "2026-11-18T00:00:00Z" }))).toContain("(expiring in 1 day)");
+    expect(message(waiver("P1", { expires_at: "2026-12-01T00:00:00Z" }))).toContain("(expiring in 14 days)");
+  });
+
+  it("stays silent when the expiry is more than 14 days away", () => {
+    expect(message(waiver("P1", { expires_at: "2026-12-02T00:00:00Z" }))).not.toContain("expiring in");
+  });
+});

@@ -82,6 +82,20 @@ function riskAcceptanceHolds(risk: GovernanceRisk, context: GovernanceContext): 
   return risk.severity === "P2" || risk.severity === "P3";
 }
 
+/** Days left before an exception lapses, as a phrase for reports. Silent when it is more than a fortnight away. */
+export const EXPIRY_WARNING_DAYS = 14;
+export function expiryCountdown(expiresAt: string | undefined, evaluatedAt: string | undefined): string {
+  const days = daysUntil(expiresAt, evaluatedAt);
+  return days === undefined || days > EXPIRY_WARNING_DAYS ? "" : ` (expiring in ${days} day${days === 1 ? "" : "s"})`;
+}
+
+/** Whole days (rounded up) from the evaluation time to a timestamp; undefined when either is unusable. */
+export function daysUntil(timestamp: string | undefined, evaluatedAt: string | undefined): number | undefined {
+  const target = Date.parse(timestamp ?? "");
+  const now = Date.parse(evaluatedAt ?? "");
+  return Number.isNaN(target) || Number.isNaN(now) ? undefined : Math.ceil((target - now) / 86_400_000);
+}
+
 interface ExceptionAssessment {
   valid: boolean;
   /** The authority role the waiver was approved under, when authority was checked. */
@@ -171,6 +185,13 @@ function assessApprovedException(
       valid: false,
       controlSeverity: control.severity,
       reason: "P0 controls cannot be waived by an exception; they need the emergency governance process (EXC-021 section 8).",
+    };
+  }
+  if (context.verifiedApprovals && !context.verifiedApprovals.includes(exception.id)) {
+    return {
+      valid: false,
+      controlSeverity: control.severity,
+      reason: "The approval has no verified signature from the approver's registered key, so the approver is not authenticated.",
     };
   }
   const authority = context.approverAuthority;
@@ -327,7 +348,7 @@ export function deriveDecision(
         severity,
         decision: "GO_WITH_CONDITIONS",
         message: assessment?.valid
-          ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}.${assessment.role ? ` Approved under authority role ${assessment.role}; the approver's identity is declared in the governance pack, not authenticated.` : ""}`
+          ? `Exception ${exception.id} is active; residual risk remains and the exception expires at ${exception.expires_at}${expiryCountdown(exception.expires_at, context.evaluatedAt)}.${assessment.role ? ` Approved under authority role ${assessment.role}; ${context.verifiedApprovals ? "the approver's signature was verified" : "the approver's identity is declared in the governance pack, not authenticated"}.` : ""}`
           : `Exception ${exception.id} was not applied: ${assessment?.reason ?? "validity could not be established"}`,
         missingEvidence: [],
         missingSignals: [],

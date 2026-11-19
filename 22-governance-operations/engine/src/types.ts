@@ -127,6 +127,8 @@ export interface GovernanceException {
   approver_role?: string;
   approved_at?: string;
   expires_at?: string;
+  /** Repository-relative path of a detached GPG signature over the approval (see the CLI's exception approve --sign). */
+  approval_signature?: string;
 }
 
 /** An approved authority role: which severities it may approve and who holds it. */
@@ -225,6 +227,12 @@ export interface GovernanceContext {
    * severity. When absent or empty, no P1 waiver or P1 acceptance can hold, and P2/P3 behave as before.
    */
   approverAuthority?: ApproverAuthority[];
+  /**
+   * Ids of exceptions whose approval signature the caller verified against the approver's registered
+   * key. When this is present (even empty), an approved exception not listed here does not hold: the
+   * claimed approver was not authenticated. When absent, approvals are taken as declared.
+   */
+  verifiedApprovals?: string[];
 }
 
 export type ApplicabilityStatus = "APPLICABLE" | "NOT_APPLICABLE" | "UNVERIFIED";
