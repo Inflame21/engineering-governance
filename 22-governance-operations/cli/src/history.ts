@@ -46,6 +46,8 @@ export interface AssessmentFacts {
   pack_sha256: string;
   /** Git HEAD when recorded, so the decision can be tied to code. Absent outside a git checkout. */
   head?: string;
+  /** Fingerprint of the repository state assessed (paths and ingested content). Equal fingerprints mean the same inputs, so a decision can be reproduced. */
+  repository_fingerprint?: string;
   issues: IssueSnapshot[];
   /** Evidence id to status: remediation shows up as UNVERIFIED/FAILED becoming VERIFIED. */
   evidence: Record<string, string>;
@@ -88,6 +90,7 @@ export function assessmentFacts(
   evaluation: GovernanceEvaluation,
   findings: readonly { id: string; severity: string; status: string; message: string }[],
   head?: string,
+  repositoryFingerprint?: string,
 ): AssessmentFacts {
   const issues: IssueSnapshot[] = [
     ...evaluation.violations.map((v) => ({ key: `violation:${v.controlId}`, severity: v.severity, status: v.status, message: v.message })),
@@ -100,6 +103,7 @@ export function assessmentFacts(
     change: pack.change.id,
     pack_sha256: sha256(packText),
     ...(head ? { head } : {}),
+    ...(repositoryFingerprint ? { repository_fingerprint: repositoryFingerprint } : {}),
     issues,
     evidence: Object.fromEntries(pack.evidence.map((e) => [e.id, e.status as string])),
   };

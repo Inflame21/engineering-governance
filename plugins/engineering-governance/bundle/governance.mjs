@@ -11240,7 +11240,8 @@ function toGovernanceContext(analysis) {
       ...analysis.changeScope.reason ? { changeScopeReason: analysis.changeScope.reason } : {},
       changedFiles: analysis.changeScope.files
     } : {},
-    evaluatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    evaluatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    ...analysis.snapshotFingerprint ? { repositoryFingerprint: analysis.snapshotFingerprint.digest } : {}
   };
 }
 
@@ -11270,8 +11271,9 @@ var sourceExtensions3 = /* @__PURE__ */ new Set([
   ".cpp",
   ".hpp"
 ]);
+var GENERATED_OUTPUT_PREFIXES = [".governance/history/", ".governance/reports/"];
 function fingerprintRepositorySnapshot(snapshot) {
-  const files = [...new Set(snapshot.files.map((file) => file.replaceAll("\\", "/")))].sort();
+  const files = [...new Set(snapshot.files.map((file) => file.replaceAll("\\", "/")))].filter((file) => !GENERATED_OUTPUT_PREFIXES.some((prefix) => file.startsWith(prefix))).sort();
   const contents = new Map(
     Object.entries(snapshot.fileContents ?? {}).map(([file, value]) => [file.replaceAll("\\", "/"), value])
   );
@@ -11282,18 +11284,12 @@ function fingerprintRepositorySnapshot(snapshot) {
   if (inspectedSourceFiles.length < sourceFiles.length && limitations.length === 0) {
     limitations.push("Some source files were not ingested; the fingerprint covers paths and available content only.");
   }
+  const field = (text) => text === void 0 ? "-1:" : `${Buffer.byteLength(text, "utf8")}:${text}`;
   const hash = createHash("sha256");
-  hash.update("engineering-governance-snapshot-v1\0");
+  hash.update("engineering-governance-snapshot-v2\0");
   for (const file of files) {
-    hash.update(file);
-    hash.update("\0");
-    const content = contents.get(file);
-    if (content === void 0) {
-      hash.update("<content-not-ingested>");
-    } else {
-      hash.update(content);
-    }
-    hash.update("\0");
+    hash.update(field(file));
+    hash.update(field(contents.get(file)));
   }
   return {
     algorithm: "sha256",
@@ -12698,7 +12694,8 @@ function resolveControlApplicability(control, context) {
   }
   return { status: "UNVERIFIED", missingSignals };
 }
-function evidenceIsUsable(control, item, evaluatedAt) {
+function evidenceIsUsable(control, item, evaluatedAt, repositoryFingerprint) {
+  if (item.repository_fingerprint && repositoryFingerprint && item.repository_fingerprint !== repositoryFingerprint) return false;
   const legacyFreshness = item.freshness.trim().toLowerCase();
   if (item.status !== "VERIFIED" || item.freshness_status !== void 0 && item.freshness_status !== "current" || item.freshness_status === void 0 && ["stale", "expired", "unknown"].includes(legacyFreshness)) return false;
   const maxAgeSeconds = control.max_evidence_age_seconds;
@@ -12710,7 +12707,7 @@ function evidenceIsUsable(control, item, evaluatedAt) {
   const ageSeconds = (assessmentTime - generatedAt) / 1e3;
   return ageSeconds >= 0 && ageSeconds <= maxAgeSeconds;
 }
-function evidenceForControl(control, evidence, evaluatedAt) {
+function evidenceForControl(control, evidence, evaluatedAt, repositoryFingerprint) {
   const required = control.required_evidence ?? [];
   const byId = new Map(evidence.map((item) => [item.id, item]));
   const missing = /* @__PURE__ */ new Set();
@@ -12722,14 +12719,14 @@ function evidenceForControl(control, evidence, evaluatedAt) {
   }
   for (const evidenceId of evidenceIds) {
     const item = byId.get(evidenceId);
-    if (!item || !item.supports_controls.includes(control.id) || !evidenceIsUsable(control, item, evaluatedAt)) {
+    if (!item || !item.supports_controls.includes(control.id) || !evidenceIsUsable(control, item, evaluatedAt, repositoryFingerprint)) {
       missing.add(evidenceId);
       continue;
     }
     supporting.add(evidenceId);
   }
   for (const item of explicitlyLinked) {
-    if (!evidenceIsUsable(control, item, evaluatedAt)) missing.add(item.id);
+    if (!evidenceIsUsable(control, item, evaluatedAt, repositoryFingerprint)) missing.add(item.id);
   }
   return { missing: [...missing].sort(), supporting: [...supporting].sort() };
 }
@@ -12750,7 +12747,7 @@ function evaluateControl(control, evidence, context) {
       reason: "Control conditions are absent and repository analysis completed successfully."
     };
   }
-  const { missing, supporting } = evidenceForControl(control, evidence, context.evaluatedAt);
+  const { missing, supporting } = evidenceForControl(control, evidence, context.evaluatedAt, context.repositoryFingerprint);
   if (applicability.status === "UNVERIFIED") {
     return {
       controlId: control.id,
@@ -14727,7 +14724,7 @@ var sha256 = (text) => createHash3("sha256").update(text).digest("hex");
 function hashRecord(record) {
   return sha256(canonical(record));
 }
-function assessmentFacts(pack, packText, evaluation, findings, head) {
+function assessmentFacts(pack, packText, evaluation, findings, head, repositoryFingerprint) {
   const issues = [
     ...evaluation.violations.map((v) => ({ key: `violation:${v.controlId}`, severity: v.severity, status: v.status, message: v.message })),
     ...findings.map((f) => ({ key: `finding:${f.id}`, severity: f.severity, status: f.status, message: f.message }))
@@ -14739,6 +14736,7 @@ function assessmentFacts(pack, packText, evaluation, findings, head) {
     change: pack.change.id,
     pack_sha256: sha256(packText),
     ...head ? { head } : {},
+    ...repositoryFingerprint ? { repository_fingerprint: repositoryFingerprint } : {},
     issues,
     evidence: Object.fromEntries(pack.evidence.map((e) => [e.id, e.status]))
   };
@@ -15494,7 +15492,7 @@ async function runCli(argv) {
     if (args.record) {
       const packText = await nodeFileSystem.readTextFile(args.repositoryPath, packPath) ?? "";
       const head = await nodeGitCommandRunner.run(["rev-parse", "HEAD"], args.repositoryPath, 1e4).catch(() => void 0);
-      const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : void 0);
+      const facts = assessmentFacts(governancePack, packText, result.evaluation, result.analysis.findings, head?.exitCode === 0 ? head.stdout.trim() : void 0, result.analysis.snapshotFingerprint?.digest);
       const saved = await recordAssessment(nodeHistoryStore, args.repositoryPath, facts);
       process.stdout.write(`Recorded assessment #${saved.seq} in .governance/history/assessments.jsonl
 `);
