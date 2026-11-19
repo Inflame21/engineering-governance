@@ -93,6 +93,11 @@ jobs:
             echo "$name: exit $(cat "$out/$name.exit"), stdout $(wc -c < "$out/$name.stdout") bytes"
           }
           { uname -a; osv-scanner --version; gitleaks version; semgrep --version; node --version; } > "$out/versions.txt" 2>&1 || true
+          # The runner decides a tool is available by running "<tool> --version" and requiring exit 0.
+          capture probe-osv "$fx/osv-clean" osv-scanner --version
+          capture probe-gitleaks "$fx/osv-clean" gitleaks --version
+          capture probe-gitleaks-subcommand "$fx/osv-clean" gitleaks version
+          capture probe-semgrep "$fx/osv-clean" semgrep --version
           # osv-scanner: the adapter runs scan source --format json --lockfile=<each lockfile>
           capture osv-vuln "$fx/osv-vuln" osv-scanner scan source --format json --lockfile=package-lock.json
           capture osv-clean "$fx/osv-clean" osv-scanner scan source --format json --lockfile=package-lock.json
