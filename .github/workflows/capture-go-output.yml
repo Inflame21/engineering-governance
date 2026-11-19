@@ -1,0 +1,125 @@
+name: Capture Go tool output
+
+# Throwaway workflow on a throwaway branch. It runs gofmt, osv-scanner and semgrep the way the governance
+# Go support will, against small Go fixtures it builds at run time, and pushes the raw stdout, stderr, exit
+# codes and versions to the branch capture/go-output-results so the parsers can be written from real output
+# (ADP-06, as DEBT-GOV-010 did for the scanners). Never merge this to main, and do not open a pull request.
+
+on:
+  push:
+    branches: [capture/go-output]
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install osv-scanner and semgrep
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/bin"
+          url="$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/repos/google/osv-scanner/releases/latest | python3 -c "import sys,json; r=json.load(sys.stdin); print(next(a['browser_download_url'] for a in r['assets'] if a['name']=='osv-scanner_linux_amd64'))")"
+          curl -fsSL "$url" -o "$HOME/bin/osv-scanner"
+          chmod +x "$HOME/bin/osv-scanner"
+          pip install --quiet semgrep
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Build fixtures
+        run: |
+          set -euo pipefail
+          fx="$RUNNER_TEMP/fx"; mkdir -p "$fx"
+          # gofmt: well-formed, badly formatted, and broken sources
+          mkdir -p "$fx/gofmt/ok" "$fx/gofmt/sub" "$fx/gofmt/bad"
+          printf 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("hi")\n}\n' > "$fx/gofmt/ok/main.go"
+          printf 'package sub\n\nfunc Add(a, b int) int {\n\treturn a + b\n}\n' > "$fx/gofmt/sub/util.go"
+          printf 'package main\nimport "fmt"\nfunc main(){\nfmt.Println( "ugly" )\n}\n' > "$fx/gofmt/unformatted.go"
+          printf 'package bad\n\nfunc Broken( {\n\tx := \n}\n\nfunc Also(\n' > "$fx/gofmt/bad/broken.go"
+          printf 'package bad\n\nfunc Fine() int { return 1 }\n' > "$fx/gofmt/bad/fine.go"
+          printf 'package other\n\nfunc Oops() {\n\treturn )\n}\n' > "$fx/gofmt/bad/second.go"
+          # osv-scanner: a vulnerable go.mod, a clean one, an empty one, a nested one
+          mkdir -p "$fx/osv-vuln" "$fx/osv-clean" "$fx/osv-empty" "$fx/osv-nested/svc"
+          printf 'module example.com/app\n\ngo 1.21\n\nrequire (\n\tgithub.com/gin-gonic/gin v1.6.3\n\tgolang.org/x/crypto v0.0.0-20200622213623-75b288015ac9\n)\n' > "$fx/osv-vuln/go.mod"
+          printf 'module example.com/app\n\ngo 1.21\n\nrequire github.com/google/uuid v1.6.0\n' > "$fx/osv-clean/go.mod"
+          printf 'module example.com/app\n\ngo 1.21\n' > "$fx/osv-empty/go.mod"
+          printf 'module example.com/svc\n\ngo 1.21\n\nrequire github.com/gin-gonic/gin v1.6.3\n' > "$fx/osv-nested/svc/go.mod"
+          # semgrep: Go rules and sources
+          mkdir -p "$fx/sg-hit/.governance/semgrep" "$fx/sg-clean/.governance/semgrep"
+          cat > "$fx/sg-hit/.governance/semgrep/rules.yml" <<'RULES'
+          rules:
+            - id: no-exec-command
+              languages: [go]
+              severity: ERROR
+              message: Do not build shell commands from input
+              pattern: exec.Command("sh", "-c", $X)
+            - id: no-println
+              languages: [go]
+              severity: WARNING
+              message: Remove fmt.Println
+              pattern: fmt.Println(...)
+            - id: note-todo
+              languages: [go]
+              severity: INFO
+              message: Found a panic call
+              pattern: panic(...)
+          RULES
+          printf 'package main\n\nimport (\n\t"fmt"\n\t"os/exec"\n)\n\nfunc run(x string) {\n\texec.Command("sh", "-c", x)\n\tfmt.Println(x)\n\tpanic("boom")\n}\n' > "$fx/sg-hit/main.go"
+          cp "$fx/sg-hit/.governance/semgrep/rules.yml" "$fx/sg-clean/.governance/semgrep/rules.yml"
+          printf 'package main\n\nfunc add(a, b int) int {\n\treturn a + b\n}\n' > "$fx/sg-clean/main.go"
+          echo "$fx" > "$RUNNER_TEMP/fx-path"
+
+      - name: Run the commands and record everything
+        run: |
+          set -uo pipefail
+          fx="$(cat "$RUNNER_TEMP/fx-path")"
+          out="$GITHUB_WORKSPACE/_go-output"; mkdir -p "$out"
+          capture() {
+            local name="$1" dir="$2"; shift 2
+            ( cd "$dir" && "$@" > "$out/$name.stdout" 2> "$out/$name.stderr"; echo $? > "$out/$name.exit" ) || true
+            echo "$name: exit $(cat "$out/$name.exit"), stdout $(wc -c < "$out/$name.stdout") bytes, stderr $(wc -c < "$out/$name.stderr") bytes"
+          }
+          { uname -a; command -v go gofmt || echo "go or gofmt NOT on PATH"; go version; osv-scanner --version; semgrep --version; } > "$out/versions.txt" 2>&1 || true
+          # how a tool's availability and version can be probed
+          capture probe-gofmt-dashdash-version "$fx/gofmt" gofmt --version
+          capture probe-gofmt-help "$fx/gofmt" gofmt -h
+          capture probe-go-version "$fx/gofmt" go version
+          capture probe-go-env-goversion "$fx/gofmt" go env GOVERSION
+          # gofmt syntax check: -e reports every error, -l lists files whose formatting differs
+          capture gofmt-ok "$fx/gofmt" gofmt -e -l ok/main.go sub/util.go
+          capture gofmt-unformatted "$fx/gofmt" gofmt -e -l unformatted.go ok/main.go
+          capture gofmt-syntax-one "$fx/gofmt" gofmt -e -l bad/broken.go ok/main.go
+          capture gofmt-syntax-two-files "$fx/gofmt" gofmt -e -l bad/broken.go bad/fine.go bad/second.go ok/main.go
+          capture gofmt-missing-file "$fx/gofmt" gofmt -e -l does-not-exist.go ok/main.go
+          capture gofmt-no-e "$fx/gofmt" gofmt -l bad/broken.go
+          capture gofmt-dir-walk "$fx/gofmt" gofmt -e -l .
+          # osv-scanner on go.mod
+          capture osv-go-vuln "$fx/osv-vuln" osv-scanner scan source --format json --lockfile=go.mod
+          capture osv-go-clean "$fx/osv-clean" osv-scanner scan source --format json --lockfile=go.mod
+          capture osv-go-empty "$fx/osv-empty" osv-scanner scan source --format json --lockfile=go.mod
+          capture osv-go-nested "$fx/osv-nested" osv-scanner scan source --format json --lockfile=svc/go.mod
+          # semgrep on Go, with the adapter's command
+          sg=(semgrep scan --json --error --quiet --metrics=off --disable-version-check --config=.governance/semgrep --exclude=.governance/semgrep .)
+          capture semgrep-go-hit "$fx/sg-hit" "${sg[@]}"
+          capture semgrep-go-clean "$fx/sg-clean" "${sg[@]}"
+
+      - name: Push the captured output
+        run: |
+          set -euo pipefail
+          git config user.email "capture@example.test"
+          git config user.name "go-capture"
+          git checkout -q --orphan capture/go-output-results
+          git rm -rfq --cached . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name _go-output ! -name .git -exec rm -rf {} +
+          git add _go-output
+          git commit -qm "Captured Go tool output from run ${GITHUB_RUN_ID}"
+          git push --force origin capture/go-output-results
