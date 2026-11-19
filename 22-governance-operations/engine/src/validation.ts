@@ -67,6 +67,18 @@ export function validateGovernancePackSemantics(
   const controlIds = new Set(pack.controls.map((item) => item.id));
   const evidenceIds = new Set(pack.evidence.map((item) => item.id));
 
+  (pack.debt ?? []).forEach((debt, index) => {
+    for (const controlId of debt.controls ?? []) {
+      if (!controlIds.has(controlId)) {
+        issues.push({
+          code: "UNKNOWN_CONTROL",
+          path: `/debt/${index}/controls`,
+          message: `Debt '${debt.id}' references unknown control '${controlId}'.`,
+        });
+      }
+    }
+  });
+
   pack.risks.forEach((risk, index) => {
     if (risk.status === "ACCEPTED") {
       const complete =

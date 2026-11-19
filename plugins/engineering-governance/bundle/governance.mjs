@@ -8967,6 +8967,17 @@ function validateGovernancePackSemantics(pack, evaluatedAt) {
   const standardIds = new Set(pack.standards.map((item) => item.id));
   const controlIds = new Set(pack.controls.map((item) => item.id));
   const evidenceIds = new Set(pack.evidence.map((item) => item.id));
+  (pack.debt ?? []).forEach((debt, index) => {
+    for (const controlId of debt.controls ?? []) {
+      if (!controlIds.has(controlId)) {
+        issues.push({
+          code: "UNKNOWN_CONTROL",
+          path: `/debt/${index}/controls`,
+          message: `Debt '${debt.id}' references unknown control '${controlId}'.`
+        });
+      }
+    }
+  });
   pack.risks.forEach((risk, index) => {
     if (risk.status === "ACCEPTED") {
       const complete = Boolean(risk.accepted_by?.trim()) && Boolean(risk.acceptance_reason?.trim()) && Boolean(risk.accepted_at) && Boolean(risk.acceptance_expires_at) && !Number.isNaN(Date.parse(risk.accepted_at ?? "")) && !Number.isNaN(Date.parse(risk.acceptance_expires_at ?? "")) && Date.parse(risk.accepted_at ?? "") < Date.parse(risk.acceptance_expires_at ?? "");
@@ -9818,6 +9829,25 @@ var governance_model_schema_default = {
         },
         owner: {
           type: "string"
+        },
+        target_date: {
+          type: "string",
+          format: "date",
+          description: "Date by which the debt should be resolved or re-decided. Debt past it is reported as overdue (DEBT-020 section 14, Target)."
+        },
+        last_reviewed: {
+          type: "string",
+          format: "date",
+          description: "Date the debt was last reviewed. For ACCEPTED debt this is the date of the acceptance decision; accepted debt with none is unreviewed (DEBT-020 section 18)."
+        },
+        controls: {
+          type: "array",
+          description: "Ids of the pack's controls this debt is recorded against; the report shows each control's status next to the debt.",
+          uniqueItems: true,
+          items: {
+            type: "string",
+            minLength: 1
+          }
         }
       },
       additionalProperties: false
@@ -12818,8 +12848,88 @@ function evaluateControl(control, evidence, context) {
   };
 }
 
+// ../engine/src/debt.ts
+var SEVERITIES = ["P0", "P1", "P2", "P3"];
+var severityRank3 = (severity) => SEVERITIES.indexOf(severity);
+function hasOwner(debt) {
+  const owner = debt.owner?.trim();
+  return Boolean(owner) && owner.toUpperCase() !== "UNASSIGNED";
+}
+function isOverdue(targetDate, evaluatedAt) {
+  if (!targetDate) return false;
+  const end = Date.parse(`${targetDate}T23:59:59.999Z`);
+  const now = evaluatedAt ? Date.parse(evaluatedAt) : Date.now();
+  return Number.isFinite(end) && Number.isFinite(now) && now > end;
+}
+function evaluateDebt(pack, controls, evaluatedAt) {
+  const statusOf = new Map(controls.map((control) => [control.controlId, control.status]));
+  const items = [];
+  const unresolved = { P0: 0, P1: 0, P2: 0, P3: 0 };
+  let accepted = 0;
+  let resolved = 0;
+  for (const debt of pack.debt ?? []) {
+    if (debt.status === "RESOLVED") {
+      resolved += 1;
+      continue;
+    }
+    unresolved[debt.severity] += 1;
+    if (debt.status === "ACCEPTED") accepted += 1;
+    const critical = debt.severity === "P0" || debt.severity === "P1";
+    const overdue = isOverdue(debt.target_date, evaluatedAt);
+    const blockers = [];
+    const conditions = [];
+    if (critical && !hasOwner(debt)) blockers.push(`${debt.severity} debt has no explicit owner (DEBT-020 sections 15 and 29)`);
+    if (debt.severity === "P0") blockers.push(`P0 debt is not resolved${debt.status === "ACCEPTED" ? " and acceptance cannot bypass a production blocker" : ""} (DEBT-020 sections 9 and 17)`);
+    if (debt.severity === "P1" && debt.status !== "ACCEPTED") conditions.push(`P1 debt is ${debt.status.toLowerCase().replace("_", " ")} and has no recorded acceptance (DEBT-020 section 9)`);
+    if (overdue) conditions.push(`past its target date ${debt.target_date}`);
+    if (debt.status === "ACCEPTED" && !debt.last_reviewed) conditions.push("accepted but never reviewed (DEBT-020 section 18)");
+    items.push({
+      id: debt.id,
+      ...debt.title ? { title: debt.title } : {},
+      severity: debt.severity,
+      status: debt.status,
+      ...debt.owner ? { owner: debt.owner } : {},
+      ...debt.target_date ? { target_date: debt.target_date } : {},
+      ...debt.last_reviewed ? { last_reviewed: debt.last_reviewed } : {},
+      overdue,
+      blocking: blockers.length > 0,
+      reasons: [...blockers, ...conditions],
+      linkedControls: (debt.controls ?? []).map((id) => ({ id, status: statusOf.get(id) ?? "UNVERIFIED" }))
+    });
+  }
+  items.sort((a, b) => severityRank3(a.severity) - severityRank3(b.severity) || a.id.localeCompare(b.id));
+  const open2 = items;
+  const summary = {
+    unresolved,
+    unresolvedTotal: open2.length,
+    accepted,
+    resolved,
+    overdue: open2.filter((item) => item.overdue).length,
+    withOwner: open2.filter((item) => hasOwner(item)).length,
+    withReviewDate: open2.filter((item) => Boolean(item.last_reviewed)).length,
+    items
+  };
+  const toViolation2 = (item) => {
+    const linked = item.linkedControls.length > 0 ? ` Recorded against ${item.linkedControls.map((control) => `${control.id} (${control.status})`).join(", ")}.` : "";
+    return {
+      controlId: `DEBT:${item.id}`,
+      status: item.blocking ? "FAIL" : "WARN",
+      severity: item.severity,
+      decision: item.blocking ? "NO-GO" : "GO_WITH_CONDITIONS",
+      message: `Debt ${item.id}${item.title ? ` (${item.title})` : ""}: ${item.reasons.join("; ")}.${linked}`,
+      missingEvidence: [],
+      missingSignals: []
+    };
+  };
+  return {
+    summary,
+    blocking: items.filter((item) => item.blocking).map(toViolation2),
+    conditions: items.filter((item) => !item.blocking && item.reasons.length > 0).map(toViolation2)
+  };
+}
+
 // ../engine/src/decision.ts
-var severityRank3 = {
+var severityRank4 = {
   P0: 0,
   P1: 1,
   P2: 2,
@@ -12999,7 +13109,7 @@ function deriveDecision(pack, evaluations, context = { signals: [] }) {
   const isLowRisk = (risk) => risk.severity === "P2" || risk.severity === "P3";
   const openRisks = pack.risks.filter(
     (risk) => risk.status !== "MITIGATED" && risk.status !== "CLOSED" && !riskAcceptanceHolds(risk, context)
-  ).map((risk) => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk).sort((a, b) => (severityRank3[a.severity] ?? 0) - (severityRank3[b.severity] ?? 0) || a.id.localeCompare(b.id));
+  ).map((risk) => risk.status === "ACCEPTED" ? { ...risk, status: "OPEN" } : risk).sort((a, b) => (severityRank4[a.severity] ?? 0) - (severityRank4[b.severity] ?? 0) || a.id.localeCompare(b.id));
   const riskViolations = openRisks.map((risk) => ({
     controlId: `RISK:${risk.id}`,
     status: isLowRisk(risk) ? "WARN" : "FAIL",
@@ -13065,8 +13175,8 @@ function deriveDecision(pack, evaluations, context = { signals: [] }) {
     missingEvidence: [],
     missingSignals: []
   }];
-  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations, ...scopeViolations].sort((a, b) => (severityRank3[a.severity] ?? 0) - (severityRank3[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
-  const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings].sort((a, b) => (severityRank3[a.severity] ?? 0) - (severityRank3[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
+  const blockingViolations = [...blockingControlViolations, ...blockingRiskViolations, ...scopeViolations].sort((a, b) => (severityRank4[a.severity] ?? 0) - (severityRank4[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
+  const warnings = [...controlWarnings, ...riskWarnings, ...exceptionWarnings].sort((a, b) => (severityRank4[a.severity] ?? 0) - (severityRank4[b.severity] ?? 0) || a.controlId.localeCompare(b.controlId));
   if (blockingViolations.length > 0) {
     return {
       status: "NO-GO",
@@ -13164,10 +13274,25 @@ function evaluateGovernance(pack, context) {
   if (findingsById.size > 0) {
     decision.reason = `${decision.reason} ${findingsById.size} unresolved finding(s) require remediation or governed acceptance.`;
   }
+  const debt = evaluateDebt(pack, controls, context.evaluatedAt);
+  for (const violation of debt.blocking) {
+    decision.status = "NO-GO";
+    decision.blockingViolations.push(violation);
+  }
+  for (const violation of debt.conditions) {
+    if (decision.status === "GO") decision.status = "GO_WITH_CONDITIONS";
+    decision.warnings.push(violation);
+  }
+  if (debt.blocking.length > 0) {
+    decision.reason = `${decision.reason} ${debt.blocking.length} technical debt item(s) block production (DEBT-020).`;
+  } else if (debt.conditions.length > 0) {
+    decision.reason = `${decision.reason} ${debt.conditions.length} technical debt item(s) need a decision or review (DEBT-020).`;
+  }
   return {
     controls,
     violations: [...decision.blockingViolations, ...decision.warnings],
-    decision
+    decision,
+    ...(pack.debt ?? []).length > 0 ? { debt: debt.summary } : {}
   };
 }
 
@@ -13382,6 +13507,23 @@ function formatAnalysisResult(analysis, context, json = false) {
 var projectLine = (project) => `${project.id} (${project.status}, criticality ${project.criticality}, data ${project.data_classification})`;
 var catalogLine = (catalog) => `${catalog.id} ${catalog.version} (${catalog.controls} controls)`;
 var authorityLine = (authority) => `${authority.id} ${authority.version} (${authority.approved} of ${authority.roles} roles approved${authority.approved === 0 ? "; none enforced" : ""})`;
+function debtTotalsLine(debt) {
+  const u = debt.unresolved;
+  return `${debt.unresolvedTotal} unresolved (P0: ${u.P0}, P1: ${u.P1}, P2: ${u.P2}, P3: ${u.P3}), ${debt.accepted} accepted, ${debt.overdue} overdue; an owner is named on ${debt.withOwner} of ${debt.unresolvedTotal}, a review date on ${debt.withReviewDate} of ${debt.unresolvedTotal}.`;
+}
+var MAX_DEBT_ROWS = 30;
+function debtMarkdownLines(debt) {
+  const lines = ["", "## Technical debt", "", debtTotalsLine(debt)];
+  if (debt.items.length === 0) return lines;
+  lines.push("", "| Debt | Severity | Status | Owner | Target | Recorded against | Needs |", "|---|---|---|---|---|---|---|");
+  for (const item of debt.items.slice(0, MAX_DEBT_ROWS)) {
+    const target = item.target_date ? `${item.target_date}${item.overdue ? " (overdue)" : ""}` : "";
+    const linked = item.linkedControls.map((control) => `${control.id} (${control.status})`).join(", ");
+    lines.push(`| ${cell(item.id)}${item.title ? ` ${cell(item.title)}` : ""} | ${item.severity} | ${item.status} | ${cell(item.owner ?? "**none**")} | ${target} | ${cell(linked)} | ${cell(item.reasons.length > 0 ? `${item.blocking ? "**blocks**: " : ""}${item.reasons.join("; ")}` : "")} |`);
+  }
+  if (debt.items.length > MAX_DEBT_ROWS) lines.push("", `\u2026and ${debt.items.length - MAX_DEBT_ROWS} more in the JSON report.`);
+  return lines;
+}
 function formatHumanResult(analysis, evaluation, context, scope) {
   const lines = [
     `Decision: ${evaluation.decision.status}`,
@@ -13394,7 +13536,8 @@ function formatHumanResult(analysis, evaluation, context, scope) {
     `Controls evaluated: ${evaluation.controls.length}`,
     `Blocking violations: ${evaluation.decision.blockingViolations.length}`,
     `Warnings: ${evaluation.decision.warnings.length}`,
-    `Open risks: ${evaluation.decision.openRisks.length}`
+    `Open risks: ${evaluation.decision.openRisks.length}`,
+    ...evaluation.debt ? [`Technical debt: ${debtTotalsLine(evaluation.debt)}`] : []
   ];
   if (evaluation.decision.reason) lines.push("", `Reason: ${evaluation.decision.reason}`);
   const decisionItems = [...evaluation.decision.blockingViolations, ...evaluation.decision.warnings];
@@ -13470,6 +13613,7 @@ function formatMarkdownResult(analysis, evaluation, context, scope) {
   }
   section("Blocking violations", decision.blockingViolations);
   section("Warnings", decision.warnings);
+  if (evaluation.debt && (evaluation.debt.unresolvedTotal > 0 || evaluation.debt.resolved > 0)) lines.push(...debtMarkdownLines(evaluation.debt));
   const attention = evaluation.controls.filter((c) => c.status !== "PASS" && c.status !== "NOT_APPLICABLE");
   if (attention.length > 0) {
     lines.push("", "## Controls needing attention", "", "| Control | Status | Reason |", "|---|---|---|");
@@ -14345,7 +14489,7 @@ var AREA_STANDARD = {
 };
 var PACK_PATH = ".governance/governance-pack.json";
 var REPORTS_DIRECTORY = ".governance/reports";
-var severityRank4 = { P0: 0, P1: 1, P2: 2, P3: 3 };
+var severityRank5 = { P0: 0, P1: 1, P2: 2, P3: 3 };
 function oneLine2(value, limit = 140) {
   const collapsed = value.replace(/\s+/g, " ").trim();
   return collapsed.length > limit ? `${collapsed.slice(0, limit - 1)}\u2026` : collapsed;
@@ -14406,10 +14550,12 @@ async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Dat
   }
   let assessment;
   let evaluated = [];
+  let debt;
   if (pack) {
     const snapshot = await loadRepositorySnapshot(root, nodeFileSystem, []);
     const result = await runGovernanceCommand({ snapshot, governancePack: pack, json: true });
     evaluated = result.evaluation.controls;
+    debt = result.evaluation.debt;
     const brief = (violation) => ({ id: violation.controlId, severity: violation.severity, message: oneLine2(violation.message, 200) });
     assessment = {
       decision: result.evaluation.decision.status,
@@ -14430,7 +14576,7 @@ async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Dat
   });
   const findings = pack?.findings ?? [];
   const bySeverity = { P0: 0, P1: 0, P2: 0, P3: 0 };
-  const open2 = findings.filter((finding) => finding.status !== "RESOLVED").sort((a, b) => severityRank4[a.severity] - severityRank4[b.severity] || a.id.localeCompare(b.id));
+  const open2 = findings.filter((finding) => finding.status !== "RESOLVED").sort((a, b) => severityRank5[a.severity] - severityRank5[b.severity] || a.id.localeCompare(b.id));
   for (const finding of open2) bySeverity[finding.severity] += 1;
   const reports = await listReviewReports(root);
   const reviews = lastReviews(reports, pack);
@@ -14469,6 +14615,7 @@ async function summarizeRepository(repositoryPath, now = /* @__PURE__ */ new Dat
       }
     } : {},
     ...assessment ? { assessment } : {},
+    ...debt ? { debt } : {},
     controls,
     findings: {
       bySeverity,
@@ -14520,6 +14667,7 @@ function formatSummaryMarkdown(summary) {
     }
     lines.push("");
   }
+  if (summary.debt) lines.push(...debtMarkdownLines(summary.debt), "");
   const counts = summary.findings.bySeverity;
   lines.push("## Findings", "", `${summary.findings.open.length} open of ${summary.findings.total} (P0: ${counts.P0}, P1: ${counts.P1}, P2: ${counts.P2}, P3: ${counts.P3}).`, "");
   if (summary.findings.open.length > 0) {
