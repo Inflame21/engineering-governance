@@ -16587,7 +16587,7 @@ function formatCheckpointReport(report, recordCount) {
 }
 
 // src/index.ts
-var VERSION = "0.9.0";
+var VERSION = "0.10.0";
 var DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 function usage() {
   return [

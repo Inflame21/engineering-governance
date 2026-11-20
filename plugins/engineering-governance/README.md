@@ -10,7 +10,7 @@ After installing, open Claude Code in your repository's root folder and run:
 2. `/engineering-governance:analyze` to see what the plugin can detect in your repository (changes nothing).
 3. `/engineering-governance:audit` for a full set of Markdown reports on what to fix, written to `.governance/reports/`.
 
-**Status: version 0.9.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
+**Status: version 0.10.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
 
 ## Requirements
 
@@ -94,6 +94,10 @@ npm run bundle:plugin
 The CLI test suite fails if the committed bundle is out of date, and checks that it runs standalone from an empty directory. Keep `plugin.json`, `marketplace.json` and the CLI's `VERSION` in step; a test checks that too.
 
 **Bump the version whenever the plugin's behavior changes** (a new or changed command, skill text or CLI feature). Claude Code caches an installed plugin by its version, so a copy at the same version looks up to date and never receives the change, however many commits have landed. After a bump, users refresh the marketplace and update the plugin from `/plugin`.
+
+## What changed in 0.10.0
+
+Three more grouped commands (not run in a live session yet): `/engineering-governance:security threat-model` (`.governance/security/`), `/engineering-governance:release plan|readiness|changelog` (`.governance/release/`) and `/engineering-governance:operations incident|exception` (`.governance/incidents/` and `.governance/exception-drafts/`). `release readiness` is an evidence matrix only and never says GO or NO-GO; `check` still decides. `operations exception` writes a draft for a person to review and shows the `exception request` command to run afterwards; it records nothing itself. `operations incident` depends on what you tell it, and labels those facts as provided by you. The shared rules in `templates/artifact-rules.md` cover all of them. No change to the analysis, the decision or any other command.
 
 ## What changed in 0.9.0
 
