@@ -1,0 +1,19 @@
+# Type: api
+
+An API reference for the repository: every endpoint, operation or event a client can use, drawn from the code and checked against any API description the repository ships. It follows the API standard's contract, error, pagination, versioning and documentation sections (`${CLAUDE_PLUGIN_ROOT}/standards/06-api-governance-standard.md`).
+
+## Extra rules for this type
+
+- **Never call an endpoint, start a server or run a client.** Read routes, handlers, middleware, schemas, types, API descriptions (OpenAPI, GraphQL, protobuf, AsyncAPI) and tests only.
+- **The code is the source of truth; a shipped description is a claim to check.** When an OpenAPI or similar file exists, use it to find endpoints, then confirm each against the handler. Where they differ, document what the code does and list the difference under **Differences between the description and the code**.
+- **Examples only from tests, fixtures or the shipped description**, cited. If none exists, omit the example. Never compose a request or response body that you did not read, and never put a real-looking token, key or password in an example.
+- **Auth:** state what the code requires (middleware, guards, decorators, scopes) with its location. If you could not find a check, write `No authentication check found at <where you looked>` and `Not confirmed:`; do not call the endpoint public or protected from a guess.
+- Do not present an inventory as complete; say how many route files you read of how many you found.
+
+## Steps
+
+1. **Plan and ask.** Choose the repository (the one named, or ask if several). Run `node "${CLAUDE_PLUGIN_ROOT}/bundle/governance.mjs" analyze <repository> --json`, find the API style or styles in use (REST, GraphQL, RPC, events, webhooks) and the files that define them: routers and controllers, middleware, validation schemas, shared error types, API description files, API tests. List the **resource groups** you will document (for example `orders`, `users`, `auth`), each with its folder and an estimate of how many endpoints it holds. Tell the user this reads a lot of code, and **wait for a yes**. Let them remove groups.
+2. **Write one resource group at a time** to `<repository>/.governance/api-reference/<YYYY-MM-DD>/<group>.md`. For each endpoint: method and path (or operation or event name), what it is for, authentication and authorization required, path, query, header and body inputs with types, required or optional and validation rules, success response and status codes, error responses and codes, and pagination, filtering, idempotency, rate limit or versioning behavior **where the code shows it**, plus a cited example if one exists. Every item cites `file:line`. Anything not visible is `Not confirmed:`.
+3. **Write `overview.md`**: API styles found, base path and versioning scheme, the authentication scheme, the common error format, pagination and idempotency conventions, rate limiting, and how the API is described (spec files and how they are produced). Base URLs and hosts come from configuration names or documents; if only an environment variable name is shown, name it and do not print a value.
+4. **Add `Observed inconsistencies`** to `overview.md`, each cited: endpoints with no validation or no auth check found, naming or verb mismatches, status codes that do not match the semantics, responses that differ from a shared error format, undocumented endpoints, documented endpoints with no handler, and breaking-looking changes in recent commits (`git log` on the route files). These are leads for a person to confirm, not findings of defects.
+5. Write `index.md` and give the final message, as the rules say. Tell the user that no endpoint was called, so behavior is as read and not as observed, and that the reference is a draft to check against the running service.

@@ -10,7 +10,7 @@ After installing, open Claude Code in your repository's root folder and run:
 2. `/engineering-governance:analyze` to see what the plugin can detect in your repository (changes nothing).
 3. `/engineering-governance:audit` for a full set of Markdown reports on what to fix, written to `.governance/reports/`.
 
-**Status: version 0.11.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
+**Status: version 0.12.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
 
 ## Requirements
 
@@ -42,7 +42,7 @@ Nothing runs automatically. Each command runs only when you type it, against the
 | `/engineering-governance:start` | New here? Prints what the plugin does and which command to run first. Runs nothing and writes nothing. |
 | `/engineering-governance:audit [repository]` | **Start here for reports.** Goes through a whole repository and writes an ordered set of Markdown files to `.governance/reports/`, starting from `audit-<date>.md`: documentation of what the repository is (`overview-<date>.md`), a review of each applicable area (`review-<area>-<date>.md`), a status summary, and a prioritized plan of fixes and improvements with what, where, why and how for each. It asks before starting, because it reads a lot of code. |
 | `/engineering-governance:docs [repository]` | Goes through a repository feature by feature and writes documentation for **developers** (architecture, how each feature works, setup, how to extend it) and for **users** (what each feature does, how to use it, troubleshooting) to `.governance/docs/<date>/`, starting from `index.md`. It lists the features and asks before starting, because it reads a lot of code. AI drafts: every page says so, and anything it could not confirm from the code is marked `Not confirmed:`. `audit` offers it when it finishes. |
-| `/engineering-governance:documentation <type>` | Writes documents from the code. Types: `docs` (the same as `/docs`), `runbook` (deploy, rollback, health, failures, alerts; to `.governance/runbooks/`), `adr` (architecture decision records inferred from the code; to `.governance/adr/`) and `onboarding` (a first-day guide for new contributors; to `.governance/onboarding/`). With no type it lists them. |
+| `/engineering-governance:documentation <type>` | Writes documents from the code. Types: `docs` (the same as `/docs`), `runbook` (deploy, rollback, health, failures, alerts; to `.governance/runbooks/`), `adr` (architecture decision records inferred from the code; to `.governance/adr/`), `onboarding` (a first-day guide for new contributors; to `.governance/onboarding/`) and `api` (an endpoint-by-endpoint API reference from routes, schemas and tests, calling nothing; to `.governance/api-reference/`). With no type it lists them. |
 | `/engineering-governance:quality <type>` | `debt` (a technical debt register with proposed severities and blank owners, to `.governance/debt/`) or `test-plan` (what is tested, what is not and what to test first, to `.governance/test-plans/`; nothing is run). Neither changes the pack. |
 | `/engineering-governance:security threat-model` | Writes a threat model (assets, actors, entry points, trust boundaries, threats and the controls found) to `.governance/security/`. Nothing is tested. |
 | `/engineering-governance:release <type>` | `plan` (checklist, migrations, rollback), `readiness` (an evidence matrix, never a GO/NO-GO) or `changelog` (notes drafted from git history), written to `.governance/release/`. |
@@ -99,6 +99,10 @@ npm run bundle:plugin
 The CLI test suite fails if the committed bundle is out of date, and checks that it runs standalone from an empty directory. Keep `plugin.json`, `marketplace.json` and the CLI's `VERSION` in step; a test checks that too.
 
 **Bump the version whenever the plugin's behavior changes** (a new or changed command, skill text or CLI feature). Claude Code caches an installed plugin by its version, so a copy at the same version looks up to date and never receives the change, however many commits have landed. After a bump, users refresh the marketplace and update the plugin from `/plugin`.
+
+## What changed in 0.12.0
+
+A new type (not run in a live session yet): `/engineering-governance:documentation api` writes an API reference to `.governance/api-reference/`, one file per resource group plus an overview: each endpoint's inputs, responses, errors and the authentication the code requires, with a cited example only where a test or shipped spec has one. It never calls an endpoint or starts a server, treats any OpenAPI or similar file as a claim to check against the handlers, and lists the differences and other inconsistencies as leads for a person to confirm. No change to the analysis, the decision or any other command.
 
 ## What changed in 0.11.0
 
