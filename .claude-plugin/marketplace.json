@@ -9,7 +9,7 @@
       "name": "engineering-governance",
       "source": "./plugins/engineering-governance",
       "description": "Check a repository against engineering standards and get reports on what to fix, plus an evidence-based GO / NO-GO release decision. Run /engineering-governance:start to begin.",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "category": "security",
       "tags": ["governance", "engineering-standards", "ci"]
     }

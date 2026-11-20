@@ -174,15 +174,15 @@ describe("plugin licensing", () => {
 });
 
 describe("plugin commands", () => {
-  const COMMANDS = ["analyze", "audit", "check", "docs", "documentation", "init", "quality", "report", "review", "setup", "summary", "validate"];
+  const COMMANDS = ["analyze", "audit", "check", "docs", "documentation", "init", "operations", "quality", "release", "report", "review", "security", "setup", "summary", "validate"];
   // setup and review first run discovery; every other command runs its own CLI command.
   const INVOCATION: Record<string, string> = {
     setup: "discover . --json", review: "discover . --json", summary: "discover . --json", audit: "discover . --json", docs: "discover . --json",
-    documentation: "discover . --json", quality: "discover . --json",
+    documentation: "discover . --json", quality: "discover . --json", security: "discover . --json", release: "discover . --json", operations: "discover . --json",
     report: "report . --write $ARGUMENTS",
   };
 
-  it("provides exactly the twelve commands plus the static start guide", async () => {
+  it("provides exactly the fifteen commands plus the static start guide", async () => {
     expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual([...COMMANDS, "start"].sort());
   });
 
@@ -190,6 +190,9 @@ describe("plugin commands", () => {
   it.each([
     ["documentation", ["docs", "runbook", "adr"]],
     ["quality", ["debt"]],
+    ["security", ["threat-model"]],
+    ["release", ["plan", "readiness", "changelog"]],
+    ["operations", ["incident", "exception"]],
   ] as const)("%s points at the shared rules and a file for every type it lists", async (group, types) => {
     const text = normalize(await readFile(path.join(pluginDirectory, "skills", group, "SKILL.md"), "utf8"));
     expect(text).toContain("${CLAUDE_PLUGIN_ROOT}/templates/artifact-rules.md");
