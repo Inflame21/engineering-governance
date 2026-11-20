@@ -258,6 +258,12 @@ Nothing runs automatically. Options are passed through, for example `/engineerin
 |---|---|
 | `/engineering-governance:start` | New here? Prints what the plugin does and which command to run first. Runs nothing and writes nothing. |
 | `/engineering-governance:audit [repository]` | Start here for reports. Documents the repository, reviews each applicable area, and writes an ordered set of Markdown reports with a prioritized plan to `.governance/reports/`. Slow and token-heavy; it asks before starting. |
+| `/engineering-governance:docs [repository]` | Writes developer and user documentation feature by feature to `.governance/docs/`. Slow and token-heavy; it asks before starting. |
+| `/engineering-governance:documentation <type>` | Writes documents from the code. Types: `docs` (the same as `/docs`), `runbook` (deploy, rollback, health, failures, alerts; to `.governance/runbooks/`) and `adr` (architecture decision records inferred from the code; to `.governance/adr/`). With no type it lists them. |
+| `/engineering-governance:quality debt` | Writes a technical debt register (the debt standard's record, with proposed severities and blank owners) to `.governance/debt/`. It does not change the pack. |
+| `/engineering-governance:security threat-model` | Writes a threat model (assets, actors, entry points, trust boundaries, threats and the controls found) to `.governance/security/`. Nothing is tested. |
+| `/engineering-governance:release <type>` | `plan` (checklist, migrations, rollback), `readiness` (an evidence matrix, never a GO/NO-GO) or `changelog` (notes drafted from git history), written to `.governance/release/`. |
+| `/engineering-governance:operations <type>` | `incident` (a blameless review built from what you tell it, to `.governance/incidents/`) or `exception` (a draft exception request to `.governance/exception-drafts/`; it records nothing in the pack). |
 | `/engineering-governance:setup` | Drafts a governance pack for each repository in the folder and, with your permission, runs the project's own checks and records the real results as evidence. Also fills in the empty pack `init` wrote. AI-drafted, so review it. |
 | `/engineering-governance:review <area>` | Reviews one area (security, architecture, api, data, testing, cicd, frontend, observability) against the standards, writes a report, and adds the findings to the pack. Findings are leads for a person to confirm. |
 | `/engineering-governance:summary` | Writes one status report per repository, with clearly labelled AI suggestions appended. |
@@ -267,7 +273,7 @@ Nothing runs automatically. Options are passed through, for example `/engineerin
 | `/engineering-governance:report` | The same assessment as `check`, as a full report. |
 | `/engineering-governance:validate` | Validates the pack, profile, registry, catalog or authority policy. |
 
-Only `audit`, `setup`, `review`, `summary`, `report` and `init` write files, and none overwrites one. Start Claude Code at the repository root. Only `validate` and `check` have been seen running in a live session so far.
+Only `audit`, `docs`, `documentation`, `quality`, `security`, `release`, `operations`, `setup`, `review`, `summary`, `report` and `init` write files, and none overwrites one. Start Claude Code at the repository root. Only `validate` and `check` have been seen running in a live session so far.
 
 ## Repository Structure
 
