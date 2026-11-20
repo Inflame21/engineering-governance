@@ -25,8 +25,8 @@ Show the user the text below as written, without running any command, reading an
 
 - `/engineering-governance:review <area>` reviews one area in depth.
 - `/engineering-governance:docs` writes documentation for developers and for users, feature by feature, to `.governance/docs/`. It asks before starting.
-- `/engineering-governance:documentation <type>` is the same idea grouped: `docs`, `runbook` (how to deploy, roll back and fix things) or `adr` (the architecture decisions the code shows). Run it with no type to see them.
-- `/engineering-governance:quality debt` writes a technical debt register to `.governance/debt/`. Run it with no type to see what is available.
+- `/engineering-governance:documentation <type>` is the same idea grouped: `docs`, `runbook` (how to deploy, roll back and fix things), `adr` (the architecture decisions the code shows) or `onboarding` (a first-day guide for new contributors). Run it with no type to see them.
+- `/engineering-governance:quality <debt|test-plan>` writes a technical debt register to `.governance/debt/`, or a test plan (what is tested, what is not, what to test first; nothing is run) to `.governance/test-plans/`. Run it with no type to see what is available.
 - `/engineering-governance:security threat-model` writes a threat model (what could go wrong at each boundary, and what the code does about it) to `.governance/security/`.
 - `/engineering-governance:release <plan|readiness|changelog>` writes a release plan, an evidence matrix of what is and is not in place, or release notes drafted from git history, to `.governance/release/`. It never decides GO or NO-GO; `check` does.
 - `/engineering-governance:operations <incident|exception>` writes a blameless incident review from what you tell it, or a draft exception request for a person to review.
