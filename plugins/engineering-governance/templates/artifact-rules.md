@@ -1,6 +1,6 @@
 # Rules for every document Claude drafts
 
-These apply to the `documentation`, `quality`, `security`, `release` and `operations` commands. `<kind>` is the folder the type names (`runbooks`, `adr`, `onboarding`, `debt`, `test-plans`, `security`, `release`, `incidents`, `exception-drafts`).
+These apply to the `documentation`, `quality`, `security`, `release` and `operations` commands. `<kind>` is the folder the type names (`runbooks`, `adr`, `onboarding`, `api-reference`, `debt`, `test-plans`, `security`, `release`, `incidents`, `exception-drafts`).
 
 1. **Only write what you read.** Every statement about behavior cites the file you read (a relative path, with a line where it helps). If you could not confirm something from the code or the repository's own documents, write `Not confirmed:` and say what would confirm it. Facts the user gives you in this session count as read; label them `provided by user`. Never invent a feature, step, command, owner, contact, date, reason or default.
 2. **You are a writer of new files, not an editor.** Change no source, config, CI or git state, and do not commit. Write only inside `<repository>/.governance/<kind>/<YYYY-MM-DD>/`. Never overwrite or edit an existing file: if that folder exists, use `<YYYY-MM-DD>-2/`, `-3`.
