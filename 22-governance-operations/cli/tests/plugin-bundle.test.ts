@@ -188,8 +188,8 @@ describe("plugin commands", () => {
 
   // Each group command hands off to a type file; a type that is listed but missing would fail at run time.
   it.each([
-    ["documentation", ["docs", "runbook", "adr"]],
-    ["quality", ["debt"]],
+    ["documentation", ["docs", "runbook", "adr", "onboarding"]],
+    ["quality", ["debt", "test-plan"]],
     ["security", ["threat-model"]],
     ["release", ["plan", "readiness", "changelog"]],
     ["operations", ["incident", "exception"]],
