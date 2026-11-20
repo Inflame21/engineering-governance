@@ -25,6 +25,8 @@ Show the user the text below as written, without running any command, reading an
 
 - `/engineering-governance:review <area>` reviews one area in depth.
 - `/engineering-governance:docs` writes documentation for developers and for users, feature by feature, to `.governance/docs/`. It asks before starting.
+- `/engineering-governance:documentation <type>` is the same idea grouped: `docs`, `runbook` (how to deploy, roll back and fix things) or `adr` (the architecture decisions the code shows). Run it with no type to see them.
+- `/engineering-governance:quality debt` writes a technical debt register to `.governance/debt/`. Run it with no type to see what is available.
 - `/engineering-governance:summary` writes one status report.
 - `/engineering-governance:report` renders the full assessment as Markdown.
 - `/engineering-governance:validate` checks the pack's format.
