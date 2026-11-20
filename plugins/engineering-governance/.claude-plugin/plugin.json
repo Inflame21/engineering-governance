@@ -1,6 +1,6 @@
 {
   "name": "engineering-governance",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Check a repository against engineering standards and get reports on what to fix, plus an evidence-based GO / NO-GO release decision. Run /engineering-governance:start to begin.",
   "author": {
     "name": "Inflame21"

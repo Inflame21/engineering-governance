@@ -174,14 +174,14 @@ describe("plugin licensing", () => {
 });
 
 describe("plugin commands", () => {
-  const COMMANDS = ["analyze", "audit", "check", "init", "report", "review", "setup", "summary", "validate"];
+  const COMMANDS = ["analyze", "audit", "check", "docs", "init", "report", "review", "setup", "summary", "validate"];
   // setup and review first run discovery; every other command runs its own CLI command.
   const INVOCATION: Record<string, string> = {
-    setup: "discover . --json", review: "discover . --json", summary: "discover . --json", audit: "discover . --json",
+    setup: "discover . --json", review: "discover . --json", summary: "discover . --json", audit: "discover . --json", docs: "discover . --json",
     report: "report . --write $ARGUMENTS",
   };
 
-  it("provides exactly the nine CLI commands plus the static start guide", async () => {
+  it("provides exactly the ten commands plus the static start guide", async () => {
     expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual([...COMMANDS, "start"].sort());
   });
 
