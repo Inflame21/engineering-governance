@@ -10,7 +10,7 @@ After installing, open Claude Code in your repository's root folder and run:
 2. `/engineering-governance:analyze` to see what the plugin can detect in your repository (changes nothing).
 3. `/engineering-governance:audit` for a full set of Markdown reports on what to fix, written to `.governance/reports/`.
 
-**Status: version 0.8.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
+**Status: version 0.9.0, development.** `validate` and `check` have been seen running in a live Claude Code session on a real project (2026-11-18); the other commands, including `setup` and `review`, and passing options such as `--base` have not (see [Limits](#limits)). Its decisions are one piece of evidence, not a production-readiness approval.
 
 ## Requirements
 
@@ -94,6 +94,10 @@ npm run bundle:plugin
 The CLI test suite fails if the committed bundle is out of date, and checks that it runs standalone from an empty directory. Keep `plugin.json`, `marketplace.json` and the CLI's `VERSION` in step; a test checks that too.
 
 **Bump the version whenever the plugin's behavior changes** (a new or changed command, skill text or CLI feature). Claude Code caches an installed plugin by its version, so a copy at the same version looks up to date and never receives the change, however many commits have landed. After a bump, users refresh the marketplace and update the plugin from `/plugin`.
+
+## What changed in 0.9.0
+
+Commands that write a kind of document are now grouped, with the type as an argument: `/engineering-governance:documentation docs|runbook|adr` and `/engineering-governance:quality debt` (not run in a live session yet). `runbook` writes operational runbooks to `.governance/runbooks/`, `adr` writes architecture decision records inferred from the code to `.governance/adr/`, and `debt` writes a technical debt register to `.governance/debt/`. All of them follow shared rules in `templates/artifact-rules.md` (cite what was read, mark as a draft, never invent, write only new files). `/docs` still works as before. No change to the analysis, the decision or any other command.
 
 ## What changed in 0.8.0
 

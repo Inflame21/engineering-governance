@@ -174,15 +174,31 @@ describe("plugin licensing", () => {
 });
 
 describe("plugin commands", () => {
-  const COMMANDS = ["analyze", "audit", "check", "docs", "init", "report", "review", "setup", "summary", "validate"];
+  const COMMANDS = ["analyze", "audit", "check", "docs", "documentation", "init", "quality", "report", "review", "setup", "summary", "validate"];
   // setup and review first run discovery; every other command runs its own CLI command.
   const INVOCATION: Record<string, string> = {
     setup: "discover . --json", review: "discover . --json", summary: "discover . --json", audit: "discover . --json", docs: "discover . --json",
+    documentation: "discover . --json", quality: "discover . --json",
     report: "report . --write $ARGUMENTS",
   };
 
-  it("provides exactly the ten commands plus the static start guide", async () => {
+  it("provides exactly the twelve commands plus the static start guide", async () => {
     expect((await readdir(path.join(pluginDirectory, "skills"))).sort()).toEqual([...COMMANDS, "start"].sort());
+  });
+
+  // Each group command hands off to a type file; a type that is listed but missing would fail at run time.
+  it.each([
+    ["documentation", ["docs", "runbook", "adr"]],
+    ["quality", ["debt"]],
+  ] as const)("%s points at the shared rules and a file for every type it lists", async (group, types) => {
+    const text = normalize(await readFile(path.join(pluginDirectory, "skills", group, "SKILL.md"), "utf8"));
+    expect(text).toContain("${CLAUDE_PLUGIN_ROOT}/templates/artifact-rules.md");
+    await expect(readFile(path.join(pluginDirectory, "templates", "artifact-rules.md"), "utf8")).resolves.toContain("Only write what you read");
+    for (const type of types) {
+      const file = type === "docs" ? ["docs", "SKILL.md"] : [group, `${type}.md`];
+      expect(text).toContain(`\${CLAUDE_PLUGIN_ROOT}/skills/${file.join("/")}`);
+      await expect(readFile(path.join(pluginDirectory, "skills", ...file), "utf8")).resolves.not.toBe("");
+    }
   });
 
   it("start is explicit-only, runs nothing, and points at every other command", async () => {

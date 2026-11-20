@@ -31,7 +31,7 @@ export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
 export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
-const VERSION = "0.8.0";
+const VERSION = "0.9.0";
 const DEFAULT_PACK_PATH = ".governance/governance-pack.json";
 
 interface ParsedArguments {
