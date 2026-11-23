@@ -6,7 +6,7 @@ import { toGovernanceContext } from "../../analyzer/src/normalize.js";
 import { evaluateGovernance } from "../../engine/src/decision.js";
 import type { GovernancePack, GovernanceViolation } from "../../engine/src/types.js";
 import { authoritySummary, effectiveApproverAuthority } from "./authority.js";
-import { assessPackAgainstCatalog, nonExceptionableCatalogControls } from "./catalog.js";
+import { assessPackAgainstCatalog, bindEvidenceToCatalog, nonExceptionableCatalogControls } from "./catalog.js";
 import type { AuthorityPolicy, ControlCatalog, ProjectRegistration } from "./config.js";
 import { formatAnalysisResult, formatHumanResult, formatJsonResult, formatMarkdownResult } from "./output.js";
 
@@ -36,6 +36,11 @@ export async function runGovernanceCommand(input: AnalyzeCommandInput) {
     analysis.evidence.push(...verification.evidence);
     analysis.findings.push(...verification.findings);
     analysis.adapterResults.push(...verification.adapterResults);
+  }
+
+  // Generated evidence supports the catalog controls whose declared capabilities it was produced with.
+  if (input.controlCatalog) {
+    analysis.evidence = bindEvidenceToCatalog(analysis.evidence, analysis.adapterResults, input.controlCatalog);
   }
 
   const packEvidenceIds = new Set(input.governancePack.evidence.map((item) => item.id));
