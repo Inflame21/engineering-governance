@@ -11,6 +11,7 @@ import { runGoSyntaxAdapter } from "./go-syntax.js";
 import { runGitleaksAdapter } from "./gitleaks.js";
 import { runOsvAdapter } from "./osv.js";
 import { runSemgrepAdapter } from "./semgrep.js";
+import { runCiStatusAdapter } from "./ci-status.js";
 import { runCoverageReportAdapter } from "./coverage-report.js";
 import { runLintReportAdapter } from "./lint-report.js";
 import { runTestReportAdapter } from "./test-report.js";
@@ -500,7 +501,7 @@ export async function runVerificationAdapters(
 
   // Scanners (ADR-0001): dependency vulnerabilities, secrets, static analysis. Each returns nothing
   // when it does not apply to the repository, and never a pass when it could not run.
-  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter, runCiStatusAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);

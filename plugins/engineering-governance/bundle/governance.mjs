@@ -12708,16 +12708,160 @@ async function runSemgrepAdapter(snapshot, runner, fingerprint) {
   return ran(status, summary, findings, limitations);
 }
 
+// ../analyzer/src/ci-status.ts
+var CI_REPORT_DIRECTORY = ".governance/evidence/ci";
+var IDENTITY5 = {
+  tool: "ci-run-status",
+  adapterId: "ci-run-status",
+  adapterVersion: "0.1.0",
+  capability: "verification:ci-run-status",
+  evidenceId: "EVD-CI-RUN-STATUS",
+  evidenceSource: "ci-status-adapter"
+};
+var MAX_REPORTS = 20;
+var MAX_FINDINGS2 = 50;
+var FAILED = /* @__PURE__ */ new Set(["failure", "timed_out", "cancelled", "startup_failure", "action_required", "stale"]);
+var NOT_RUN = /* @__PURE__ */ new Set(["skipped", "neutral"]);
+var isRecord3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function parseCiRuns(text) {
+  let document;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    return void 0;
+  }
+  const list = Array.isArray(document) ? document : isRecord3(document) ? document.workflow_runs : void 0;
+  if (!Array.isArray(list)) return void 0;
+  const runs = [];
+  for (const item of list) {
+    if (!isRecord3(item)) return void 0;
+    const name = typeof item.name === "string" && item.name ? item.name : void 0;
+    const workflowId = typeof item.workflow_id === "number" || typeof item.workflow_id === "string" ? String(item.workflow_id) : void 0;
+    if (!name && !workflowId) return void 0;
+    runs.push({
+      key: workflowId ?? name,
+      workflow: name ?? `workflow ${workflowId}`,
+      runNumber: typeof item.run_number === "number" ? item.run_number : 0,
+      attempt: typeof item.run_attempt === "number" ? item.run_attempt : 1,
+      created: Date.parse(String(item.created_at ?? "")),
+      updated: Date.parse(String(item.updated_at ?? "")),
+      sha: typeof item.head_sha === "string" ? item.head_sha.toLowerCase() : "",
+      status: typeof item.status === "string" ? item.status : "",
+      conclusion: typeof item.conclusion === "string" ? item.conclusion : "",
+      url: typeof item.html_url === "string" ? item.html_url : "",
+      id: String(item.id ?? "")
+    });
+  }
+  return runs;
+}
+var newer = (a, b) => a.runNumber !== b.runNumber ? a.runNumber > b.runNumber : a.attempt !== b.attempt ? a.attempt > b.attempt : (Number.isFinite(a.created) ? a.created : 0) > (Number.isFinite(b.created) ? b.created : 0);
+function runCiStatusAdapter(snapshot) {
+  const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${CI_REPORT_DIRECTORY}/`) && file.toLowerCase().endsWith(".json")).sort();
+  if (reportFiles.length === 0) return void 0;
+  const selected = reportFiles.slice(0, MAX_REPORTS);
+  const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
+  const malformed = [];
+  const latest = /* @__PURE__ */ new Map();
+  let otherCommit = 0;
+  const commit = snapshot.headCommit?.toLowerCase();
+  for (const file of selected) {
+    const content = snapshot.fileContents?.[file];
+    if (content === void 0) continue;
+    const runs = parseCiRuns(content);
+    if (!runs) {
+      malformed.push(file);
+      continue;
+    }
+    for (const run2 of runs) {
+      if (commit && run2.sha !== commit) {
+        otherCommit += 1;
+        continue;
+      }
+      const current = latest.get(run2.key);
+      if (!current || newer(run2, current)) latest.set(run2.key, { ...run2, report: file });
+    }
+  }
+  const counted = [...latest.values()].sort((a, b) => a.workflow.localeCompare(b.workflow));
+  const failed = counted.filter((run2) => run2.status === "completed" && FAILED.has(run2.conclusion));
+  const pending = counted.filter((run2) => run2.status !== "completed" || run2.conclusion === "");
+  const notRun = counted.filter((run2) => run2.status === "completed" && NOT_RUN.has(run2.conclusion));
+  const unknown = counted.filter((run2) => run2.status === "completed" && run2.conclusion !== "success" && !FAILED.has(run2.conclusion) && !NOT_RUN.has(run2.conclusion) && run2.conclusion !== "");
+  const truncated = reportFiles.length > MAX_REPORTS;
+  const limitations = [
+    "Only GitHub Actions workflow-run JSON is read, and it is taken as supplied: a file cannot prove it came from the CI service, and a workflow with no run in it is not noticed.",
+    commit ? `Only runs on commit ${commit.slice(0, 12)} were counted${otherCommit ? ` (${otherCommit} run(s) on other commits ignored)` : ""}.` : "The assessed commit is not known (no Git HEAD, or tracked files are modified), so the runs could not be matched to this code and the result cannot be better than WARN.",
+    ...malformed.length ? [`Not a workflow-runs response: ${malformed.slice(0, 10).join(", ")}.`] : [],
+    ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS} were read.`] : [],
+    ...pending.length ? [`Not finished: ${pending.slice(0, 10).map((run2) => run2.workflow).join(", ")}.`] : [],
+    ...unknown.length ? [`Unrecognised conclusion for: ${unknown.slice(0, 10).map((run2) => `${run2.workflow} (${run2.conclusion})`).join(", ")}.`] : []
+  ];
+  const status = failed.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : counted.length === 0 || pending.length > 0 || unknown.length > 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : notRun.length > 0 || !commit ? "WARN" : "PASS";
+  const tally = `${counted.length} workflow(s): ${failed.length} failed, ${pending.length} not finished, ${notRun.length} skipped`;
+  const summary = status === "ERROR" ? `CI status could not be trusted: ${malformed.length} file(s) are not workflow-run data.` : counted.length === 0 && malformed.length === 0 ? commit ? `No workflow run was found for commit ${commit.slice(0, 12)}, so nothing was verified.` : "The CI files contain no workflow runs, so nothing was verified." : `CI run status: ${tally}.${commit ? "" : " Not matched to a commit."}`;
+  const findings = failed.slice(0, MAX_FINDINGS2).map((run2) => ({
+    id: `FND-CI-${stableId3(`${run2.workflow}:${run2.id}:${run2.attempt}`)}`,
+    rule_id: "CI-RUN-FAILED",
+    severity: "P1",
+    category: "ci-cd",
+    message: `CI workflow ${run2.workflow} run #${run2.runNumber} concluded ${run2.conclusion} on ${run2.sha.slice(0, 12) || "an unknown commit"}${run2.url ? ` - ${run2.url}` : ""}`.replace(/\s+/g, " ").trim().slice(0, 300),
+    status: "OPEN",
+    evidence_refs: [IDENTITY5.evidenceId],
+    source_location: { file: run2.report },
+    confidence: 0.9,
+    remediation: "Fix the failing job and let CI run again on the new commit. Re-running until it passes without a fix, or disabling the workflow, is not accepted."
+  }));
+  if (failed.length > MAX_FINDINGS2) limitations.push(`${failed.length} workflows failed; findings were raised for the first ${MAX_FINDINGS2}.`);
+  const updated = counted.map((run2) => run2.updated);
+  const oldest = counted.length > 0 && updated.every(Number.isFinite) ? new Date(Math.min(...updated)).toISOString() : void 0;
+  const evidence = {
+    id: IDENTITY5.evidenceId,
+    type: "E1_DIRECT_VERIFICATION",
+    status: evidenceStatusForResult(status),
+    result_status: status,
+    description: summary,
+    source: IDENTITY5.evidenceSource,
+    freshness: oldest ? "current" : "unknown",
+    supports_controls: [],
+    ...oldest ? { generated_at: oldest } : {},
+    command: [`<read ${CI_REPORT_DIRECTORY}/*.json>`]
+  };
+  const completed = status === "PASS" || status === "WARN" || status === "FAIL";
+  const adapterResult = {
+    adapterId: IDENTITY5.adapterId,
+    version: IDENTITY5.adapterVersion,
+    executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
+    supportedCapabilities: completed ? [IDENTITY5.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY5.capability],
+    evidenceRefs: [IDENTITY5.evidenceId],
+    limitations
+  };
+  return {
+    result: {
+      tool: IDENTITY5.tool,
+      status,
+      command: evidence.command,
+      summary,
+      evidenceId: IDENTITY5.evidenceId,
+      findings,
+      limitations
+    },
+    evidence: [evidence],
+    findings,
+    adapterResult
+  };
+}
+
 // ../analyzer/src/coverage-report.ts
 var COVERAGE_REPORT_DIRECTORY = ".governance/evidence/lcov";
-var IDENTITY5 = {
+var IDENTITY6 = {
   tool: "lcov-coverage",
   adapterId: "lcov-coverage",
   adapterVersion: "0.1.0",
   evidenceId: "EVD-COVERAGE-REPORT",
   evidenceSource: "lcov-report-adapter"
 };
-var MAX_REPORTS = 50;
+var MAX_REPORTS2 = 50;
 var emptyFile = () => ({ lines: /* @__PURE__ */ new Map(), branches: { found: 0, hit: 0 }, functions: { found: 0, hit: 0 } });
 var whole = (value) => /^\d+$/.test(value) ? Number(value) : void 0;
 var better = (a, b) => b.hit > a.hit || b.hit === a.hit && b.found > a.found ? b : a;
@@ -12778,7 +12922,7 @@ var percent = (c) => `${(c.hit / c.found * 100).toFixed(1)}% (${c.hit} of ${c.fo
 function runCoverageReportAdapter(snapshot) {
   const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${COVERAGE_REPORT_DIRECTORY}/`) && /\.(info|lcov)$/i.test(file)).sort();
   if (reportFiles.length === 0) return void 0;
-  const selected = reportFiles.slice(0, MAX_REPORTS);
+  const selected = reportFiles.slice(0, MAX_REPORTS2);
   const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
   const malformed = [];
   const merged = /* @__PURE__ */ new Map();
@@ -12798,12 +12942,12 @@ function runCoverageReportAdapter(snapshot) {
     branches = { found: branches.found + file.branches.found, hit: branches.hit + file.branches.hit };
     functions = { found: functions.found + file.functions.found, hit: functions.hit + file.functions.hit };
   }
-  const truncated = reportFiles.length > MAX_REPORTS;
+  const truncated = reportFiles.length > MAX_REPORTS2;
   const limitations = [
     "Coverage is a diagnostic signal, not proof of quality (QA-008 section 24). No threshold is applied, so this never passes or fails. Only LCOV is read. The report is taken as supplied and nothing binds it to the commit being assessed.",
     ...malformed.length ? [`Not a usable LCOV report: ${malformed.slice(0, 5).join("; ")}.`] : [],
     ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
-    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS} were read.`] : []
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS2} were read.`] : []
   ];
   const status = malformed.length > 0 ? "ERROR" : lines.found === 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : "WARN";
   const detail = [
@@ -12813,28 +12957,28 @@ function runCoverageReportAdapter(snapshot) {
   ].join(", ");
   const summary = status === "ERROR" ? `Coverage could not be trusted: ${malformed.length} report(s) are not usable LCOV.` : status === "UNVERIFIED" && lines.found === 0 ? "The coverage reports measured no executable lines, so nothing was verified." : `Coverage across ${merged.size} file(s): ${detail}. Diagnostic only.${status === "UNVERIFIED" ? " Some reports were not read, so the figures are incomplete." : ""}`;
   const evidence = {
-    id: IDENTITY5.evidenceId,
+    id: IDENTITY6.evidenceId,
     type: "E3_AUTOMATED_ANALYSIS",
     status: evidenceStatusForResult(status),
     result_status: status,
     description: summary,
-    source: IDENTITY5.evidenceSource,
+    source: IDENTITY6.evidenceSource,
     freshness: "unknown",
     supports_controls: [],
     command: [`<read ${COVERAGE_REPORT_DIRECTORY}/*.info>`]
   };
   const adapterResult = {
-    adapterId: IDENTITY5.adapterId,
-    version: IDENTITY5.adapterVersion,
+    adapterId: IDENTITY6.adapterId,
+    version: IDENTITY6.adapterVersion,
     executionStatus: status === "ERROR" ? "FAILED" : status === "UNVERIFIED" ? "PARTIAL" : "SUCCESS",
     // Deliberately none: a control cannot be bound to a diagnostic measurement (see the header).
     supportedCapabilities: [],
     unsupportedCapabilities: [],
-    evidenceRefs: [IDENTITY5.evidenceId],
+    evidenceRefs: [IDENTITY6.evidenceId],
     limitations
   };
   return {
-    result: { tool: IDENTITY5.tool, status, command: evidence.command, summary, evidenceId: IDENTITY5.evidenceId, findings: [], limitations },
+    result: { tool: IDENTITY6.tool, status, command: evidence.command, summary, evidenceId: IDENTITY6.evidenceId, findings: [], limitations },
     evidence: [evidence],
     findings: [],
     adapterResult
@@ -12843,7 +12987,7 @@ function runCoverageReportAdapter(snapshot) {
 
 // ../analyzer/src/lint-report.ts
 var LINT_REPORT_DIRECTORY = ".governance/evidence/lint";
-var IDENTITY6 = {
+var IDENTITY7 = {
   tool: "sarif-lint",
   adapterId: "sarif-lint-results",
   adapterVersion: "0.1.0",
@@ -12851,9 +12995,9 @@ var IDENTITY6 = {
   evidenceId: "EVD-LINT-RESULTS",
   evidenceSource: "sarif-lint-adapter"
 };
-var MAX_REPORTS2 = 50;
-var MAX_FINDINGS2 = 50;
-var isRecord3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var MAX_REPORTS3 = 50;
+var MAX_FINDINGS3 = 50;
+var isRecord4 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function levelOf(value) {
   if (value === "error") return "error";
   if (value === "note" || value === "none") return "note";
@@ -12879,29 +13023,29 @@ function parseSarif(text, rootPath = "") {
   } catch {
     return void 0;
   }
-  if (!isRecord3(document) || !Array.isArray(document.runs) || !String(document.version ?? "").startsWith("2.1")) return void 0;
+  if (!isRecord4(document) || !Array.isArray(document.runs) || !String(document.version ?? "").startsWith("2.1")) return void 0;
   const parsed = { results: [], runs: 0, incompleteRuns: 0, suppressed: 0, endTimes: [], runsWithoutEndTime: 0 };
   for (const run2 of document.runs) {
-    if (!isRecord3(run2)) return void 0;
+    if (!isRecord4(run2)) return void 0;
     parsed.runs += 1;
-    const driver = isRecord3(run2.tool) && isRecord3(run2.tool.driver) ? run2.tool.driver : void 0;
+    const driver = isRecord4(run2.tool) && isRecord4(run2.tool.driver) ? run2.tool.driver : void 0;
     const tool = typeof driver?.name === "string" && driver.name ? driver.name : void 0;
-    const invocations = Array.isArray(run2.invocations) ? run2.invocations.filter(isRecord3) : [];
+    const invocations = Array.isArray(run2.invocations) ? run2.invocations.filter(isRecord4) : [];
     if (!tool || invocations.some((invocation) => invocation.executionSuccessful === false)) parsed.incompleteRuns += 1;
     const endTimes = invocations.map((invocation) => Date.parse(String(invocation.endTimeUtc ?? ""))).filter(Number.isFinite);
     if (endTimes.length > 0 && endTimes.length === invocations.length) parsed.endTimes.push(...endTimes);
     else parsed.runsWithoutEndTime += 1;
     for (const result of Array.isArray(run2.results) ? run2.results : []) {
-      if (!isRecord3(result)) return void 0;
+      if (!isRecord4(result)) return void 0;
       if (Array.isArray(result.suppressions) && result.suppressions.length > 0) parsed.suppressed += 1;
-      const physical = Array.isArray(result.locations) && isRecord3(result.locations[0]) && isRecord3(result.locations[0].physicalLocation) ? result.locations[0].physicalLocation : void 0;
-      const uri = isRecord3(physical?.artifactLocation) && typeof physical.artifactLocation.uri === "string" ? physical.artifactLocation.uri : "";
-      const line = isRecord3(physical?.region) && typeof physical.region.startLine === "number" ? physical.region.startLine : void 0;
+      const physical = Array.isArray(result.locations) && isRecord4(result.locations[0]) && isRecord4(result.locations[0].physicalLocation) ? result.locations[0].physicalLocation : void 0;
+      const uri = isRecord4(physical?.artifactLocation) && typeof physical.artifactLocation.uri === "string" ? physical.artifactLocation.uri : "";
+      const line = isRecord4(physical?.region) && typeof physical.region.startLine === "number" ? physical.region.startLine : void 0;
       parsed.results.push({
         tool: tool ?? "unnamed tool",
         rule: typeof result.ruleId === "string" && result.ruleId ? result.ruleId : "(no rule id)",
         level: levelOf(result.level),
-        message: isRecord3(result.message) && typeof result.message.text === "string" ? result.message.text : "",
+        message: isRecord4(result.message) && typeof result.message.text === "string" ? result.message.text : "",
         file: uri ? relativeFile(uri, rootPath) : "(unknown file)",
         line
       });
@@ -12913,7 +13057,7 @@ var severityFor2 = (level) => level === "error" ? "P2" : "P3";
 function runLintReportAdapter(snapshot) {
   const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${LINT_REPORT_DIRECTORY}/`) && /\.sarif(\.json)?$/i.test(file)).sort();
   if (reportFiles.length === 0) return void 0;
-  const selected = reportFiles.slice(0, MAX_REPORTS2);
+  const selected = reportFiles.slice(0, MAX_REPORTS3);
   const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
   const malformed = [];
   const results = [];
@@ -12940,12 +13084,12 @@ function runLintReportAdapter(snapshot) {
   const errors = results.filter((item) => item.level === "error");
   const warnings = results.filter((item) => item.level === "warning");
   const notes = results.length - errors.length - warnings.length;
-  const truncated = reportFiles.length > MAX_REPORTS2;
+  const truncated = reportFiles.length > MAX_REPORTS3;
   const limitations = [
     "Only SARIF 2.1 is read. The report is taken as supplied: nothing binds it to the commit being assessed, and it does not say which files the linter checked, so a clean report from an empty file set looks the same as a clean report from a whole repository.",
     ...malformed.length ? [`Not a SARIF 2.1 report: ${malformed.slice(0, 10).join(", ")}.`] : [],
     ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
-    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS2} were read.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS3} were read.`] : [],
     ...incompleteRuns ? [`${incompleteRuns} run(s) named no tool or declared they did not finish, so their results may be incomplete.`] : [],
     ...suppressed ? [`${suppressed} result(s) are marked suppressed in the report and are still counted: a suppression is not a waiver (ADR-0001).`] : [],
     ...missingEndTime ? ["A run declared no end time, so the evidence has no generation time and fails any maximum-age limit."] : []
@@ -12954,29 +13098,29 @@ function runLintReportAdapter(snapshot) {
   const tool = [...new Set(results.map((item) => item.tool))];
   const tally = `${results.length} lint result(s) in ${selected.length - malformed.length - notIngested.length} report(s): ${errors.length} error, ${warnings.length} warning, ${notes} note not reported`;
   const summary = status === "ERROR" ? `Lint results could not be trusted: ${malformed.length} report(s) are not SARIF 2.1.` : status === "UNVERIFIED" && runs === 0 ? "The lint reports contain no runs, so nothing was verified." : `Lint results${tool.length ? ` (${tool.join(", ")})` : ""}: ${tally}.${status === "UNVERIFIED" ? " The result is incomplete." : ""}`;
-  const findings = [...errors, ...warnings].slice(0, MAX_FINDINGS2).map((item) => ({
+  const findings = [...errors, ...warnings].slice(0, MAX_FINDINGS3).map((item) => ({
     id: `FND-LINT-${stableId3(`${item.file}:${item.line ?? 0}:${item.rule}:${item.message}`)}`,
     rule_id: `LINT-${item.rule}`,
     severity: severityFor2(item.level),
     category: "code-quality",
     message: `${item.tool} ${item.rule}: ${item.message}`.replace(/\s+/g, " ").trim().slice(0, 300),
     status: "OPEN",
-    evidence_refs: [IDENTITY6.evidenceId],
+    evidence_refs: [IDENTITY7.evidenceId],
     source_location: { file: item.file, ...item.line !== void 0 ? { start_line: item.line } : {} },
     confidence: 0.9,
     remediation: "Fix the reported code and regenerate the lint report. Disabling the rule or suppressing the result is not accepted as a fix; record a waiver as an exception."
   }));
-  if (errors.length + warnings.length > MAX_FINDINGS2) {
-    limitations.push(`${errors.length + warnings.length} results were reportable; findings were raised for the first ${MAX_FINDINGS2}.`);
+  if (errors.length + warnings.length > MAX_FINDINGS3) {
+    limitations.push(`${errors.length + warnings.length} results were reportable; findings were raised for the first ${MAX_FINDINGS3}.`);
   }
   const oldest = !missingEndTime && endTimes.length > 0 ? new Date(Math.min(...endTimes)).toISOString() : void 0;
   const evidence = {
-    id: IDENTITY6.evidenceId,
+    id: IDENTITY7.evidenceId,
     type: "E3_AUTOMATED_ANALYSIS",
     status: evidenceStatusForResult(status),
     result_status: status,
     description: summary,
-    source: IDENTITY6.evidenceSource,
+    source: IDENTITY7.evidenceSource,
     freshness: oldest ? "current" : "unknown",
     supports_controls: [],
     ...oldest ? { generated_at: oldest } : {},
@@ -12984,21 +13128,21 @@ function runLintReportAdapter(snapshot) {
   };
   const completed = status === "PASS" || status === "WARN" || status === "FAIL";
   const adapterResult = {
-    adapterId: IDENTITY6.adapterId,
-    version: IDENTITY6.adapterVersion,
+    adapterId: IDENTITY7.adapterId,
+    version: IDENTITY7.adapterVersion,
     executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
-    supportedCapabilities: completed ? [IDENTITY6.capability] : [],
-    unsupportedCapabilities: completed ? [] : [IDENTITY6.capability],
-    evidenceRefs: [IDENTITY6.evidenceId],
+    supportedCapabilities: completed ? [IDENTITY7.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY7.capability],
+    evidenceRefs: [IDENTITY7.evidenceId],
     limitations
   };
   return {
     result: {
-      tool: IDENTITY6.tool,
+      tool: IDENTITY7.tool,
       status,
       command: evidence.command,
       summary,
-      evidenceId: IDENTITY6.evidenceId,
+      evidenceId: IDENTITY7.evidenceId,
       findings,
       limitations
     },
@@ -13010,7 +13154,7 @@ function runLintReportAdapter(snapshot) {
 
 // ../analyzer/src/test-report.ts
 var TEST_REPORT_DIRECTORY = ".governance/evidence/tests";
-var IDENTITY7 = {
+var IDENTITY8 = {
   tool: "junit-test-results",
   adapterId: "junit-test-results",
   adapterVersion: "0.1.0",
@@ -13018,8 +13162,8 @@ var IDENTITY7 = {
   evidenceId: "EVD-TEST-RESULTS",
   evidenceSource: "junit-report-adapter"
 };
-var MAX_REPORTS3 = 50;
-var MAX_FINDINGS3 = 50;
+var MAX_REPORTS4 = 50;
+var MAX_FINDINGS4 = 50;
 var decode = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
 function attributes(raw) {
   const result = {};
@@ -13068,7 +13212,7 @@ function parseJunit(xml) {
 function runTestReportAdapter(snapshot) {
   const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${TEST_REPORT_DIRECTORY}/`) && file.toLowerCase().endsWith(".xml")).sort();
   if (reportFiles.length === 0) return void 0;
-  const selected = reportFiles.slice(0, MAX_REPORTS3);
+  const selected = reportFiles.slice(0, MAX_REPORTS4);
   const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
   const malformed = [];
   const failed = [];
@@ -13090,38 +13234,38 @@ function runTestReportAdapter(snapshot) {
     timestamps.push(...report.timestamps);
     if (report.hasSuiteTimestampGap || report.timestamps.length === 0) missingTimestamp = true;
   }
-  const truncated = reportFiles.length > MAX_REPORTS3;
+  const truncated = reportFiles.length > MAX_REPORTS4;
   const limitations = [
     "Only JUnit XML is read. The report is taken as supplied: nothing binds it to the commit being assessed, so it shows that a test run happened, not that it ran against this code.",
     ...malformed.length ? [`Not a JUnit report: ${malformed.slice(0, 10).join(", ")}.`] : [],
     ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
-    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS3} were read.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS4} were read.`] : [],
     ...missingTimestamp ? ["A suite declared no valid timestamp, so the evidence has no generation time and fails any maximum-age limit."] : []
   ];
   const status = failed.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : tests === 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : skipped > 0 ? "WARN" : "PASS";
   const tally = `${tests} test(s) in ${selected.length - malformed.length - notIngested.length} report(s): ${failed.length} failed, ${skipped} skipped`;
   const summary = status === "ERROR" ? `Test results could not be trusted: ${malformed.length} report(s) are not JUnit XML.` : status === "UNVERIFIED" && tests === 0 ? "The test reports contain no test cases, so nothing was verified." : `JUnit test results: ${tally}.${status === "UNVERIFIED" ? " Some reports were not read, so the result is incomplete." : ""}`;
-  const findings = failed.slice(0, MAX_FINDINGS3).map((item) => ({
+  const findings = failed.slice(0, MAX_FINDINGS4).map((item) => ({
     id: `FND-TEST-${stableId3(`${item.file}:${item.name}`)}`,
     rule_id: "TEST-FAILURE",
     severity: "P1",
     category: "testing",
     message: `Test failed: ${item.name}${item.message ? ` - ${item.message}` : ""}`.replace(/\s+/g, " ").trim().slice(0, 300),
     status: "OPEN",
-    evidence_refs: [IDENTITY7.evidenceId],
+    evidence_refs: [IDENTITY8.evidenceId],
     source_location: { file: item.file },
     confidence: 0.95,
     remediation: "Fix the failing test or the code it covers and regenerate the test report. A skipped or deleted test is not accepted as a fix."
   }));
-  if (failed.length > MAX_FINDINGS3) limitations.push(`${failed.length} tests failed; findings were raised for the first ${MAX_FINDINGS3}.`);
+  if (failed.length > MAX_FINDINGS4) limitations.push(`${failed.length} tests failed; findings were raised for the first ${MAX_FINDINGS4}.`);
   const oldest = !missingTimestamp && timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : void 0;
   const evidence = {
-    id: IDENTITY7.evidenceId,
+    id: IDENTITY8.evidenceId,
     type: "E1_DIRECT_VERIFICATION",
     status: evidenceStatusForResult(status),
     result_status: status,
     description: summary,
-    source: IDENTITY7.evidenceSource,
+    source: IDENTITY8.evidenceSource,
     freshness: oldest ? "current" : "unknown",
     supports_controls: [],
     ...oldest ? { generated_at: oldest } : {},
@@ -13129,21 +13273,21 @@ function runTestReportAdapter(snapshot) {
   };
   const completed = status === "PASS" || status === "WARN" || status === "FAIL";
   const adapterResult = {
-    adapterId: IDENTITY7.adapterId,
-    version: IDENTITY7.adapterVersion,
+    adapterId: IDENTITY8.adapterId,
+    version: IDENTITY8.adapterVersion,
     executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
-    supportedCapabilities: completed ? [IDENTITY7.capability] : [],
-    unsupportedCapabilities: completed ? [] : [IDENTITY7.capability],
-    evidenceRefs: [IDENTITY7.evidenceId],
+    supportedCapabilities: completed ? [IDENTITY8.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY8.capability],
+    evidenceRefs: [IDENTITY8.evidenceId],
     limitations
   };
   return {
     result: {
-      tool: IDENTITY7.tool,
+      tool: IDENTITY8.tool,
       status,
       command: evidence.command,
       summary,
-      evidenceId: IDENTITY7.evidenceId,
+      evidenceId: IDENTITY8.evidenceId,
       findings,
       limitations
     },
@@ -13533,7 +13677,7 @@ async function runVerificationAdapters(snapshot, runner) {
       }
     }
   }
-  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter, runCiStatusAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);
@@ -15017,7 +15161,7 @@ async function loadRepositorySnapshot(rootPath, fs, changedFiles = [], changeSco
   const sourcePaths = files.filter((file) => sourceExtensions4.has(path4.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/evidence/lcov/") && /\.(info|lcov)$/i.test(file) || file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file) || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
+  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/evidence/lcov/") && /\.(info|lcov)$/i.test(file) || file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file) || file.startsWith(".governance/evidence/ci/") && file.toLowerCase().endsWith(".json") || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
   const contentPaths = [.../* @__PURE__ */ new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents = {};
   const contentLimitations = [];
@@ -15856,6 +16000,17 @@ var nodeGitCommandRunner = {
     });
   }
 };
+async function loadHeadCommit(repositoryRoot, runner = nodeGitCommandRunner) {
+  try {
+    const head = await runner.run(["rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"], repositoryRoot, GIT_TIMEOUT_MS2);
+    const commit = head.stdout.trim();
+    if (head.exitCode !== 0 || !/^[0-9a-f]{40}([0-9a-f]{24})?$/i.test(commit)) return void 0;
+    const status = await runner.run(["status", "--porcelain", "--untracked-files=no"], repositoryRoot, GIT_TIMEOUT_MS2);
+    return status.exitCode === 0 && status.stdout.trim() === "" ? commit.toLowerCase() : void 0;
+  } catch {
+    return void 0;
+  }
+}
 function unverifiedScope(baseRef, reason) {
   return { status: "UNVERIFIED", baseRef, files: [], reason };
 }
@@ -17491,12 +17646,14 @@ async function runCli(argv) {
       return 0;
     }
     const changeScope = args.baseRef ? await loadGitChangeScope(args.repositoryPath, args.baseRef) : void 0;
-    const snapshot = await loadRepositorySnapshot(
+    const loadedSnapshot = await loadRepositorySnapshot(
       args.repositoryPath,
       nodeFileSystem,
       changeScope?.files ?? [],
       changeScope
     );
+    const headCommit = await loadHeadCommit(args.repositoryPath);
+    const snapshot = headCommit ? { ...loadedSnapshot, headCommit } : loadedSnapshot;
     if (args.command === "analyze") {
       const architectureProfile2 = args.profilePath ? await loadArchitectureProfile(args.repositoryPath, args.profilePath, nodeFileSystem) : void 0;
       const result2 = await runRepositoryAnalysisCommand(
@@ -17571,6 +17728,7 @@ export {
   loadControlCatalog,
   loadGitChangeScope,
   loadGovernancePack,
+  loadHeadCommit,
   loadProjectRegistry,
   loadRepositorySnapshot,
   nodeFileSystem,

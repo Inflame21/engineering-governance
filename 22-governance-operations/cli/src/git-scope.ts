@@ -53,6 +53,26 @@ export const nodeGitCommandRunner: GitCommandRunner = {
   },
 };
 
+/**
+ * The commit a check assesses: HEAD, but only when no tracked file differs from it. With local edits the
+ * code being assessed is not the commit, so no commit is named. Untracked files are ignored, because the
+ * evidence files CI writes are untracked.
+ */
+export async function loadHeadCommit(
+  repositoryRoot: string,
+  runner: GitCommandRunner = nodeGitCommandRunner,
+): Promise<string | undefined> {
+  try {
+    const head = await runner.run(["rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"], repositoryRoot, GIT_TIMEOUT_MS);
+    const commit = head.stdout.trim();
+    if (head.exitCode !== 0 || !/^[0-9a-f]{40}([0-9a-f]{24})?$/i.test(commit)) return undefined;
+    const status = await runner.run(["status", "--porcelain", "--untracked-files=no"], repositoryRoot, GIT_TIMEOUT_MS);
+    return status.exitCode === 0 && status.stdout.trim() === "" ? commit.toLowerCase() : undefined;
+  } catch {
+    return undefined; // no git, or it timed out: the commit is simply unknown
+  }
+}
+
 function unverifiedScope(baseRef: string, reason: string): RepositoryChangeScope {
   return { status: "UNVERIFIED", baseRef, files: [], reason };
 }

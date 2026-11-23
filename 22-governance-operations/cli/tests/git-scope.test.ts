@@ -1,8 +1,9 @@
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadGitChangeScope, type GitCommandRunner } from "../src/git-scope.js";
+import { loadGitChangeScope, loadHeadCommit, type GitCommandRunner } from "../src/git-scope.js";
 
 const roots: string[] = [];
 async function createRoot(): Promise<string> {
@@ -74,5 +75,48 @@ describe("Git change-scope adapter", () => {
 
     expect(result.status).toBe("UNVERIFIED");
     expect(result.reason).toContain("Git top-level directory");
+  });
+});
+
+describe("assessed commit", () => {
+  const SHA = "0123456789abcdef0123456789abcdef01234567";
+  const fake = (head: { exitCode: number; stdout: string }, status: { exitCode: number; stdout: string }): GitCommandRunner => ({
+    async run(args) {
+      const out = args[0] === "status" ? status : head;
+      return { ...out, stderr: "" };
+    },
+  });
+
+  it("names HEAD when no tracked file is modified", async () => {
+    expect(await loadHeadCommit("/repo", fake({ exitCode: 0, stdout: `${SHA.toUpperCase()}\n` }, { exitCode: 0, stdout: "" }))).toBe(SHA);
+  });
+
+  it("names no commit when tracked files are modified, Git fails, or the output is not a commit id", async () => {
+    expect(await loadHeadCommit("/repo", fake({ exitCode: 0, stdout: `${SHA}\n` }, { exitCode: 0, stdout: " M src/a.ts\n" }))).toBeUndefined();
+    expect(await loadHeadCommit("/repo", fake({ exitCode: 128, stdout: "" }, { exitCode: 0, stdout: "" }))).toBeUndefined();
+    expect(await loadHeadCommit("/repo", fake({ exitCode: 0, stdout: "head-sha\n" }, { exitCode: 0, stdout: "" }))).toBeUndefined();
+    expect(await loadHeadCommit("/repo", fake({ exitCode: 0, stdout: `${SHA}\n` }, { exitCode: 128, stdout: "" }))).toBeUndefined();
+    expect(await loadHeadCommit("/repo", { async run() { throw new Error("git is not installed"); } })).toBeUndefined();
+  });
+
+  it("works against a real repository: modified tracked files hide the commit, untracked files (CI's evidence) do not", async () => {
+    const root = await createRoot();
+    const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", ...args], { cwd: root, encoding: "utf8" });
+    git("init", "-q");
+    await writeFile(path.join(root, "a.txt"), "one\n");
+    git("add", "a.txt");
+    git("commit", "-q", "-m", "first");
+    const commit = git("rev-parse", "HEAD").trim();
+
+    expect(await loadHeadCommit(root)).toBe(commit);
+    await mkdir(path.join(root, ".governance", "evidence", "ci"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "evidence", "ci", "runs.json"), "{}");
+    expect(await loadHeadCommit(root)).toBe(commit);
+    await writeFile(path.join(root, "a.txt"), "two\n");
+    expect(await loadHeadCommit(root)).toBeUndefined();
+  });
+
+  it("names no commit outside a Git repository", async () => {
+    expect(await loadHeadCommit(await createRoot())).toBeUndefined();
   });
 });

@@ -18,7 +18,7 @@ import { nodeVerificationToolRunner } from "./verification-runner.js";
 import { discoverRepositories, formatDiscovery } from "./discover.js";
 import { formatSummaryMarkdown, summarizeRepository, writeDatedReport, writeSummary } from "./summary.js";
 import { formatInitResult, initializeGovernancePack } from "./init.js";
-import { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
+import { loadGitChangeScope, loadHeadCommit, nodeGitCommandRunner } from "./git-scope.js";
 import { analyzeRepository } from "../../analyzer/src/pipeline.js";
 import { ARCHITECTURE_CATALOG, adviseArchitecture, formatAdvice, formatCatalog } from "./architecture-advice.js";
 import { approveException, exceptionRows, expireExceptions, formatExceptionRows, gpgSignaturePort, parseExpiry, renewException, requestException, signApproval, verifyApprovals, writePack, type ExceptionRow } from "./exceptions.js";
@@ -28,7 +28,7 @@ import { assessmentFacts, diffAssessments, formatDiff, formatHistory, nodeHistor
 export { formatHumanResult, formatJsonResult, formatAnalysisResult } from "./output.js";
 export { loadArchitectureProfile, loadAuthorityPolicy, loadControlCatalog, loadGovernancePack, loadProjectRegistry } from "./config.js";
 export { loadRepositorySnapshot, nodeFileSystem } from "./filesystem.js";
-export { loadGitChangeScope, nodeGitCommandRunner } from "./git-scope.js";
+export { loadGitChangeScope, loadHeadCommit, nodeGitCommandRunner } from "./git-scope.js";
 export { runAnalyzeCommand, runGovernanceCommand, runRepositoryAnalysisCommand } from "./commands.js";
 
 const VERSION = "0.12.0";
@@ -490,12 +490,14 @@ export async function runCli(argv: string[]): Promise<number> {
     const changeScope = args.baseRef
       ? await loadGitChangeScope(args.repositoryPath, args.baseRef)
       : undefined;
-    const snapshot = await loadRepositorySnapshot(
+    const loadedSnapshot = await loadRepositorySnapshot(
       args.repositoryPath,
       nodeFileSystem,
       changeScope?.files ?? [],
       changeScope,
     );
+    const headCommit = await loadHeadCommit(args.repositoryPath);
+    const snapshot = headCommit ? { ...loadedSnapshot, headCommit } : loadedSnapshot;
 
     if (args.command === "analyze") {
       const architectureProfile = args.profilePath

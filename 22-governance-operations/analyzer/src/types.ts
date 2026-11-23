@@ -21,6 +21,8 @@ export interface RepositorySnapshot {
   fileContents?: Readonly<Record<string, string>>;
   contentLimitations?: readonly string[];
   changeScope?: RepositoryChangeScope;
+  /** Full commit sha of HEAD, set only when HEAD resolves and no tracked file is modified, so it names the code assessed. */
+  headCommit?: string;
 }
 
 export interface RepositoryPackageFacts {
