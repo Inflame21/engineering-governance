@@ -151,7 +151,7 @@ Status uses the vocabulary in the [master implementation plan](22-governance-ope
 1. **Governance Model** — machine-readable policy objects (`TEST_VERIFIED`)
 2. **Rule Engine** — determine which controls apply to a change and derive deterministic decisions (`TEST_VERIFIED`)
 3. **Repository Analyzer** — detect languages/frameworks and normalize implementation evidence (`TEST_VERIFIED`)
-4. **Governance CLI** — `check`, `validate`, `report` and `analyze` with stable exit codes (`RUNTIME_VERIFIED`)
+4. **Governance CLI** — `check`, `validate`, `report`, `analyze` and the other commands in the [command reference](#command-reference), with stable exit codes (`RUNTIME_VERIFIED`)
 5. **CI Enforcement** — block unsafe changes automatically (`IMPLEMENTED`: this repository's CI plus a reusable workflow other repositories can call, see [templates](22-governance-operations/templates/README.md); not yet adopted by another repository)
 6. **AI Context Generator** — produce task-specific governance context (`PLANNED`)
 7. **Governance UI** — visualize risk, evidence, debt, exceptions, and readiness (`PLANNED`)
@@ -354,8 +354,8 @@ engineering-governance/
 The standards layer is intentionally frozen at GOV-023 while the framework moves into executable governance. Role naming uses the Lead Software Governance Engineer (LSGE).
 
 **Current baseline:** GOV-023 standards plus the executable governance platform on `main`
-**Implemented:** deterministic, fail-closed control evaluation; schema-validated governance packs; repository analysis for TypeScript/JavaScript and Python; architecture-boundary verification; a runnable CLI (`check`, `validate`, `report`, `analyze`); and CI for the governance packages
-**Not yet done:** registered projects (the registry schema and validation exist, but it is empty), an approved control catalog (a draft of 39 controls exists, none enforced), approved approver-authority roles with named holders (the model exists, all roles are draft), security scanners (adapters for dependencies, secrets and static analysis exist but have not run against real tool output, and no Semgrep rule set exists), adoption of the reusable CI workflow by another repository, and a pilot on real projects
+**Implemented:** deterministic, fail-closed control evaluation; schema-validated governance packs; repository analysis for TypeScript/JavaScript, Python and Go (Go has no route, database or event detection yet, DEBT-GOV-025); architecture-boundary verification; a runnable CLI (see the [command reference](#command-reference)); and CI for the governance packages
+**Not yet done:** registered projects (the registry schema and validation exist, but it is empty), an approved control catalog (a draft of 39 controls exists, none enforced), approved approver-authority roles with named holders (the model exists, all roles are draft), security scanners (the dependency, secret and static-analysis adapters replay output captured from the real tools, but only on tiny fixtures, and no Semgrep rule set exists, DEBT-GOV-010), adoption of the reusable CI workflow by another repository, and a pilot on real projects
 **Direction:** a draft operating blueprint in [docs/](docs/engineering-governance-operating-blueprint.md) proposes the next steps. It is pending leadership approval and is not policy.
 **Detail:** see the status table in the [master implementation plan](22-governance-operations/MASTER-IMPLEMENTATION-PLAN.md) and the [debt register](22-governance-operations/KNOWN-DEBT.md).
 

@@ -50,7 +50,7 @@ Use short conventional-style subjects (`fix(engine): ...`, `docs: ...`, `build: 
 
 ## License of contributions
 
-By submitting a contribution you agree to section 8 of the [LICENSE](LICENSE): you grant the maintainer a perpetual, irrevocable license to use, modify and distribute it as part of the project, and you confirm you have the right to do so. Do not submit code or text you cannot license this way, including AI output you have not reviewed.
+The project is released under the [PolyForm Shield License 1.0.0](LICENSE), which has no contributor-grant clause, so the grant is made here. By submitting a contribution (a pull request, patch or other change) you grant the maintainer a perpetual, worldwide, irrevocable, royalty-free license to use, modify, sublicense and distribute it as part of the project, under the project's license or any later license the maintainer chooses. You keep your copyright. You also confirm you wrote it or have the right to submit it under these terms. Do not submit code or text you cannot license this way, including AI output you have not reviewed.
 
 ## Reporting security issues
 
