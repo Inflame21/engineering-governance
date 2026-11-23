@@ -1,0 +1,2 @@
+CommandError: Conflicting migrations detected; multiple leaf nodes in the migration graph: (0002_a, 0002_b, 0002_item_price_item_sku in shop).
+To fix them run 'python manage.py makemigrations --merge'

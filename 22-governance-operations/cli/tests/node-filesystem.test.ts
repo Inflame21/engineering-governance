@@ -76,6 +76,18 @@ describe("Node filesystem adapter", () => {
     expect(Object.keys(snapshot.fileContents ?? {})).toEqual([".governance/evidence/ci/runs.json"]);
   });
 
+  it("ingests migration check output from a real disk, so the collector can see it", async () => {
+    const root = await createRoot();
+    await mkdir(path.join(root, ".governance", "evidence", "migrations"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "evidence", "migrations", "django.txt"), "No changes detected\n");
+    await writeFile(path.join(root, ".governance", "evidence", "migrations", "alembic.log"), "0001 (head)\n");
+    await writeFile(path.join(root, ".governance", "evidence", "migrations", "notes.md"), "not a report");
+
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
+    expect(Object.keys(snapshot.fileContents ?? {}).sort())
+      .toEqual([".governance/evidence/migrations/alembic.log", ".governance/evidence/migrations/django.txt"]);
+  });
+
   it("walks regular files deterministically and ignores generated directories", async () => {
     const root = await createRoot();
     await mkdir(path.join(root, "src"), { recursive: true });

@@ -13152,9 +13152,110 @@ function runLintReportAdapter(snapshot) {
   };
 }
 
+// ../analyzer/src/migration-check.ts
+var MIGRATION_REPORT_DIRECTORY = ".governance/evidence/migrations";
+var IDENTITY8 = {
+  tool: "migration-check",
+  adapterId: "migration-check",
+  adapterVersion: "0.1.0",
+  capability: "verification:migration-consistency",
+  evidenceId: "EVD-MIGRATION-CHECK",
+  evidenceSource: "migration-check-adapter"
+};
+var MAX_REPORTS4 = 20;
+function parseMigrationOutput(raw) {
+  const text = raw.replace(/^﻿/, "").replace(/\r\n/g, "\n");
+  const conflict = /^(?:CommandError: )?(Conflicting migrations detected[^\n]*)/m.exec(text);
+  if (conflict) return { kind: "conflict", detail: conflict[1] };
+  const heads = [...text.matchAll(/^\s*([\w.-]+) \(head\)\s*$/gm)].map((match) => match[1]);
+  if (heads.length > 1) return { kind: "conflict", detail: `Alembic has ${heads.length} heads: ${heads.join(", ")}` };
+  const lines = text.split("\n");
+  const first = lines.findIndex((line) => /^Migrations for '[^']+':\s*$/.test(line));
+  if (first >= 0) {
+    const block = lines.slice(first).filter((line) => /^Migrations for '/.test(line) || /^\s+\S/.test(line)).map((line) => line.trim());
+    return { kind: "pending", detail: `Django: ${block.join("; ")}` };
+  }
+  const alembicPending = /^FAILED: (New upgrade operations detected[^\n]*)/m.exec(text);
+  if (alembicPending) return { kind: "pending", detail: `Alembic: ${alembicPending[1]}` };
+  const notRun = /^FAILED: (Target database is not up to date[^\n]*)/m.exec(text);
+  if (notRun) return { kind: "not-run", detail: notRun[1] };
+  if (/^No changes detected\s*$/m.test(text) || /^No new upgrade operations detected\./m.test(text) || heads.length === 1) return { kind: "clean" };
+  return void 0;
+}
+function runMigrationCheckAdapter(snapshot) {
+  const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${MIGRATION_REPORT_DIRECTORY}/`) && /\.(txt|log)$/i.test(file)).sort();
+  if (reportFiles.length === 0) return void 0;
+  const selected = reportFiles.slice(0, MAX_REPORTS4);
+  const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
+  const malformed = [];
+  const notRun = [];
+  const failed = [];
+  let clean = 0;
+  for (const file of selected) {
+    const content = snapshot.fileContents?.[file];
+    if (content === void 0) continue;
+    const outcome = parseMigrationOutput(content);
+    if (!outcome) malformed.push(file);
+    else if (outcome.kind === "clean") clean += 1;
+    else if (outcome.kind === "not-run") notRun.push(file);
+    else failed.push({ file, kind: outcome.kind, detail: outcome.detail });
+  }
+  const truncated = reportFiles.length > MAX_REPORTS4;
+  const limitations = [
+    "Only the saved text of Django makemigrations and Alembic check or heads is read, and it is taken as supplied: a file cannot prove which commit or database it came from, and it has no time, so it cannot satisfy a control with a maximum evidence age.",
+    "A pass means the migration files match the models and form one history. It does not show that the migrations run, are safe on production data, or can be rolled back.",
+    ...malformed.length ? [`Not recognised as migration check output: ${malformed.slice(0, 10).join(", ")}.`] : [],
+    ...notRun.length ? [`The check did not run (the database is not at the latest revision): ${notRun.slice(0, 10).join(", ")}.`] : [],
+    ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} files; only the first ${MAX_REPORTS4} were read.`] : []
+  ];
+  const status = failed.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : clean === 0 || notRun.length > 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : "PASS";
+  const tally = `${clean} clean, ${failed.length} failed, ${notRun.length} not run`;
+  const summary = status === "ERROR" ? `Migration check could not be trusted: ${malformed.length} file(s) are not recognised check output.` : `Migration check: ${tally}.`;
+  const findings = failed.map(({ file, kind, detail }) => ({
+    id: `FND-MIG-${stableId3(`${file}:${kind}:${detail}`)}`,
+    rule_id: kind === "conflict" ? "MIGRATION-CONFLICT" : "MIGRATION-PENDING",
+    severity: "P1",
+    category: "database",
+    message: `${kind === "conflict" ? "Migration history has more than one head" : "Models changed without a migration"} - ${detail}`.replace(/\s+/g, " ").trim().slice(0, 300),
+    status: "OPEN",
+    evidence_refs: [IDENTITY8.evidenceId],
+    source_location: { file },
+    confidence: 0.9,
+    remediation: kind === "conflict" ? "Merge the migration heads into one history, then save the check output again." : "Generate and review the migration for the model change, commit it, then save the check output again."
+  }));
+  const evidence = {
+    id: IDENTITY8.evidenceId,
+    type: "E3_AUTOMATED_ANALYSIS",
+    status: evidenceStatusForResult(status),
+    result_status: status,
+    description: summary,
+    source: IDENTITY8.evidenceSource,
+    freshness: "unknown",
+    supports_controls: [],
+    command: [`<read ${MIGRATION_REPORT_DIRECTORY}/*.txt|log>`]
+  };
+  const completed = status === "PASS" || status === "FAIL";
+  const adapterResult = {
+    adapterId: IDENTITY8.adapterId,
+    version: IDENTITY8.adapterVersion,
+    executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
+    supportedCapabilities: completed ? [IDENTITY8.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY8.capability],
+    evidenceRefs: [IDENTITY8.evidenceId],
+    limitations
+  };
+  return {
+    result: { tool: IDENTITY8.tool, status, command: evidence.command, summary, evidenceId: IDENTITY8.evidenceId, findings, limitations },
+    evidence: [evidence],
+    findings,
+    adapterResult
+  };
+}
+
 // ../analyzer/src/test-report.ts
 var TEST_REPORT_DIRECTORY = ".governance/evidence/tests";
-var IDENTITY8 = {
+var IDENTITY9 = {
   tool: "junit-test-results",
   adapterId: "junit-test-results",
   adapterVersion: "0.1.0",
@@ -13162,7 +13263,7 @@ var IDENTITY8 = {
   evidenceId: "EVD-TEST-RESULTS",
   evidenceSource: "junit-report-adapter"
 };
-var MAX_REPORTS4 = 50;
+var MAX_REPORTS5 = 50;
 var MAX_FINDINGS4 = 50;
 var decode = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
 function attributes(raw) {
@@ -13212,7 +13313,7 @@ function parseJunit(xml) {
 function runTestReportAdapter(snapshot) {
   const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${TEST_REPORT_DIRECTORY}/`) && file.toLowerCase().endsWith(".xml")).sort();
   if (reportFiles.length === 0) return void 0;
-  const selected = reportFiles.slice(0, MAX_REPORTS4);
+  const selected = reportFiles.slice(0, MAX_REPORTS5);
   const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
   const malformed = [];
   const failed = [];
@@ -13234,12 +13335,12 @@ function runTestReportAdapter(snapshot) {
     timestamps.push(...report.timestamps);
     if (report.hasSuiteTimestampGap || report.timestamps.length === 0) missingTimestamp = true;
   }
-  const truncated = reportFiles.length > MAX_REPORTS4;
+  const truncated = reportFiles.length > MAX_REPORTS5;
   const limitations = [
     "Only JUnit XML is read. The report is taken as supplied: nothing binds it to the commit being assessed, so it shows that a test run happened, not that it ran against this code.",
     ...malformed.length ? [`Not a JUnit report: ${malformed.slice(0, 10).join(", ")}.`] : [],
     ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
-    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS4} were read.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS5} were read.`] : [],
     ...missingTimestamp ? ["A suite declared no valid timestamp, so the evidence has no generation time and fails any maximum-age limit."] : []
   ];
   const status = failed.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : tests === 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : skipped > 0 ? "WARN" : "PASS";
@@ -13252,7 +13353,7 @@ function runTestReportAdapter(snapshot) {
     category: "testing",
     message: `Test failed: ${item.name}${item.message ? ` - ${item.message}` : ""}`.replace(/\s+/g, " ").trim().slice(0, 300),
     status: "OPEN",
-    evidence_refs: [IDENTITY8.evidenceId],
+    evidence_refs: [IDENTITY9.evidenceId],
     source_location: { file: item.file },
     confidence: 0.95,
     remediation: "Fix the failing test or the code it covers and regenerate the test report. A skipped or deleted test is not accepted as a fix."
@@ -13260,12 +13361,12 @@ function runTestReportAdapter(snapshot) {
   if (failed.length > MAX_FINDINGS4) limitations.push(`${failed.length} tests failed; findings were raised for the first ${MAX_FINDINGS4}.`);
   const oldest = !missingTimestamp && timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : void 0;
   const evidence = {
-    id: IDENTITY8.evidenceId,
+    id: IDENTITY9.evidenceId,
     type: "E1_DIRECT_VERIFICATION",
     status: evidenceStatusForResult(status),
     result_status: status,
     description: summary,
-    source: IDENTITY8.evidenceSource,
+    source: IDENTITY9.evidenceSource,
     freshness: oldest ? "current" : "unknown",
     supports_controls: [],
     ...oldest ? { generated_at: oldest } : {},
@@ -13273,21 +13374,21 @@ function runTestReportAdapter(snapshot) {
   };
   const completed = status === "PASS" || status === "WARN" || status === "FAIL";
   const adapterResult = {
-    adapterId: IDENTITY8.adapterId,
-    version: IDENTITY8.adapterVersion,
+    adapterId: IDENTITY9.adapterId,
+    version: IDENTITY9.adapterVersion,
     executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
-    supportedCapabilities: completed ? [IDENTITY8.capability] : [],
-    unsupportedCapabilities: completed ? [] : [IDENTITY8.capability],
-    evidenceRefs: [IDENTITY8.evidenceId],
+    supportedCapabilities: completed ? [IDENTITY9.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY9.capability],
+    evidenceRefs: [IDENTITY9.evidenceId],
     limitations
   };
   return {
     result: {
-      tool: IDENTITY8.tool,
+      tool: IDENTITY9.tool,
       status,
       command: evidence.command,
       summary,
-      evidenceId: IDENTITY8.evidenceId,
+      evidenceId: IDENTITY9.evidenceId,
       findings,
       limitations
     },
@@ -13677,7 +13778,7 @@ async function runVerificationAdapters(snapshot, runner) {
       }
     }
   }
-  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter, runCiStatusAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter, runCiStatusAdapter, runMigrationCheckAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);
@@ -15161,7 +15262,7 @@ async function loadRepositorySnapshot(rootPath, fs, changedFiles = [], changeSco
   const sourcePaths = files.filter((file) => sourceExtensions4.has(path4.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/evidence/lcov/") && /\.(info|lcov)$/i.test(file) || file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file) || file.startsWith(".governance/evidence/ci/") && file.toLowerCase().endsWith(".json") || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
+  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/evidence/lcov/") && /\.(info|lcov)$/i.test(file) || file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file) || file.startsWith(".governance/evidence/ci/") && file.toLowerCase().endsWith(".json") || file.startsWith(".governance/evidence/migrations/") && /\.(txt|log)$/i.test(file) || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
   const contentPaths = [.../* @__PURE__ */ new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents = {};
   const contentLimitations = [];

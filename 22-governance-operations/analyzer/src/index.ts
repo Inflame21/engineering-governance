@@ -24,6 +24,7 @@ export { COVERAGE_REPORT_DIRECTORY } from "./coverage-report.js";
 export { TEST_REPORT_DIRECTORY } from "./test-report.js";
 export { LINT_REPORT_DIRECTORY } from "./lint-report.js";
 export { CI_REPORT_DIRECTORY } from "./ci-status.js";
+export { MIGRATION_REPORT_DIRECTORY } from "./migration-check.js";
 export { fingerprintRepositorySnapshot } from "./fingerprint.js";
 export type { RepositorySnapshotFingerprint } from "./fingerprint.js";
 

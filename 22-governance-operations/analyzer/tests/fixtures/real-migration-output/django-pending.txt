@@ -1,0 +1,4 @@
+Migrations for 'shop':
+  shop\migrations\0002_item_price_item_sku.py
+    + Add field price to item
+    + Add field sku to item
