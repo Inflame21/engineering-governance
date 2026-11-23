@@ -20,6 +20,7 @@ export type {
   VerificationToolStatus,
 } from "./verification.js";
 
+export { COVERAGE_REPORT_DIRECTORY } from "./coverage-report.js";
 export { TEST_REPORT_DIRECTORY } from "./test-report.js";
 export { LINT_REPORT_DIRECTORY } from "./lint-report.js";
 export { fingerprintRepositorySnapshot } from "./fingerprint.js";
