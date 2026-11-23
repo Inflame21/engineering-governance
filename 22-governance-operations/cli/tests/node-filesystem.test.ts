@@ -66,6 +66,16 @@ describe("Node filesystem adapter", () => {
     expect(semgrep.summary).not.toContain("digest unavailable");
   });
 
+  it("ingests CI run data from a real disk, so the collector can see it", async () => {
+    const root = await createRoot();
+    await mkdir(path.join(root, ".governance", "evidence", "ci"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "evidence", "ci", "runs.json"), '{"workflow_runs":[]}');
+    await writeFile(path.join(root, ".governance", "evidence", "ci", "notes.txt"), "not a report");
+
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
+    expect(Object.keys(snapshot.fileContents ?? {})).toEqual([".governance/evidence/ci/runs.json"]);
+  });
+
   it("walks regular files deterministically and ignores generated directories", async () => {
     const root = await createRoot();
     await mkdir(path.join(root, "src"), { recursive: true });
