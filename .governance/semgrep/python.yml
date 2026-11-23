@@ -1,0 +1,99 @@
+rules:
+  # Authored for this repository; no registry rule is copied (ADR-0001). ERROR is P1 and blocks; WARNING
+  # is P2 and only warns. ERROR is kept for patterns that are unsafe whatever the data's origin.
+  - id: gov-py-eval-exec-nonliteral
+    languages: [python]
+    severity: ERROR
+    message: >-
+      eval() or exec() on a value that is not a string literal runs whatever text it receives as code.
+      Remove it: parse data with json or ast.literal_eval, and dispatch on a fixed set of names.
+    metadata:
+      governance: SEC-007 section 30 (critical injection vulnerability)
+      cwe: CWE-95
+    patterns:
+      - pattern-either:
+          - pattern: eval($X)
+          - pattern: exec($X)
+      - pattern-not: eval("...")
+      - pattern-not: exec("...")
+
+  - id: gov-py-shell-command-nonliteral
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A shell is given a command that is not a string literal, so a value in it can inject commands.
+      Pass an argument list without shell=True.
+    metadata:
+      governance: SEC-007 section 30 (critical injection vulnerability)
+      cwe: CWE-78
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$F($CMD, ..., shell=True, ...)
+          - pattern: os.system($CMD)
+          - pattern: os.popen($CMD, ...)
+      - pattern-not: subprocess.$F("...", ..., shell=True, ...)
+      - pattern-not: os.system("...")
+      - pattern-not: os.popen("...", ...)
+
+  - id: gov-py-tls-verification-disabled
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Certificate verification is switched off, so any server can impersonate the one intended. Remove
+      the option and trust the right certificate authority instead.
+    metadata:
+      governance: SEC-007 section 30 (disabled or bypassable security controls in production)
+      cwe: CWE-295
+    pattern-either:
+      - pattern: requests.$F(..., verify=False, ...)
+      - pattern: httpx.$F(..., verify=False, ...)
+      - pattern: ssl._create_unverified_context(...)
+      - pattern: $CTX.verify_mode = ssl.CERT_NONE
+      - pattern: $CTX.check_hostname = False
+
+  - id: gov-py-unsafe-deserialization
+    languages: [python]
+    severity: WARNING
+    message: >-
+      pickle, marshal and the full YAML loaders can run code while loading. Heuristic: it is only a
+      problem when the data is untrusted, which a pattern cannot tell. Use json, or yaml.safe_load.
+    metadata:
+      governance: SEC-007 section 11 (input validation)
+      cwe: CWE-502
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: marshal.loads(...)
+      - pattern: yaml.load($X)
+      - pattern: yaml.load($X, Loader=yaml.Loader)
+      - pattern: yaml.load($X, Loader=yaml.FullLoader)
+      - pattern: yaml.load($X, Loader=yaml.UnsafeLoader)
+
+  - id: gov-py-sql-built-from-string
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A query built by formatting or concatenating values is open to SQL injection if any part is
+      untrusted. Heuristic: it cannot tell trusted parts from untrusted. Use placeholders and pass the
+      values separately.
+    metadata:
+      governance: SEC-007 section 12 (injection prevention)
+      cwe: CWE-89
+    patterns:
+      - pattern-either:
+          - pattern: $C.execute(f"...{$X}...", ...)
+          - pattern: $C.execute("..." % $X, ...)
+          - pattern: $C.execute($A + $B, ...)
+          - pattern: $C.execute("...".format(...), ...)
+      - pattern-not: $C.execute("..." + "...", ...)
+
+  - id: gov-py-debug-enabled
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A web application is started with debug=True. Debug mode exposes an interactive console and stack
+      traces. Heuristic: it only matters outside development. Read the setting from the environment.
+    metadata:
+      governance: SEC-007 section 21 (secure configuration)
+      cwe: CWE-489
+    pattern: $APP.run(..., debug=True, ...)

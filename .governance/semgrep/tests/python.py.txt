@@ -1,0 +1,71 @@
+# Semgrep rule tests: `ruleid` lines must match, `ok` lines must not. Not run.
+import os
+import pickle
+import subprocess
+import ssl
+import requests
+import yaml
+
+user_input = input()
+cursor = None
+app = None
+
+# ruleid: gov-py-eval-exec-nonliteral
+eval(user_input)
+# ruleid: gov-py-eval-exec-nonliteral
+exec(user_input)
+# ok: gov-py-eval-exec-nonliteral
+eval("1 + 1")
+
+# ruleid: gov-py-shell-command-nonliteral
+subprocess.run("ls " + user_input, shell=True)
+# ruleid: gov-py-shell-command-nonliteral
+os.system(user_input)
+# ruleid: gov-py-shell-command-nonliteral
+os.popen(f"cat {user_input}")
+# ok: gov-py-shell-command-nonliteral
+subprocess.run(["ls", user_input])
+# ok: gov-py-shell-command-nonliteral
+subprocess.run("ls -la", shell=True)
+# ok: gov-py-shell-command-nonliteral
+os.system("clear")
+
+# ruleid: gov-py-tls-verification-disabled
+requests.get("https://example.test", verify=False)
+# ruleid: gov-py-tls-verification-disabled
+context = ssl._create_unverified_context()
+# ruleid: gov-py-tls-verification-disabled
+context.check_hostname = False
+# ok: gov-py-tls-verification-disabled
+requests.get("https://example.test", verify=True)
+# ok: gov-py-tls-verification-disabled
+requests.get("https://example.test")
+
+# ruleid: gov-py-unsafe-deserialization
+pickle.loads(user_input)
+# ruleid: gov-py-unsafe-deserialization
+yaml.load(user_input)
+# ruleid: gov-py-unsafe-deserialization
+yaml.load(user_input, Loader=yaml.FullLoader)
+# ok: gov-py-unsafe-deserialization
+yaml.safe_load(user_input)
+# ok: gov-py-unsafe-deserialization
+yaml.load(user_input, Loader=yaml.SafeLoader)
+
+# ruleid: gov-py-sql-built-from-string
+cursor.execute(f"SELECT * FROM users WHERE id = {user_input}")
+# ruleid: gov-py-sql-built-from-string
+cursor.execute("SELECT * FROM users WHERE id = %s" % user_input)
+# ruleid: gov-py-sql-built-from-string
+cursor.execute("SELECT * FROM users WHERE name = '" + user_input + "'")
+# ok: gov-py-sql-built-from-string
+cursor.execute("SELECT * FROM users WHERE id = %s", (user_input,))
+# ok: gov-py-sql-built-from-string
+cursor.execute("SELECT 1")
+
+# ruleid: gov-py-debug-enabled
+app.run(debug=True)
+# ok: gov-py-debug-enabled
+app.run(debug=False)
+# ok: gov-py-debug-enabled
+app.run()

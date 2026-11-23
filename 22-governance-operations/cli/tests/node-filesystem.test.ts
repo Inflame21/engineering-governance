@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createNodeFileSystem, loadRepositorySnapshot, nodeFileSystem } from "../src/filesystem.js";
+import { runVerificationAdapters, type VerificationToolRunner } from "../../analyzer/src/verification.js";
 
 const temporaryRoots: string[] = [];
 
@@ -40,6 +41,29 @@ describe("Node filesystem adapter", () => {
     const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
     expect(Object.keys(snapshot.fileContents ?? {}).sort())
       .toEqual([".governance/evidence/lint/a.sarif", ".governance/evidence/lint/b.sarif.json"]);
+  });
+
+  it("ingests the Semgrep rule files from a real disk, so a clean scan can PASS and records the rule-set digest", async () => {
+    const root = await createRoot();
+    await mkdir(path.join(root, ".governance", "semgrep"), { recursive: true });
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "semgrep", "rules.yml"), "rules: []\n");
+    await writeFile(path.join(root, ".governance", "semgrep", "notes.txt"), "not a rule file");
+    await writeFile(path.join(root, "src", "a.js"), "export const a = 1;\n");
+
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
+    expect(Object.keys(snapshot.fileContents ?? {}).sort()).toEqual([".governance/semgrep/rules.yml", "src/a.js"]);
+
+    // Without the rule files in the snapshot the adapter reports "digest unavailable" and can never PASS.
+    const runner: VerificationToolRunner = {
+      async isAvailable(tool) { return tool === "semgrep"; },
+      async run() { return { exitCode: 0, stdout: '{"results":[],"errors":[]}', stderr: "" }; },
+    };
+    const report = await runVerificationAdapters(snapshot, runner);
+    const semgrep = report.results.find((result) => result.tool === "semgrep")!;
+    expect(semgrep.status).toBe("PASS");
+    expect(semgrep.summary).toMatch(/sha256:[0-9a-f]{64}/);
+    expect(semgrep.summary).not.toContain("digest unavailable");
   });
 
   it("walks regular files deterministically and ignores generated directories", async () => {

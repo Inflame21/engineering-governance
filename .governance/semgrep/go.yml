@@ -1,0 +1,55 @@
+rules:
+  # Authored for this repository; no registry rule is copied (ADR-0001). ERROR is P1 and blocks; WARNING
+  # is P2 and only warns. ERROR is kept for patterns that are unsafe whatever the data's origin.
+  - id: gov-go-tls-verification-disabled
+    languages: [go]
+    severity: ERROR
+    message: >-
+      InsecureSkipVerify switches certificate verification off, so any server can impersonate the one
+      intended. Remove it and trust the right certificate authority instead.
+    metadata:
+      governance: SEC-007 section 30 (disabled or bypassable security controls in production)
+      cwe: CWE-295
+    pattern: "tls.Config{..., InsecureSkipVerify: true, ...}"
+
+  - id: gov-go-shell-command-nonliteral
+    languages: [go]
+    severity: ERROR
+    message: >-
+      A shell is given a command that is not a string literal, so a value in it can inject commands.
+      Call the program directly with its arguments as separate values.
+    metadata:
+      governance: SEC-007 section 30 (critical injection vulnerability)
+      cwe: CWE-78
+    patterns:
+      - pattern-either:
+          - pattern: exec.Command("sh", "-c", $CMD)
+          - pattern: exec.Command("bash", "-c", $CMD)
+          - pattern: exec.CommandContext($CTX, "sh", "-c", $CMD)
+          - pattern: exec.CommandContext($CTX, "bash", "-c", $CMD)
+      - pattern-not: exec.Command("sh", "-c", "...")
+      - pattern-not: exec.Command("bash", "-c", "...")
+      - pattern-not: exec.CommandContext($CTX, "sh", "-c", "...")
+      - pattern-not: exec.CommandContext($CTX, "bash", "-c", "...")
+
+  - id: gov-go-sql-built-from-string
+    languages: [go]
+    severity: WARNING
+    message: >-
+      A query built by formatting or concatenating values is open to SQL injection if any part is
+      untrusted. Heuristic: it cannot tell trusted parts from untrusted. Use placeholders and pass the
+      values as arguments.
+    metadata:
+      governance: SEC-007 section 12 (injection prevention)
+      cwe: CWE-89
+    patterns:
+      - pattern-either:
+          - pattern: $DB.Query(fmt.Sprintf(...), ...)
+          - pattern: $DB.QueryRow(fmt.Sprintf(...), ...)
+          - pattern: $DB.Exec(fmt.Sprintf(...), ...)
+          - pattern: $DB.Query($A + $B, ...)
+          - pattern: $DB.QueryRow($A + $B, ...)
+          - pattern: $DB.Exec($A + $B, ...)
+      - pattern-not: $DB.Query("..." + "...", ...)
+      - pattern-not: $DB.QueryRow("..." + "...", ...)
+      - pattern-not: $DB.Exec("..." + "...", ...)

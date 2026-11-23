@@ -150,11 +150,13 @@ export async function loadRepositorySnapshot(
   const sourcePaths = files.filter((file) => sourceExtensions.has(path.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  // Test, coverage and lint reports are read as evidence (the analyzer's report directories); they are not source code.
+  // Test, coverage and lint reports are read as evidence (the analyzer's report directories), and the Semgrep rule
+  // files so the adapter can record the rule set's digest (SEMGREP_RULES_DIRECTORY). None of them is source code.
   const reportPaths = files.filter((file) =>
     (file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml")) ||
     (file.startsWith(".governance/evidence/lcov/") && /\.(info|lcov)$/i.test(file)) ||
-    (file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file)));
+    (file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file)) ||
+    (file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file)));
   const contentPaths = [...new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents: Record<string, string> = {};
   const contentLimitations: string[] = [];

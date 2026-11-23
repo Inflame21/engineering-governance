@@ -1,0 +1,110 @@
+rules:
+  # Authored for this repository; no registry rule is copied (ADR-0001: the Semgrep Rules License has
+  # not been checked). ERROR is P1 and blocks; WARNING is P2 and only warns. ERROR is kept for patterns
+  # that are unsafe whatever the data's origin; anything that depends on where a value came from is a
+  # WARNING, because a pattern match cannot tell trusted input from untrusted.
+  - id: gov-js-eval-nonliteral
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      eval() on a value that is not a string literal runs whatever text it receives as code. Remove it:
+      parse data with JSON.parse, and dispatch on a fixed set of names instead of evaluating them.
+    metadata:
+      governance: SEC-007 section 30 (critical injection vulnerability)
+      cwe: CWE-95
+    patterns:
+      - pattern: eval($X)
+      - pattern-not: eval("...")
+
+  - id: gov-js-function-constructor-nonliteral
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      new Function() with a value that is not a string literal compiles text into code, exactly like
+      eval(). Remove it.
+    metadata:
+      governance: SEC-007 section 30 (critical injection vulnerability)
+      cwe: CWE-95
+    patterns:
+      - pattern-either:
+          - pattern: new Function($...ARGS, $BODY)
+          - pattern: Function($...ARGS, $BODY)
+      - pattern-not: new Function($...ARGS, "...")
+      - pattern-not: Function($...ARGS, "...")
+
+  - id: gov-js-shell-command-nonliteral
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      child_process exec/execSync run their first argument through a shell, so a value that is not a
+      string literal can inject commands. Use execFile/spawn with an argument array and no shell.
+    metadata:
+      governance: SEC-007 section 30 (critical injection vulnerability)
+      cwe: CWE-78
+    # Semgrep resolves import aliases, so this also matches `import { exec } from "child_process"` and
+    # `const cp = require("child_process")`, and not an unrelated exec such as RegExp.prototype.exec.
+    patterns:
+      - pattern-either:
+          - pattern: child_process.exec($CMD, ...)
+          - pattern: child_process.execSync($CMD, ...)
+      - pattern-not: child_process.exec("...", ...)
+      - pattern-not: child_process.execSync("...", ...)
+
+  - id: gov-js-tls-verification-disabled
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Certificate verification is switched off, so any server can impersonate the one intended. Remove
+      the option and trust the right certificate authority instead.
+    metadata:
+      governance: SEC-007 section 30 (disabled or bypassable security controls in production)
+      cwe: CWE-295
+    pattern-either:
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0
+
+  - id: gov-js-inner-html-nonliteral
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Assigning a value that is not a string literal to innerHTML or outerHTML, or to
+      dangerouslySetInnerHTML, can run script from that value. Heuristic: it cannot tell trusted markup
+      from untrusted. Use textContent, or sanitise the markup first.
+    metadata:
+      governance: SEC-007 section 13 (output encoding)
+      cwe: CWE-79
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+          - pattern: "{..., dangerouslySetInnerHTML: {__html: $X}, ...}"
+          - pattern: |
+              <$TAG dangerouslySetInnerHTML={{__html: $X}} />
+      - pattern-not: $EL.innerHTML = "..."
+      - pattern-not: $EL.outerHTML = "..."
+      - pattern-not: "{..., dangerouslySetInnerHTML: {__html: \"...\"}, ...}"
+      - pattern-not: |
+          <$TAG dangerouslySetInnerHTML={{__html: "..."}} />
+
+  - id: gov-js-sql-built-from-string
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A query built by concatenating or interpolating values is open to SQL injection if any part is
+      untrusted. Heuristic: it cannot tell trusted parts from untrusted. Use placeholders and pass the
+      values separately.
+    metadata:
+      governance: SEC-007 section 12 (injection prevention)
+      cwe: CWE-89
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query($A + $B, ...)
+          - pattern: $DB.query(`...${$X}...`, ...)
+          - pattern: $DB.execute($A + $B, ...)
+          - pattern: $DB.execute(`...${$X}...`, ...)
+          - pattern: $DB.raw($A + $B, ...)
+          - pattern: $DB.raw(`...${$X}...`, ...)
+      - pattern-not: $DB.query("..." + "...", ...)
+      - pattern-not: $DB.execute("..." + "...", ...)
+      - pattern-not: $DB.raw("..." + "...", ...)
