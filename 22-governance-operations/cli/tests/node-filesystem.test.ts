@@ -30,6 +30,18 @@ describe("Node filesystem adapter", () => {
     expect(Object.keys(snapshot.fileContents ?? {}).sort()).toEqual([".governance/evidence/lcov/lcov.info", ".governance/evidence/tests/junit.xml"]);
   });
 
+  it("ingests lint reports from a real disk, so the collector can see them", async () => {
+    const root = await createRoot();
+    await mkdir(path.join(root, ".governance", "evidence", "lint"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "evidence", "lint", "a.sarif"), '{"version":"2.1.0","runs":[]}');
+    await writeFile(path.join(root, ".governance", "evidence", "lint", "b.sarif.json"), '{"version":"2.1.0","runs":[]}');
+    await writeFile(path.join(root, ".governance", "evidence", "lint", "notes.txt"), "not a report");
+
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
+    expect(Object.keys(snapshot.fileContents ?? {}).sort())
+      .toEqual([".governance/evidence/lint/a.sarif", ".governance/evidence/lint/b.sarif.json"]);
+  });
+
   it("walks regular files deterministically and ignores generated directories", async () => {
     const root = await createRoot();
     await mkdir(path.join(root, "src"), { recursive: true });
