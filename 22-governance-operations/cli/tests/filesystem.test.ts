@@ -34,6 +34,19 @@ describe("repository snapshot loader", () => {
     expect(Object.keys(snapshot.fileContents ?? {})).toEqual([".governance/evidence/tests/junit.xml"]);
   });
 
+  it("reads LCOV coverage reports under .governance/evidence/lcov and nothing else", async () => {
+    const snapshot = await loadRepositorySnapshot("/repo", {
+      async listFiles() {
+        return [".governance/evidence/lcov/lcov.info", ".governance/evidence/lcov/x.LCOV", ".governance/evidence/lcov/summary.json", "coverage/lcov.info"];
+      },
+      async readTextFile(_root, path) {
+        return `<content of ${path}>`;
+      },
+    });
+
+    expect(Object.keys(snapshot.fileContents ?? {}).sort()).toEqual([".governance/evidence/lcov/lcov.info", ".governance/evidence/lcov/x.LCOV"]);
+  });
+
   it("reports unreadable source files instead of treating them as clean", async () => {
     const snapshot = await loadRepositorySnapshot("/repo", {
       async listFiles() {
