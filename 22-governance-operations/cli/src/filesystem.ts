@@ -150,7 +150,9 @@ export async function loadRepositorySnapshot(
   const sourcePaths = files.filter((file) => sourceExtensions.has(path.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  const contentPaths = [...new Set([...manifestPaths, ...sourcePaths])];
+  // Test reports are read as evidence (TEST_REPORT_DIRECTORY in the analyzer); they are not source code.
+  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml"));
+  const contentPaths = [...new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents: Record<string, string> = {};
   const contentLimitations: string[] = [];
   let sourceFilesLoaded = 0;

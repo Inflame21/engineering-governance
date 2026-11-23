@@ -20,6 +20,7 @@ export type {
   VerificationToolStatus,
 } from "./verification.js";
 
+export { TEST_REPORT_DIRECTORY } from "./test-report.js";
 export { fingerprintRepositorySnapshot } from "./fingerprint.js";
 export type { RepositorySnapshotFingerprint } from "./fingerprint.js";
 
