@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createNodeFileSystem, nodeFileSystem } from "../src/filesystem.js";
+import { createNodeFileSystem, loadRepositorySnapshot, nodeFileSystem } from "../src/filesystem.js";
 
 const temporaryRoots: string[] = [];
 
@@ -19,6 +19,18 @@ afterEach(async () => {
 });
 
 describe("Node filesystem adapter", () => {
+  it("ingests lint reports from a real disk, so the collector can see them", async () => {
+    const root = await createRoot();
+    await mkdir(path.join(root, ".governance", "evidence", "lint"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "evidence", "lint", "a.sarif"), '{"version":"2.1.0","runs":[]}');
+    await writeFile(path.join(root, ".governance", "evidence", "lint", "b.sarif.json"), '{"version":"2.1.0","runs":[]}');
+    await writeFile(path.join(root, ".governance", "evidence", "lint", "notes.txt"), "not a report");
+
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
+    expect(Object.keys(snapshot.fileContents ?? {}).sort())
+      .toEqual([".governance/evidence/lint/a.sarif", ".governance/evidence/lint/b.sarif.json"]);
+  });
+
   it("walks regular files deterministically and ignores generated directories", async () => {
     const root = await createRoot();
     await mkdir(path.join(root, "src"), { recursive: true });
