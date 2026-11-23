@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createNodeFileSystem, nodeFileSystem } from "../src/filesystem.js";
+import { createNodeFileSystem, loadRepositorySnapshot, nodeFileSystem } from "../src/filesystem.js";
 
 const temporaryRoots: string[] = [];
 
@@ -19,6 +19,17 @@ afterEach(async () => {
 });
 
 describe("Node filesystem adapter", () => {
+  it("lists and ingests the evidence report directories on a real disk, where a fake lister would hide a skipped directory", async () => {
+    const root = await createRoot();
+    await mkdir(path.join(root, ".governance", "evidence", "tests"), { recursive: true });
+    await mkdir(path.join(root, ".governance", "evidence", "lcov"), { recursive: true });
+    await writeFile(path.join(root, ".governance", "evidence", "tests", "junit.xml"), "<testsuites/>");
+    await writeFile(path.join(root, ".governance", "evidence", "lcov", "lcov.info"), "SF:a.ts\nend_of_record\n");
+
+    const snapshot = await loadRepositorySnapshot(root, nodeFileSystem);
+    expect(Object.keys(snapshot.fileContents ?? {}).sort()).toEqual([".governance/evidence/lcov/lcov.info", ".governance/evidence/tests/junit.xml"]);
+  });
+
   it("walks regular files deterministically and ignores generated directories", async () => {
     const root = await createRoot();
     await mkdir(path.join(root, "src"), { recursive: true });
