@@ -12708,6 +12708,151 @@ async function runSemgrepAdapter(snapshot, runner, fingerprint) {
   return ran(status, summary, findings, limitations);
 }
 
+// ../analyzer/src/test-report.ts
+var TEST_REPORT_DIRECTORY = ".governance/evidence/tests";
+var IDENTITY5 = {
+  tool: "junit-test-results",
+  adapterId: "junit-test-results",
+  adapterVersion: "0.1.0",
+  capability: "verification:junit-test-results",
+  evidenceId: "EVD-TEST-RESULTS",
+  evidenceSource: "junit-report-adapter"
+};
+var MAX_REPORTS = 50;
+var MAX_FINDINGS2 = 50;
+var decode = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+function attributes(raw) {
+  const result = {};
+  for (const match of raw.matchAll(/([A-Za-z_][\w:.-]*)\s*=\s*"([^"]*)"/g)) result[match[1]] = decode(match[2]);
+  return result;
+}
+function parseJunit(xml) {
+  const text = xml.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "").replace(/<!--[\s\S]*?-->/g, "");
+  if (!/<testsuites?\b/.test(text)) return void 0;
+  const report = { tests: 0, skipped: 0, failed: [], timestamps: [], hasSuiteTimestampGap: false };
+  let current;
+  const finish = () => {
+    if (!current) return;
+    if (current.failed) report.failed.push({ name: current.name, message: current.message });
+    else if (current.skipped) report.skipped += 1;
+    current = void 0;
+  };
+  for (const match of text.matchAll(/<(\/?)(testsuite|testcase|failure|error|skipped)\b([^>]*?)(\/?)>/g)) {
+    const [, closing, tag, rawAttributes, selfClosing] = match;
+    if (closing) {
+      if (tag === "testcase") finish();
+      continue;
+    }
+    const attrs = attributes(rawAttributes ?? "");
+    if (tag === "testsuite") {
+      const parsed = attrs.timestamp ? Date.parse(attrs.timestamp) : Number.NaN;
+      if (Number.isFinite(parsed)) report.timestamps.push(parsed);
+      else report.hasSuiteTimestampGap = true;
+    } else if (tag === "testcase") {
+      finish();
+      report.tests += 1;
+      current = { name: [attrs.classname, attrs.name].filter(Boolean).join(" :: ") || "(unnamed test)", failed: false, message: "", skipped: false };
+      if (selfClosing) finish();
+    } else if (tag === "skipped") {
+      if (current) current.skipped = true;
+    } else if (current) {
+      current.failed = true;
+      current.message ||= attrs.message ?? "";
+    } else {
+      report.failed.push({ name: "(suite-level error)", message: attrs.message ?? "" });
+    }
+  }
+  finish();
+  return report;
+}
+function runTestReportAdapter(snapshot) {
+  const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${TEST_REPORT_DIRECTORY}/`) && file.toLowerCase().endsWith(".xml")).sort();
+  if (reportFiles.length === 0) return void 0;
+  const selected = reportFiles.slice(0, MAX_REPORTS);
+  const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
+  const malformed = [];
+  const failed = [];
+  const timestamps = [];
+  let tests = 0;
+  let skipped = 0;
+  let missingTimestamp = false;
+  for (const file of selected) {
+    const content = snapshot.fileContents?.[file];
+    if (content === void 0) continue;
+    const report = parseJunit(content);
+    if (!report) {
+      malformed.push(file);
+      continue;
+    }
+    tests += report.tests;
+    skipped += report.skipped;
+    failed.push(...report.failed.map((item) => ({ ...item, file })));
+    timestamps.push(...report.timestamps);
+    if (report.hasSuiteTimestampGap || report.timestamps.length === 0) missingTimestamp = true;
+  }
+  const truncated = reportFiles.length > MAX_REPORTS;
+  const limitations = [
+    "Only JUnit XML is read. The report is taken as supplied: nothing binds it to the commit being assessed, so it shows that a test run happened, not that it ran against this code.",
+    ...malformed.length ? [`Not a JUnit report: ${malformed.slice(0, 10).join(", ")}.`] : [],
+    ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS} were read.`] : [],
+    ...missingTimestamp ? ["A suite declared no valid timestamp, so the evidence has no generation time and fails any maximum-age limit."] : []
+  ];
+  const status = failed.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : tests === 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : skipped > 0 ? "WARN" : "PASS";
+  const tally = `${tests} test(s) in ${selected.length - malformed.length - notIngested.length} report(s): ${failed.length} failed, ${skipped} skipped`;
+  const summary = status === "ERROR" ? `Test results could not be trusted: ${malformed.length} report(s) are not JUnit XML.` : status === "UNVERIFIED" && tests === 0 ? "The test reports contain no test cases, so nothing was verified." : `JUnit test results: ${tally}.${status === "UNVERIFIED" ? " Some reports were not read, so the result is incomplete." : ""}`;
+  const findings = failed.slice(0, MAX_FINDINGS2).map((item) => ({
+    id: `FND-TEST-${stableId3(`${item.file}:${item.name}`)}`,
+    rule_id: "TEST-FAILURE",
+    severity: "P1",
+    category: "testing",
+    message: `Test failed: ${item.name}${item.message ? ` - ${item.message}` : ""}`.replace(/\s+/g, " ").trim().slice(0, 300),
+    status: "OPEN",
+    evidence_refs: [IDENTITY5.evidenceId],
+    source_location: { file: item.file },
+    confidence: 0.95,
+    remediation: "Fix the failing test or the code it covers and regenerate the test report. A skipped or deleted test is not accepted as a fix."
+  }));
+  if (failed.length > MAX_FINDINGS2) limitations.push(`${failed.length} tests failed; findings were raised for the first ${MAX_FINDINGS2}.`);
+  const oldest = !missingTimestamp && timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : void 0;
+  const evidence = {
+    id: IDENTITY5.evidenceId,
+    type: "E1_DIRECT_VERIFICATION",
+    status: evidenceStatusForResult(status),
+    result_status: status,
+    description: summary,
+    source: IDENTITY5.evidenceSource,
+    freshness: oldest ? "current" : "unknown",
+    supports_controls: [],
+    ...oldest ? { generated_at: oldest } : {},
+    command: [`<read ${TEST_REPORT_DIRECTORY}/*.xml>`]
+  };
+  const completed = status === "PASS" || status === "WARN" || status === "FAIL";
+  const adapterResult = {
+    adapterId: IDENTITY5.adapterId,
+    version: IDENTITY5.adapterVersion,
+    executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
+    supportedCapabilities: completed ? [IDENTITY5.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY5.capability],
+    evidenceRefs: [IDENTITY5.evidenceId],
+    limitations
+  };
+  return {
+    result: {
+      tool: IDENTITY5.tool,
+      status,
+      command: evidence.command,
+      summary,
+      evidenceId: IDENTITY5.evidenceId,
+      findings,
+      limitations
+    },
+    evidence: [evidence],
+    findings,
+    adapterResult
+  };
+}
+
 // ../analyzer/src/verification.ts
 var MAX_TYPESCRIPT_PROJECTS = 20;
 var MAX_PYTHON_FILES = 500;
@@ -13088,7 +13233,7 @@ async function runVerificationAdapters(snapshot, runner) {
       }
     }
   }
-  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);
@@ -14545,7 +14690,8 @@ async function loadRepositorySnapshot(rootPath, fs, changedFiles = [], changeSco
   const sourcePaths = files.filter((file) => sourceExtensions4.has(path4.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  const contentPaths = [.../* @__PURE__ */ new Set([...manifestPaths, ...sourcePaths])];
+  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml"));
+  const contentPaths = [.../* @__PURE__ */ new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents = {};
   const contentLimitations = [];
   let sourceFilesLoaded = 0;

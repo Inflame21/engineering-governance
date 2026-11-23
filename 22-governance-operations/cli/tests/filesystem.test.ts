@@ -21,6 +21,19 @@ describe("repository snapshot loader", () => {
     expect(snapshot.contentLimitations).toBeUndefined();
   });
 
+  it("reads JUnit test reports under .governance/evidence/tests and nothing else that is XML", async () => {
+    const snapshot = await loadRepositorySnapshot("/repo", {
+      async listFiles() {
+        return [".governance/evidence/tests/junit.xml", ".governance/evidence/tests/notes.txt", "reports/other.xml"];
+      },
+      async readTextFile(_root, path) {
+        return `<content of ${path}>`;
+      },
+    });
+
+    expect(Object.keys(snapshot.fileContents ?? {})).toEqual([".governance/evidence/tests/junit.xml"]);
+  });
+
   it("reports unreadable source files instead of treating them as clean", async () => {
     const snapshot = await loadRepositorySnapshot("/repo", {
       async listFiles() {

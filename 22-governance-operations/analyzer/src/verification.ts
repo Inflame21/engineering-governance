@@ -11,6 +11,7 @@ import { runGoSyntaxAdapter } from "./go-syntax.js";
 import { runGitleaksAdapter } from "./gitleaks.js";
 import { runOsvAdapter } from "./osv.js";
 import { runSemgrepAdapter } from "./semgrep.js";
+import { runTestReportAdapter } from "./test-report.js";
 import { basename, compactOutput, directoryname, stableId } from "./verification-shared.js";
 
 export type VerificationToolName = "typescript" | "python3" | "python" | "gofmt" | "osv-scanner" | "gitleaks" | "semgrep";
@@ -497,7 +498,7 @@ export async function runVerificationAdapters(
 
   // Scanners (ADR-0001): dependency vulnerabilities, secrets, static analysis. Each returns nothing
   // when it does not apply to the repository, and never a pass when it could not run.
-  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);
