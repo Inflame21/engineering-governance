@@ -14717,7 +14717,7 @@ async function loadRepositorySnapshot(rootPath, fs, changedFiles = [], changeSco
   const sourcePaths = files.filter((file) => sourceExtensions4.has(path4.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml"));
+  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
   const contentPaths = [.../* @__PURE__ */ new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents = {};
   const contentLimitations = [];

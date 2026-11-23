@@ -1,0 +1,37 @@
+// Semgrep rule tests: `ruleid` lines must match, `ok` lines must not. Not built or run.
+package rules
+
+import (
+	"context"
+	"crypto/tls"
+	"database/sql"
+	"fmt"
+	"os/exec"
+)
+
+func cases(ctx context.Context, db *sql.DB, userInput string) {
+	// ruleid: gov-go-tls-verification-disabled
+	_ = &tls.Config{InsecureSkipVerify: true}
+	// ok: gov-go-tls-verification-disabled
+	_ = &tls.Config{InsecureSkipVerify: false}
+	// ok: gov-go-tls-verification-disabled
+	_ = &tls.Config{MinVersion: tls.VersionTLS12}
+
+	// ruleid: gov-go-shell-command-nonliteral
+	_ = exec.Command("sh", "-c", "ls "+userInput)
+	// ruleid: gov-go-shell-command-nonliteral
+	_ = exec.CommandContext(ctx, "bash", "-c", userInput)
+	// ok: gov-go-shell-command-nonliteral
+	_ = exec.Command("sh", "-c", "ls -la")
+	// ok: gov-go-shell-command-nonliteral
+	_ = exec.Command("ls", userInput)
+
+	// ruleid: gov-go-sql-built-from-string
+	_, _ = db.Query(fmt.Sprintf("SELECT * FROM users WHERE id = %s", userInput))
+	// ruleid: gov-go-sql-built-from-string
+	_, _ = db.Exec("DELETE FROM users WHERE name = '" + userInput + "'")
+	// ok: gov-go-sql-built-from-string
+	_, _ = db.Query("SELECT * FROM users WHERE id = $1", userInput)
+	// ok: gov-go-sql-built-from-string
+	_, _ = db.Query("SELECT * FROM " + "users")
+}
