@@ -4028,12 +4028,12 @@ var require_fast_uri = __commonJS({
     }
     function hasMalformedPercentEncoding(component) {
       if (component === void 0) return false;
-      let percent = component.indexOf("%");
-      while (percent !== -1) {
-        if (percent + 2 >= component.length || !/^[\da-f]{2}$/iu.test(component.slice(percent + 1, percent + 3))) {
+      let percent2 = component.indexOf("%");
+      while (percent2 !== -1) {
+        if (percent2 + 2 >= component.length || !/^[\da-f]{2}$/iu.test(component.slice(percent2 + 1, percent2 + 3))) {
           return true;
         }
-        percent = component.indexOf("%", percent + 3);
+        percent2 = component.indexOf("%", percent2 + 3);
       }
       return false;
     }
@@ -12708,9 +12708,309 @@ async function runSemgrepAdapter(snapshot, runner, fingerprint) {
   return ran(status, summary, findings, limitations);
 }
 
+// ../analyzer/src/coverage-report.ts
+var COVERAGE_REPORT_DIRECTORY = ".governance/evidence/lcov";
+var IDENTITY5 = {
+  tool: "lcov-coverage",
+  adapterId: "lcov-coverage",
+  adapterVersion: "0.1.0",
+  evidenceId: "EVD-COVERAGE-REPORT",
+  evidenceSource: "lcov-report-adapter"
+};
+var MAX_REPORTS = 50;
+var emptyFile = () => ({ lines: /* @__PURE__ */ new Map(), branches: { found: 0, hit: 0 }, functions: { found: 0, hit: 0 } });
+var whole = (value) => /^\d+$/.test(value) ? Number(value) : void 0;
+var better = (a, b) => b.hit > a.hit || b.hit === a.hit && b.found > a.found ? b : a;
+function parseLcov(text, into = /* @__PURE__ */ new Map()) {
+  let current;
+  let sawRecord = false;
+  const fail = (problem) => ({ files: into, problem });
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const colon = line.indexOf(":");
+    const key = colon < 0 ? line : line.slice(0, colon);
+    const value = colon < 0 ? "" : line.slice(colon + 1);
+    if (key === "SF") {
+      if (current) return fail("a source record started before the previous one ended");
+      if (!value) return fail("a source record has no path");
+      current = { path: value.replaceAll("\\", "/"), lines: /* @__PURE__ */ new Map(), scalar: {}, branches: {}, functions: {} };
+    } else if (key === "end_of_record") {
+      if (!current) return fail("end_of_record without a source record");
+      sawRecord = true;
+      const file = into.get(current.path) ?? emptyFile();
+      for (const [number, count] of current.lines) file.lines.set(number, Math.max(file.lines.get(number) ?? 0, count));
+      if (current.lines.size === 0 && current.scalar.LF !== void 0) {
+        const incoming = { found: current.scalar.LF, hit: current.scalar.LH ?? 0 };
+        if (incoming.hit > incoming.found) return fail(`${current.path} reports more lines hit than found`);
+        file.scalarLines = file.scalarLines ? better(file.scalarLines, incoming) : incoming;
+      }
+      for (const [target, source] of [[file.branches, current.branches], [file.functions, current.functions]]) {
+        const incoming = { found: source.found ?? 0, hit: source.hit ?? 0 };
+        if (incoming.hit > incoming.found) return fail(`${current.path} reports more hits than items found`);
+        Object.assign(target, better(target, incoming));
+      }
+      into.set(current.path, file);
+      current = void 0;
+    } else if (current) {
+      if (key === "DA") {
+        const [lineNumber, count] = value.split(",");
+        const parsedLine = whole(lineNumber ?? "");
+        const parsedCount = whole(count ?? "");
+        if (parsedLine === void 0 || parsedCount === void 0) return fail(`${current.path} has a malformed DA record`);
+        current.lines.set(parsedLine, Math.max(current.lines.get(parsedLine) ?? 0, parsedCount));
+      } else if (key === "LF" || key === "LH" || key === "BRF" || key === "BRH" || key === "FNF" || key === "FNH") {
+        const parsed = whole(value);
+        if (parsed === void 0) return fail(`${current.path} has a malformed ${key} record`);
+        if (key === "LF" || key === "LH") current.scalar[key] = parsed;
+        else if (key === "BRF") current.branches.found = parsed;
+        else if (key === "BRH") current.branches.hit = parsed;
+        else if (key === "FNF") current.functions.found = parsed;
+        else current.functions.hit = parsed;
+      }
+    }
+  }
+  if (current) return fail(`${current.path} is not closed by end_of_record, so the report looks truncated`);
+  if (!sawRecord) return fail("no source records were found");
+  return { files: into };
+}
+var percent = (c) => `${(c.hit / c.found * 100).toFixed(1)}% (${c.hit} of ${c.found})`;
+function runCoverageReportAdapter(snapshot) {
+  const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${COVERAGE_REPORT_DIRECTORY}/`) && /\.(info|lcov)$/i.test(file)).sort();
+  if (reportFiles.length === 0) return void 0;
+  const selected = reportFiles.slice(0, MAX_REPORTS);
+  const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
+  const malformed = [];
+  const merged = /* @__PURE__ */ new Map();
+  for (const file of selected) {
+    const content = snapshot.fileContents?.[file];
+    if (content === void 0) continue;
+    const parsed = parseLcov(content, merged);
+    if (parsed.problem) malformed.push(`${file} (${parsed.problem})`);
+  }
+  let lines = { found: 0, hit: 0 };
+  let branches = { found: 0, hit: 0 };
+  let functions = { found: 0, hit: 0 };
+  for (const file of merged.values()) {
+    const found = file.lines.size > 0 ? file.lines.size : file.scalarLines?.found ?? 0;
+    const hit = file.lines.size > 0 ? [...file.lines.values()].filter((count) => count > 0).length : file.scalarLines?.hit ?? 0;
+    lines = { found: lines.found + found, hit: lines.hit + hit };
+    branches = { found: branches.found + file.branches.found, hit: branches.hit + file.branches.hit };
+    functions = { found: functions.found + file.functions.found, hit: functions.hit + file.functions.hit };
+  }
+  const truncated = reportFiles.length > MAX_REPORTS;
+  const limitations = [
+    "Coverage is a diagnostic signal, not proof of quality (QA-008 section 24). No threshold is applied, so this never passes or fails. Only LCOV is read. The report is taken as supplied and nothing binds it to the commit being assessed.",
+    ...malformed.length ? [`Not a usable LCOV report: ${malformed.slice(0, 5).join("; ")}.`] : [],
+    ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS} were read.`] : []
+  ];
+  const status = malformed.length > 0 ? "ERROR" : lines.found === 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : "WARN";
+  const detail = [
+    `lines ${lines.found ? percent(lines) : "none measured"}`,
+    ...branches.found ? [`branches ${percent(branches)}`] : [],
+    ...functions.found ? [`functions ${percent(functions)}`] : []
+  ].join(", ");
+  const summary = status === "ERROR" ? `Coverage could not be trusted: ${malformed.length} report(s) are not usable LCOV.` : status === "UNVERIFIED" && lines.found === 0 ? "The coverage reports measured no executable lines, so nothing was verified." : `Coverage across ${merged.size} file(s): ${detail}. Diagnostic only.${status === "UNVERIFIED" ? " Some reports were not read, so the figures are incomplete." : ""}`;
+  const evidence = {
+    id: IDENTITY5.evidenceId,
+    type: "E3_AUTOMATED_ANALYSIS",
+    status: evidenceStatusForResult(status),
+    result_status: status,
+    description: summary,
+    source: IDENTITY5.evidenceSource,
+    freshness: "unknown",
+    supports_controls: [],
+    command: [`<read ${COVERAGE_REPORT_DIRECTORY}/*.info>`]
+  };
+  const adapterResult = {
+    adapterId: IDENTITY5.adapterId,
+    version: IDENTITY5.adapterVersion,
+    executionStatus: status === "ERROR" ? "FAILED" : status === "UNVERIFIED" ? "PARTIAL" : "SUCCESS",
+    // Deliberately none: a control cannot be bound to a diagnostic measurement (see the header).
+    supportedCapabilities: [],
+    unsupportedCapabilities: [],
+    evidenceRefs: [IDENTITY5.evidenceId],
+    limitations
+  };
+  return {
+    result: { tool: IDENTITY5.tool, status, command: evidence.command, summary, evidenceId: IDENTITY5.evidenceId, findings: [], limitations },
+    evidence: [evidence],
+    findings: [],
+    adapterResult
+  };
+}
+
+// ../analyzer/src/lint-report.ts
+var LINT_REPORT_DIRECTORY = ".governance/evidence/lint";
+var IDENTITY6 = {
+  tool: "sarif-lint",
+  adapterId: "sarif-lint-results",
+  adapterVersion: "0.1.0",
+  capability: "verification:sarif-lint",
+  evidenceId: "EVD-LINT-RESULTS",
+  evidenceSource: "sarif-lint-adapter"
+};
+var MAX_REPORTS2 = 50;
+var MAX_FINDINGS2 = 50;
+var isRecord3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function levelOf(value) {
+  if (value === "error") return "error";
+  if (value === "note" || value === "none") return "note";
+  return "warning";
+}
+function relativeFile(uri, rootPath) {
+  let file = uri;
+  try {
+    file = decodeURIComponent(uri);
+  } catch {
+  }
+  file = file.replace(/^file:\/\/\/?/i, "").replaceAll("\\", "/");
+  const root = rootPath.replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "");
+  if (root && file.replace(/^\/+/, "").toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
+    return file.replace(/^\/+/, "").slice(root.length + 1);
+  }
+  return file.replace(/^\.\//, "");
+}
+function parseSarif(text, rootPath = "") {
+  let document;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    return void 0;
+  }
+  if (!isRecord3(document) || !Array.isArray(document.runs) || !String(document.version ?? "").startsWith("2.1")) return void 0;
+  const parsed = { results: [], runs: 0, incompleteRuns: 0, suppressed: 0, endTimes: [], runsWithoutEndTime: 0 };
+  for (const run2 of document.runs) {
+    if (!isRecord3(run2)) return void 0;
+    parsed.runs += 1;
+    const driver = isRecord3(run2.tool) && isRecord3(run2.tool.driver) ? run2.tool.driver : void 0;
+    const tool = typeof driver?.name === "string" && driver.name ? driver.name : void 0;
+    const invocations = Array.isArray(run2.invocations) ? run2.invocations.filter(isRecord3) : [];
+    if (!tool || invocations.some((invocation) => invocation.executionSuccessful === false)) parsed.incompleteRuns += 1;
+    const endTimes = invocations.map((invocation) => Date.parse(String(invocation.endTimeUtc ?? ""))).filter(Number.isFinite);
+    if (endTimes.length > 0 && endTimes.length === invocations.length) parsed.endTimes.push(...endTimes);
+    else parsed.runsWithoutEndTime += 1;
+    for (const result of Array.isArray(run2.results) ? run2.results : []) {
+      if (!isRecord3(result)) return void 0;
+      if (Array.isArray(result.suppressions) && result.suppressions.length > 0) parsed.suppressed += 1;
+      const physical = Array.isArray(result.locations) && isRecord3(result.locations[0]) && isRecord3(result.locations[0].physicalLocation) ? result.locations[0].physicalLocation : void 0;
+      const uri = isRecord3(physical?.artifactLocation) && typeof physical.artifactLocation.uri === "string" ? physical.artifactLocation.uri : "";
+      const line = isRecord3(physical?.region) && typeof physical.region.startLine === "number" ? physical.region.startLine : void 0;
+      parsed.results.push({
+        tool: tool ?? "unnamed tool",
+        rule: typeof result.ruleId === "string" && result.ruleId ? result.ruleId : "(no rule id)",
+        level: levelOf(result.level),
+        message: isRecord3(result.message) && typeof result.message.text === "string" ? result.message.text : "",
+        file: uri ? relativeFile(uri, rootPath) : "(unknown file)",
+        line
+      });
+    }
+  }
+  return parsed;
+}
+var severityFor2 = (level) => level === "error" ? "P2" : "P3";
+function runLintReportAdapter(snapshot) {
+  const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${LINT_REPORT_DIRECTORY}/`) && /\.sarif(\.json)?$/i.test(file)).sort();
+  if (reportFiles.length === 0) return void 0;
+  const selected = reportFiles.slice(0, MAX_REPORTS2);
+  const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
+  const malformed = [];
+  const results = [];
+  const endTimes = [];
+  let runs = 0;
+  let incompleteRuns = 0;
+  let suppressed = 0;
+  let missingEndTime = false;
+  for (const file of selected) {
+    const content = snapshot.fileContents?.[file];
+    if (content === void 0) continue;
+    const report = parseSarif(content, snapshot.rootPath);
+    if (!report) {
+      malformed.push(file);
+      continue;
+    }
+    runs += report.runs;
+    incompleteRuns += report.incompleteRuns;
+    suppressed += report.suppressed;
+    results.push(...report.results.map((item) => ({ ...item, report: file })));
+    endTimes.push(...report.endTimes);
+    if (report.runsWithoutEndTime > 0 || report.runs === 0) missingEndTime = true;
+  }
+  const errors = results.filter((item) => item.level === "error");
+  const warnings = results.filter((item) => item.level === "warning");
+  const notes = results.length - errors.length - warnings.length;
+  const truncated = reportFiles.length > MAX_REPORTS2;
+  const limitations = [
+    "Only SARIF 2.1 is read. The report is taken as supplied: nothing binds it to the commit being assessed, and it does not say which files the linter checked, so a clean report from an empty file set looks the same as a clean report from a whole repository.",
+    ...malformed.length ? [`Not a SARIF 2.1 report: ${malformed.slice(0, 10).join(", ")}.`] : [],
+    ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS2} were read.`] : [],
+    ...incompleteRuns ? [`${incompleteRuns} run(s) named no tool or declared they did not finish, so their results may be incomplete.`] : [],
+    ...suppressed ? [`${suppressed} result(s) are marked suppressed in the report and are still counted: a suppression is not a waiver (ADR-0001).`] : [],
+    ...missingEndTime ? ["A run declared no end time, so the evidence has no generation time and fails any maximum-age limit."] : []
+  ];
+  const status = errors.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : runs === 0 || incompleteRuns > 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : warnings.length > 0 ? "WARN" : "PASS";
+  const tool = [...new Set(results.map((item) => item.tool))];
+  const tally = `${results.length} lint result(s) in ${selected.length - malformed.length - notIngested.length} report(s): ${errors.length} error, ${warnings.length} warning, ${notes} note not reported`;
+  const summary = status === "ERROR" ? `Lint results could not be trusted: ${malformed.length} report(s) are not SARIF 2.1.` : status === "UNVERIFIED" && runs === 0 ? "The lint reports contain no runs, so nothing was verified." : `Lint results${tool.length ? ` (${tool.join(", ")})` : ""}: ${tally}.${status === "UNVERIFIED" ? " The result is incomplete." : ""}`;
+  const findings = [...errors, ...warnings].slice(0, MAX_FINDINGS2).map((item) => ({
+    id: `FND-LINT-${stableId3(`${item.file}:${item.line ?? 0}:${item.rule}:${item.message}`)}`,
+    rule_id: `LINT-${item.rule}`,
+    severity: severityFor2(item.level),
+    category: "code-quality",
+    message: `${item.tool} ${item.rule}: ${item.message}`.replace(/\s+/g, " ").trim().slice(0, 300),
+    status: "OPEN",
+    evidence_refs: [IDENTITY6.evidenceId],
+    source_location: { file: item.file, ...item.line !== void 0 ? { start_line: item.line } : {} },
+    confidence: 0.9,
+    remediation: "Fix the reported code and regenerate the lint report. Disabling the rule or suppressing the result is not accepted as a fix; record a waiver as an exception."
+  }));
+  if (errors.length + warnings.length > MAX_FINDINGS2) {
+    limitations.push(`${errors.length + warnings.length} results were reportable; findings were raised for the first ${MAX_FINDINGS2}.`);
+  }
+  const oldest = !missingEndTime && endTimes.length > 0 ? new Date(Math.min(...endTimes)).toISOString() : void 0;
+  const evidence = {
+    id: IDENTITY6.evidenceId,
+    type: "E3_AUTOMATED_ANALYSIS",
+    status: evidenceStatusForResult(status),
+    result_status: status,
+    description: summary,
+    source: IDENTITY6.evidenceSource,
+    freshness: oldest ? "current" : "unknown",
+    supports_controls: [],
+    ...oldest ? { generated_at: oldest } : {},
+    command: [`<read ${LINT_REPORT_DIRECTORY}/*.sarif>`]
+  };
+  const completed = status === "PASS" || status === "WARN" || status === "FAIL";
+  const adapterResult = {
+    adapterId: IDENTITY6.adapterId,
+    version: IDENTITY6.adapterVersion,
+    executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
+    supportedCapabilities: completed ? [IDENTITY6.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY6.capability],
+    evidenceRefs: [IDENTITY6.evidenceId],
+    limitations
+  };
+  return {
+    result: {
+      tool: IDENTITY6.tool,
+      status,
+      command: evidence.command,
+      summary,
+      evidenceId: IDENTITY6.evidenceId,
+      findings,
+      limitations
+    },
+    evidence: [evidence],
+    findings,
+    adapterResult
+  };
+}
+
 // ../analyzer/src/test-report.ts
 var TEST_REPORT_DIRECTORY = ".governance/evidence/tests";
-var IDENTITY5 = {
+var IDENTITY7 = {
   tool: "junit-test-results",
   adapterId: "junit-test-results",
   adapterVersion: "0.1.0",
@@ -12718,8 +13018,8 @@ var IDENTITY5 = {
   evidenceId: "EVD-TEST-RESULTS",
   evidenceSource: "junit-report-adapter"
 };
-var MAX_REPORTS = 50;
-var MAX_FINDINGS2 = 50;
+var MAX_REPORTS3 = 50;
+var MAX_FINDINGS3 = 50;
 var decode = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
 function attributes(raw) {
   const result = {};
@@ -12768,7 +13068,7 @@ function parseJunit(xml) {
 function runTestReportAdapter(snapshot) {
   const reportFiles = snapshot.files.map((file) => file.replaceAll("\\", "/")).filter((file) => file.startsWith(`${TEST_REPORT_DIRECTORY}/`) && file.toLowerCase().endsWith(".xml")).sort();
   if (reportFiles.length === 0) return void 0;
-  const selected = reportFiles.slice(0, MAX_REPORTS);
+  const selected = reportFiles.slice(0, MAX_REPORTS3);
   const notIngested = selected.filter((file) => snapshot.fileContents?.[file] === void 0);
   const malformed = [];
   const failed = [];
@@ -12790,38 +13090,38 @@ function runTestReportAdapter(snapshot) {
     timestamps.push(...report.timestamps);
     if (report.hasSuiteTimestampGap || report.timestamps.length === 0) missingTimestamp = true;
   }
-  const truncated = reportFiles.length > MAX_REPORTS;
+  const truncated = reportFiles.length > MAX_REPORTS3;
   const limitations = [
     "Only JUnit XML is read. The report is taken as supplied: nothing binds it to the commit being assessed, so it shows that a test run happened, not that it ran against this code.",
     ...malformed.length ? [`Not a JUnit report: ${malformed.slice(0, 10).join(", ")}.`] : [],
     ...notIngested.length ? [`Content was not ingested for: ${notIngested.slice(0, 10).join(", ")}.`] : [],
-    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS} were read.`] : [],
+    ...truncated ? [`Found ${reportFiles.length} reports; only the first ${MAX_REPORTS3} were read.`] : [],
     ...missingTimestamp ? ["A suite declared no valid timestamp, so the evidence has no generation time and fails any maximum-age limit."] : []
   ];
   const status = failed.length > 0 ? "FAIL" : malformed.length > 0 ? "ERROR" : tests === 0 || notIngested.length > 0 || truncated ? "UNVERIFIED" : skipped > 0 ? "WARN" : "PASS";
   const tally = `${tests} test(s) in ${selected.length - malformed.length - notIngested.length} report(s): ${failed.length} failed, ${skipped} skipped`;
   const summary = status === "ERROR" ? `Test results could not be trusted: ${malformed.length} report(s) are not JUnit XML.` : status === "UNVERIFIED" && tests === 0 ? "The test reports contain no test cases, so nothing was verified." : `JUnit test results: ${tally}.${status === "UNVERIFIED" ? " Some reports were not read, so the result is incomplete." : ""}`;
-  const findings = failed.slice(0, MAX_FINDINGS2).map((item) => ({
+  const findings = failed.slice(0, MAX_FINDINGS3).map((item) => ({
     id: `FND-TEST-${stableId3(`${item.file}:${item.name}`)}`,
     rule_id: "TEST-FAILURE",
     severity: "P1",
     category: "testing",
     message: `Test failed: ${item.name}${item.message ? ` - ${item.message}` : ""}`.replace(/\s+/g, " ").trim().slice(0, 300),
     status: "OPEN",
-    evidence_refs: [IDENTITY5.evidenceId],
+    evidence_refs: [IDENTITY7.evidenceId],
     source_location: { file: item.file },
     confidence: 0.95,
     remediation: "Fix the failing test or the code it covers and regenerate the test report. A skipped or deleted test is not accepted as a fix."
   }));
-  if (failed.length > MAX_FINDINGS2) limitations.push(`${failed.length} tests failed; findings were raised for the first ${MAX_FINDINGS2}.`);
+  if (failed.length > MAX_FINDINGS3) limitations.push(`${failed.length} tests failed; findings were raised for the first ${MAX_FINDINGS3}.`);
   const oldest = !missingTimestamp && timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : void 0;
   const evidence = {
-    id: IDENTITY5.evidenceId,
+    id: IDENTITY7.evidenceId,
     type: "E1_DIRECT_VERIFICATION",
     status: evidenceStatusForResult(status),
     result_status: status,
     description: summary,
-    source: IDENTITY5.evidenceSource,
+    source: IDENTITY7.evidenceSource,
     freshness: oldest ? "current" : "unknown",
     supports_controls: [],
     ...oldest ? { generated_at: oldest } : {},
@@ -12829,21 +13129,21 @@ function runTestReportAdapter(snapshot) {
   };
   const completed = status === "PASS" || status === "WARN" || status === "FAIL";
   const adapterResult = {
-    adapterId: IDENTITY5.adapterId,
-    version: IDENTITY5.adapterVersion,
+    adapterId: IDENTITY7.adapterId,
+    version: IDENTITY7.adapterVersion,
     executionStatus: completed ? "SUCCESS" : status === "ERROR" ? "FAILED" : "PARTIAL",
-    supportedCapabilities: completed ? [IDENTITY5.capability] : [],
-    unsupportedCapabilities: completed ? [] : [IDENTITY5.capability],
-    evidenceRefs: [IDENTITY5.evidenceId],
+    supportedCapabilities: completed ? [IDENTITY7.capability] : [],
+    unsupportedCapabilities: completed ? [] : [IDENTITY7.capability],
+    evidenceRefs: [IDENTITY7.evidenceId],
     limitations
   };
   return {
     result: {
-      tool: IDENTITY5.tool,
+      tool: IDENTITY7.tool,
       status,
       command: evidence.command,
       summary,
-      evidenceId: IDENTITY5.evidenceId,
+      evidenceId: IDENTITY7.evidenceId,
       findings,
       limitations
     },
@@ -13233,7 +13533,7 @@ async function runVerificationAdapters(snapshot, runner) {
       }
     }
   }
-  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter]) {
+  for (const runScanner of [runGoSyntaxAdapter, runOsvAdapter, runGitleaksAdapter, runSemgrepAdapter, runTestReportAdapter, runCoverageReportAdapter, runLintReportAdapter]) {
     const scan = await runScanner(snapshot, runner, snapshotFingerprint);
     if (!scan) continue;
     results.push(scan.result);
@@ -14717,7 +15017,7 @@ async function loadRepositorySnapshot(rootPath, fs, changedFiles = [], changeSco
   const sourcePaths = files.filter((file) => sourceExtensions4.has(path4.posix.extname(file).toLowerCase()));
   const sourcePathSet = new Set(sourcePaths);
   const manifestPathSet = new Set(manifestPaths);
-  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
+  const reportPaths = files.filter((file) => file.startsWith(".governance/evidence/tests/") && file.toLowerCase().endsWith(".xml") || file.startsWith(".governance/evidence/lcov/") && /\.(info|lcov)$/i.test(file) || file.startsWith(".governance/evidence/lint/") && /\.sarif(\.json)?$/i.test(file) || file.startsWith(".governance/semgrep/") && /\.ya?ml$/.test(file));
   const contentPaths = [.../* @__PURE__ */ new Set([...manifestPaths, ...sourcePaths, ...reportPaths])];
   const fileContents = {};
   const contentLimitations = [];
