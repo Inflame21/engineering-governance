@@ -381,7 +381,7 @@ describe("built governance CLI", () => {
     await writeCatalog(root);
     const ok = await runCli(["validate", root, ...CATALOG]);
     expect(ok.exitCode).toBe(0);
-    expect(ok.stdout).toContain("Valid: catalog organization-controls 0.1.0 (39 controls)");
+    expect(ok.stdout).toContain("Valid: catalog organization-controls 0.1.0 (88 controls)");
 
     await writeCatalog(root, (c) => { delete c.controls[0].source_text; });
     const bad = await runCli(["validate", root, ...CATALOG]);
@@ -404,9 +404,9 @@ describe("built governance CLI", () => {
     const result = await runCli(["check", root, ...CATALOG, "--base", "HEAD"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain("Decision: GO_WITH_CONDITIONS");
-    expect(result.stdout).toContain("Catalog: organization-controls 0.1.0 (39 controls)");
+    expect(result.stdout).toContain("Catalog: organization-controls 0.1.0 (88 controls)");
     expect(result.stdout).toContain("CATALOG:organization-controls:DRAFT-CONTROLS-NOT-DEFINED");
-    expect(result.stdout).toContain("39 mandatory DRAFT control(s)");
+    expect(result.stdout).toContain("88 mandatory DRAFT control(s)");
   });
 
   it("check --catalog blocks when a catalog control is APPROVED and the pack does not define it", async () => {
@@ -425,7 +425,7 @@ describe("built governance CLI", () => {
     await writeCatalog(root);
     const report = await runCli(["report", root, ...CATALOG, "--base", "HEAD"]);
     expect(report.exitCode).toBe(1);
-    expect(report.stdout).toContain("**Catalog:** organization-controls 0.1.0 (39 controls)");
+    expect(report.stdout).toContain("**Catalog:** organization-controls 0.1.0 (88 controls)");
 
     const analyze = await runCli(["analyze", root, ...CATALOG]);
     expect(analyze.exitCode).toBe(3);

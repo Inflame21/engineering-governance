@@ -46,11 +46,11 @@ const packWith = (...controls: Array<{ id: string } & Record<string, unknown>>):
 });
 
 describe("control catalog schema and loader", () => {
-  it("loads the committed catalog: 39 DRAFT controls with unique ids and unassigned owners", async () => {
+  it("loads the committed catalog: 88 DRAFT controls with unique ids and unassigned owners", async () => {
     const catalog = await load(committedText);
     expect(catalog.catalog_id).toBe("organization-controls");
-    expect(catalog.controls).toHaveLength(39);
-    expect(new Set(catalog.controls.map((c) => c.id)).size).toBe(39);
+    expect(catalog.controls).toHaveLength(88);
+    expect(new Set(catalog.controls.map((c) => c.id)).size).toBe(88);
     expect(catalog.controls.every((c) => c.status === "DRAFT" && c.mandatory && c.owner.name === "UNASSIGNED")).toBe(true);
     expect(catalog.controls.every((c) => c.failure_decision === "NO-GO")).toBe(true);
   });
@@ -127,9 +127,9 @@ describe("committed catalog is faithful to the standards", () => {
     expect(fromCatalog).toEqual(sectionBullets(file, section));
   });
 
-  it("covers every blocker the three standards list (19 + 11 + 9)", () => {
+  it("covers every blocker the seven standards list (19 + 11 + 9 + 13 + 10 + 15 + 11)", () => {
     const per = (id: string) => committed.controls.filter((c) => c.standard_id === id).length;
-    expect([per("GOV-000"), per("GOV-022"), per("GOV-023")]).toEqual([19, 11, 9]);
+    expect(["GOV-000", "GOV-022", "GOV-023", "SEC-007", "QA-008", "CICD-012", "DB-005"].map(per)).toEqual([19, 11, 9, 13, 10, 15, 11]);
   });
 
   it("states a standard version only where the standard has one", () => {
@@ -139,9 +139,9 @@ describe("committed catalog is faithful to the standards", () => {
 
   it("marks only requirements that EXC-021 section 7 names as non-exceptionable, and keeps P0 to the few the standards call P0", () => {
     const nonExceptionable = committed.controls.filter((c) => c.exception_policy === "NON_EXCEPTIONABLE").map((c) => c.source_text).sort();
-    expect(nonExceptionable).toEqual(["authorization bypass", "broken tenant/data isolation", "evidence was fabricated", "irreversible data-loss risk"]);
+    expect(nonExceptionable).toEqual(["Authorization bypass", "authorization bypass", "broken tenant/data isolation", "evidence was fabricated", "irreversible data-loss risk"]);
     const p0 = committed.controls.filter((c) => c.severity === "P0").map((c) => c.source_text).sort();
-    expect(p0).toEqual(["a P0 issue remains unresolved", "authentication bypass", "exposed secrets"]);
+    expect(p0).toEqual(["Authentication bypass", "a P0 issue remains unresolved", "authentication bypass", "exposed secrets"]);
   });
 });
 
