@@ -14008,6 +14008,30 @@ var decisionStrength = { "NO-GO": 0, GO_WITH_CONDITIONS: 1, REVIEW_REQUIRED: 2, 
 function nonExceptionableCatalogControls(catalog) {
   return catalog.controls.filter((control) => control.exception_policy === "NON_EXCEPTIONABLE" && (control.status === "DRAFT" || control.status === "APPROVED")).map((control) => control.id).sort();
 }
+function bindEvidenceToCatalog(evidence, adapterResults, catalog) {
+  const controlsByCapability = /* @__PURE__ */ new Map();
+  for (const control of catalog.controls) {
+    if (control.status !== "DRAFT" && control.status !== "APPROVED") continue;
+    for (const capability of control.verification_capabilities) {
+      controlsByCapability.set(capability, [...controlsByCapability.get(capability) ?? [], control.id]);
+    }
+  }
+  if (controlsByCapability.size === 0) return [...evidence];
+  const linked = /* @__PURE__ */ new Map();
+  for (const adapter of adapterResults) {
+    const controlIds = adapter.supportedCapabilities.flatMap((capability) => controlsByCapability.get(capability) ?? []);
+    for (const evidenceId of adapter.evidenceRefs) {
+      const set = linked.get(evidenceId) ?? /* @__PURE__ */ new Set();
+      for (const controlId of controlIds) set.add(controlId);
+      linked.set(evidenceId, set);
+    }
+  }
+  return evidence.map((item) => {
+    const extra = linked.get(item.id);
+    if (!extra || extra.size === 0) return item;
+    return { ...item, supports_controls: [.../* @__PURE__ */ new Set([...item.supports_controls, ...extra])].sort() };
+  });
+}
 var preview = (ids) => ids.length <= 6 ? ids.join(", ") : `${ids.slice(0, 6).join(", ")} and ${ids.length - 6} more`;
 function assessPackAgainstCatalog(pack, catalog) {
   const blocking = [];
@@ -14369,6 +14393,9 @@ async function runGovernanceCommand(input) {
     analysis.evidence.push(...verification.evidence);
     analysis.findings.push(...verification.findings);
     analysis.adapterResults.push(...verification.adapterResults);
+  }
+  if (input.controlCatalog) {
+    analysis.evidence = bindEvidenceToCatalog(analysis.evidence, analysis.adapterResults, input.controlCatalog);
   }
   const packEvidenceIds = new Set(input.governancePack.evidence.map((item) => item.id));
   const collidingEvidence = analysis.evidence.filter((item) => packEvidenceIds.has(item.id));

@@ -26,7 +26,7 @@ The standards state that these conditions block. They do not state a severity, a
 - **`exception_policy`:** `NON_EXCEPTIONABLE` only for literal matches to EXC-021 section 7 (authorization bypass, tenant isolation, irreversible data loss, falsified evidence). SEC-007's "Authorization bypass" is the only new one. SEC-007's "Cross-tenant data access", DB-005's destructive-operation blockers and the credential-exposure blockers are close to EXC-021 examples but not literal, so they stay `ALLOWED` until the governance owner decides otherwise. Everything else is `ALLOWED`. `check --catalog` enforces it (see below).
 - **`standard_version`:** `1.0.0` for GOV-000, which states a version, and `unversioned` for GOV-022 and GOV-023, which do not.
 - **`owner`:** `UNASSIGNED` everywhere. Real owners need leadership.
-- **`verification_capabilities` and `required_evidence_classes`:** empty. No control has an automated verifier yet, and the evidence classes have not been chosen.
+- **`verification_capabilities` and `required_evidence_classes`:** empty. No control has a declared verifier yet, so no generated evidence supports any control (see [Linking generated evidence to controls](#linking-generated-evidence-to-controls)), and the evidence classes have not been chosen.
 
 ## Lifecycle
 
@@ -55,6 +55,18 @@ A governance pack must define every mandatory catalog control under the catalog'
 Because every control in v0.1 is `DRAFT`, passing `--catalog` today adds a single condition and blocks nothing.
 
 `governance validate <repo> --catalog <path>` checks the catalog against the schema (ids must be unique). Used alone it skips the pack check.
+
+## Linking generated evidence to controls
+
+Evidence the analyzer generates (a type check, a scan) declares that it supports no control, so on its own a passing scan could never pass one. A control's `verification_capabilities` is the link: `check --catalog` adds the control's id to the evidence of any adapter that completed with a listed capability.
+
+The capabilities that exist today are `verification:typescript-typecheck`, `verification:python-syntax`, `verification:go-syntax`, `verification:osv-dependency-scan`, `verification:gitleaks-secret-scan` and `verification:semgrep-static-analysis`.
+
+- This is a support link, not a verdict. The engine still needs the evidence to be `VERIFIED`, current and bound to this repository state. A failed, partial, stale or errored result is linked too and then blocks the control: every linked record must be usable.
+- Any one listed capability may verify a control. List several only when each alone is enough.
+- Only `DRAFT` and `APPROVED` controls are linked. Evidence declared in a pack is never changed, and an adapter that did not complete (tool missing, skipped, error) links nothing, so the control reports missing evidence.
+- A capability that no adapter produces (a typo, or an adapter that does not exist) links nothing, silently, and the control stays unverified. It fails closed but gives no message.
+- **Choosing a capability is a policy decision.** A clean `semgrep` run says nothing about authentication bypass unless its rule set looks for it; a clean `tsc` run does not verify any security blocker. Add a capability to a control only in a reviewed pull request, where the reviewer can say what the check does and does not prove. The committed catalog declares none.
 
 ## Adding or changing a control
 

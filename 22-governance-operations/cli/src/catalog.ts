@@ -1,4 +1,5 @@
-import type { GovernancePack, GovernanceViolation, Severity } from "../../engine/src/types.js";
+import type { GovernanceEvidence, GovernancePack, GovernanceViolation, Severity } from "../../engine/src/types.js";
+import type { RepositoryAdapterResult } from "../../analyzer/src/types.js";
 import type { ControlCatalog } from "./config.js";
 
 const severityStrength: Record<Severity, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
@@ -21,6 +22,49 @@ export function nonExceptionableCatalogControls(catalog: ControlCatalog): string
     .filter((control) => control.exception_policy === "NON_EXCEPTIONABLE" && (control.status === "DRAFT" || control.status === "APPROVED"))
     .map((control) => control.id)
     .sort();
+}
+
+/**
+ * Link generated evidence to the catalog controls it is declared able to verify. A control names the
+ * capabilities that can verify it (`verification_capabilities`); evidence produced by an adapter that
+ * completed with one of those capabilities then supports that control. Without this link generated
+ * evidence supports no control, so a passing scan could never pass one.
+ *
+ * Only support is granted, never a pass: the engine still requires the evidence to be VERIFIED, current
+ * and bound to this repository state, and any linked record that is not usable blocks the control (a
+ * failed scan stays a failure). Any one listed capability may verify a control; a control that lists
+ * none is not linked. Only DRAFT and APPROVED controls are linked. Evidence a pack declares itself is
+ * never touched, and neither is evidence from an adapter that did not complete, because such an adapter
+ * does not list the capability as supported.
+ */
+export function bindEvidenceToCatalog(
+  evidence: readonly GovernanceEvidence[],
+  adapterResults: readonly RepositoryAdapterResult[],
+  catalog: ControlCatalog,
+): GovernanceEvidence[] {
+  const controlsByCapability = new Map<string, string[]>();
+  for (const control of catalog.controls) {
+    if (control.status !== "DRAFT" && control.status !== "APPROVED") continue;
+    for (const capability of control.verification_capabilities) {
+      controlsByCapability.set(capability, [...(controlsByCapability.get(capability) ?? []), control.id]);
+    }
+  }
+  if (controlsByCapability.size === 0) return [...evidence];
+
+  const linked = new Map<string, Set<string>>();
+  for (const adapter of adapterResults) {
+    const controlIds = adapter.supportedCapabilities.flatMap((capability) => controlsByCapability.get(capability) ?? []);
+    for (const evidenceId of adapter.evidenceRefs) {
+      const set = linked.get(evidenceId) ?? new Set<string>();
+      for (const controlId of controlIds) set.add(controlId);
+      linked.set(evidenceId, set);
+    }
+  }
+  return evidence.map((item) => {
+    const extra = linked.get(item.id);
+    if (!extra || extra.size === 0) return item;
+    return { ...item, supports_controls: [...new Set([...item.supports_controls, ...extra])].sort() };
+  });
 }
 
 const preview = (ids: string[]): string =>
